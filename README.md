@@ -1,0 +1,131 @@
+# Sistema de Gestão para Pizzaria
+
+Sistema web operacional (não é protótipo) para pizzaria com **salão, mesas, pedidos, delivery,
+pagamentos, caixa, cardápio, funcionários, relatórios e auditoria**.
+Front-end em React + TypeScript hospedável na **Vercel**; banco, autenticação, tempo real e
+funções server-side no **Supabase** (PostgreSQL).
+
+Idioma da interface: **português do Brasil**. Moeda: **BRL**. Fuso: **America/Fortaleza**
+(configurável no banco, guardado em UTC).
+
+---
+
+## 1. Perfis de acesso
+
+| Perfil | Código | O que faz |
+|---|---|---|
+| Administrador | `admin` | Tudo: cardápio, funcionários, configurações, relatórios, auditoria, fechamento forçado, descontos sem limite. |
+| Caixa (gerente) | `manager` | Operação do dia: mesas, pedidos, delivery, recebimentos, fechamento de contas, turno de caixa, histórico, painel operacional. |
+| Garçom | `waiter` | Abre mesa, lança pedido, acompanha status, marca pedido pronto como **entregue na mesa**. Não recebe, não desconta, não cancela. |
+
+O perfil é validado **no banco** a cada chamada (`app_private.require_role`), não no navegador.
+Esconder botão não é controle de acesso.
+
+## 2. O que o sistema faz
+
+- **Salão/mesas** — mapa de mesas com situação ao vivo; abertura de atendimento com idempotência
+  (clique duplo não abre duas sessões); vários pedidos por mesa; conta separada por sessão.
+- **Pedidos** — montagem com meio a meio, bordas/adicionais obrigatórios, preços calculados no
+  servidor e gravados como **snapshot histórico** (reajuste de cardápio não altera pedido antigo).
+- **Cozinha/produção** — estados `recebido → confirmado → em preparo → pronto → entregue`
+  (ou `saiu para entrega → entregue`), com histórico de cada mudança e motivo obrigatório em cancelamentos.
+- **Caixa** — turno com fundo de troco, sangria/suprimento, recebimento total/parcial, Pix e cartão
+  registrados manualmente com confirmação consciente, troco calculado, estorno com motivo,
+  fechamento com conferência de gaveta e justificativa de divergência.
+- **Delivery** — cliente recorrente por telefone (deduplicado), endereço com snapshot no pedido,
+  taxa por zona de bairro (ou padrão), acompanhamento até a entrega.
+- **Cardápio** — categorias, tamanhos, produtos, variações de preço, grupos de adicionais com
+  mínimo/máximo, disponibilidade; nada é excluído, tudo é desativado.
+- **Administração** — funcionários (via Edge Function com `service_role`), configurações do
+  negócio, horários, formas de pagamento, dashboard com dados reais e auditoria append-only.
+
+## 3. Stack
+
+| Camada | Tecnologia |
+|---|---|
+| Front-end | React 18, TypeScript 5.6, Vite 5, TailwindCSS 3, React Router 6, TanStack Query 5, `@supabase/supabase-js` 2 |
+| Testes de UI/lógica | Vitest (25 testes) |
+| Banco | PostgreSQL (Supabase) com RLS, triggers, views e 22 funções RPC (14 operacionais + 8 de relatório) |
+| Autenticação | Supabase Auth — e-mail interno `login@pizzaria.local` gerado a partir do login digitado |
+| Tempo real | Supabase Realtime (canal `painel-sync`, debounce de 350 ms) |
+| Server-side privilegiado | Edge Function `admin-create-employee` (criar funcionário/redefinir senha) |
+| Hospedagem | Vercel (build estático em `dist/`) + Supabase |
+
+## 4. Como rodar localmente
+
+```bash
+npm install
+cp .env.example .env.local     # preencha URL e anon key do SEU projeto Supabase
+npm run dev                    # http://localhost:5173
+```
+
+Sem as variáveis preenchidas, o app abre a tela **Configuração pendente** explicando o que falta
+(comportamento intencional — nada de tela quebrada).
+
+Comandos:
+
+```bash
+npm run dev        # servidor de desenvolvimento
+npm run build      # tsc -b && vite build  → dist/
+npm run preview    # serve o build de produção
+npm test           # Vitest (25 testes)
+npm run typecheck  # tsc -b
+```
+
+## 5. Banco de dados
+
+As migrações ficam em `supabase/migrations/` e são aplicadas **em ordem**:
+
+| Arquivo | Conteúdo |
+|---|---|
+| `20260101000001_foundation.sql` | `profiles`, `business_settings`, `business_hours`, `payment_methods`, auditoria, helpers (`app_private`), triggers de usuário novo. |
+| `20260101000002_menu.sql` | `categories`, `product_sizes`, `products`, `product_variants`, `modifier_groups`, `modifier_options`, `product_modifier_groups`. |
+| `20260101000003_cash.sql` | `cash_sessions` (1 turno aberto por vez), `cash_movements`. |
+| `20260101000004_customers.sql` | `customers` (dedupe por telefone), `customer_addresses`, `delivery_fee_zones`. |
+| `20260101000005_operations.sql` | `restaurant_tables`, `table_sessions`, `orders`, `order_items`, `order_item_flavors`, `order_item_modifiers`, `order_status_history`, `payments` + recálculo de totais. |
+| `20260101000006_rls.sql` | RLS em todas as tabelas, privilégios (com revogação de escrita nas tabelas que só aceitam RPC), `guard_profiles`, views de leitura (`table_overview`, `order_overview`, `cash_session_overview`, `order_item_overview`) e publicação de Realtime. |
+| `20260101000007_rpc.sql` | Regras de negócio: 14 RPCs (pedidos, contas, pagamentos, caixa, delivery, clientes). |
+| `20260101000008_reports.sql` | 8 funções de relatório/indicadores agregando no banco (22 funções no total). |
+
+Seeds: `supabase/seed/seed_structure.sql` (estrutura mínima de produção: mesas, formas de pagamento,
+horários) e `supabase/seed/seed_demo_DESENVOLVIMENTO.sql` (**só para desenvolvimento**, tudo prefixado
+com `[DEMO]` — nunca misturar com dados reais).
+
+> Como as migrações se aplicam: **SQL Editor do Supabase, uma a uma, na ordem dos nomes** (ou
+> `supabase db push` se você usar a CLI). Detalhes em [`docs/SETUP.md`](docs/SETUP.md).
+
+## 6. Testes — o que foi realmente executado
+
+| Suíte | O que cobre | Resultado |
+|---|---|---|
+| `supabase/tests/00_setup.sql` … `06_reports.sql` | 280 asserções no PostgreSQL: RLS, privilégios, permissões por perfil, cardápio, mesas/pedidos, caixa/pagamentos, delivery, relatórios e auditoria | **verde** |
+| `supabase/tests/07_concurrency.sh` | Concorrência real com duas conexões simultâneas (abertura de mesa, clique duplo de pagamento, fechamento duplo) | **verde** |
+| Vitest (`npm test`) | Regras de preço espelhadas do banco, formatação BRL/datas, tradução de erros | **25/25** |
+| `npm run build` | Build de produção | **exit 0** (~587 kB) |
+
+Reproduza tudo com:
+
+```bash
+bash tools/run-sql-tests.sh   # recria o banco, aplica migrações + seeds e roda 00–07
+npm test && npm run build
+```
+
+Detalhes e limitações em [`docs/TESTES.md`](docs/TESTES.md).
+
+## 7. Documentação
+
+- [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) — modelo de dados, regras, fluxos financeiros, segurança.
+- [`docs/SETUP.md`](docs/SETUP.md) — Supabase, Vercel, GitHub, Edge Function, variáveis de ambiente, Realtime.
+- [`docs/TESTES.md`](docs/TESTES.md) — como os testes rodam e o que eles provam.
+- [`docs/ENTREGA.md`](docs/ENTREGA.md) — resumo da entrega: funcionalidades, pendências manuais, limitações e próximos passos.
+- [`PLANO.md`](PLANO.md) — plano de execução por etapas (com estado atual).
+
+## 8. Estado atual
+
+Código, migrações, RLS, RPCs, Edge Function, testes e documentação estão **prontos e verificados
+localmente**. O que ainda depende de ação manual (criar projeto Supabase, rodar migrações, cadastrar
+o primeiro administrador, configurar env vars na Vercel e ligar o Realtime) está listado passo a passo
+em [`docs/SETUP.md`](docs/SETUP.md) e resumido em [`docs/ENTREGA.md`](docs/ENTREGA.md).
+
+**Não coloque em produção com vendas reais antes de:** aplicar as migrações, criar o administrador,
+configurar as env vars, ativar o Realtime e executar a suíte de testes contra o banco real.

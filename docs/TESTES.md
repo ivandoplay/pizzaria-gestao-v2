@@ -91,12 +91,39 @@ administrativas — não é correção de bug.
 
 ---
 
-## 5. O que **não** foi testado (limitações honestas)
+## 5. Execução contra o Supabase real (14/10/2026)
 
-1. **Nada contra o Supabase real.** Os testes rodam em PostgreSQL 17 local com shim. Diferenças possíveis
-   ao aplicar em nuvem: políticas de RLS de `storage`, comportamento do PostgREST e do GoTrue.
-   O código do shim copia os contratos usados (`auth.uid()`, `auth.role()`), mas **não substitui** um
-   teste de fumaça no projeto real (checklist em `docs/SETUP.md`, seção 9).
+Além da execução local, a suíte foi rodada **no projeto Supabase de produção** (`sa-east-1`,
+PostgreSQL 17.11) usando `tools/supabase-cloud-sql.sh`:
+
+| Etapa | Resultado |
+|---|---|
+| 8 migrações aplicadas em ordem | sem erro |
+| `tests/00_setup.sql` (infra + fixtures no `auth.users` real) | OK |
+| `tests/01…06` | **nenhuma falha** — cada arquivo aborta na primeira asserção falha, então "sem erro" = todas passaram |
+| Efeitos conferidos no banco depois da suíte | 12 pedidos, 13 itens, 23 linhas de histórico, 5 recebimentos, 3 movimentos de caixa, 3 clientes, 215 eventos de auditoria |
+| Limpeza após os testes | schema recriado pelas migrações + seed; usuários de teste removidos do Auth; banco final com 0 pedidos e apenas o admin |
+
+O que **não** roda na nuvem por limitação da API de consulta: o teste de concorrência
+(`07_concurrency.sh`), que precisa de duas conexões simultâneas — esse roda localmente (`tools/run-sql-tests.sh`).
+
+Teste de fumaça após a configuração, direto contra a API do Supabase:
+
+| Verificação | Resultado |
+|---|---|
+| Login `admin` via `/auth/v1/token` | token emitido |
+| Leitura de `profiles` via PostgREST com token | retorna o perfil (RLS aplicada) |
+| RPC `get_operational_summary` com token | dados reais (fuso, mesas livres, caixa) |
+| Mesma tabela/RPC **sem** token | `[]` e erro `42501 AUTH_REQUIRED` |
+| Edge Function sem token | HTTP 401 |
+| Edge Function criando funcionário / logando com ele / redefinindo senha | tudo OK |
+
+## 6. O que **não** foi testado (limitações honestas)
+
+1. ~~Nada contra o Supabase real~~ — **resolvido**: a suíte rodou no projeto de produção e o teste de
+   fumaça (login, RLS, RPC, anônimo bloqueado, Edge Function) foi executado na nuvem (seção 5).
+   Continua não testado: RLS de `storage` (o sistema ainda não usa Storage) e o Realtime em uso real
+   por dois navegadores ao mesmo tempo.
 2. **Sem teste automatizado de navegador (E2E).** As telas foram verificadas por build/typecheck e pela
    lógica testada; não há Playwright/Cypress nesta entrega. É o próximo passo natural de qualidade.
 3. **Edge Function não deployada** — o código está pronto, mas criar funcionário sem projeto Supabase

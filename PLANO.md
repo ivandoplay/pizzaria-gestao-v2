@@ -50,9 +50,17 @@ Projeto novo → arquitetura definida do zero, compatível com **Vercel + Supaba
 - `docs/ENTREGA.md` — resumo final: funcionalidades, RLS, env vars, pendências manuais e próximos passos.
 - `docs/DECISIONS.md` — registro das decisões e alternativas descartadas.
 
+## Execução real (14/10/2026)
+
+- [x] Repositório publicado: `ivandoplay/pizzaria-gestao-v2` (privado), commit `7791d98`.
+- [x] Supabase: backup do schema anterior, 8 migrações aplicadas, seed estrutural, RLS/Realtime conferidos.
+- [x] Suíte de testes executada **contra o Supabase real** (00–06 sem falhas) e banco deixado limpo.
+- [x] Edge Function `admin-create-employee` publicada e testada (401 sem token, criação/duplicidade/reset).
+- [x] Administrador criado e login validado pela API real; anônimo bloqueado (RLS + `AUTH_REQUIRED`).
+
 ## Pendências (dependem de ação manual — não são código)
 
-1. Criar projeto Supabase, aplicar migrações + seed estrutural e criar o primeiro admin.
-2. Publicar a Edge Function `admin-create-employee` com os 3 segredos.
-3. Confirmar Realtime e configurar as variáveis na Vercel; deploy + teste de fumaça.
-4. Cadastrar o cardápio e as configurações reais da casa.
+1. Deploy na Vercel com as três variáveis de ambiente.
+2. Trocar a senha do administrador e cadastrar o cardápio/configurações reais.
+3. Cadastrar os funcionários (caixa e garçons).
+4. Rotacionar os tokens usados nesta sessão (GitHub e Supabase).

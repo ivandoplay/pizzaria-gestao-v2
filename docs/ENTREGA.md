@@ -85,7 +85,8 @@ trilha de auditoria somente-adição.
 
 | Verificação | Comando | Resultado |
 |---|---|---|
-| Suíte do banco (00–06) | `bash tools/run-sql-tests.sh` | **280 asserções aprovadas**, 0 falhas |
+| Suíte do banco (00–06), local | `bash tools/run-sql-tests.sh` | **280 asserções aprovadas**, 0 falhas |
+| Suíte do banco (00–06), **no Supabase real** | `tools/supabase-cloud-sql.sh` | **nenhuma falha** (falha em qualquer asserção aborta o arquivo) |
 | Concorrência real (07) | idem (duas conexões em paralelo) | **verde**: abertura dupla bloqueada, clique duplo → 1 pagamento, fechamento duplo → recusado |
 | Testes unitários | `npm test` (Vitest) | **25/25** |
 | Tipos | `npm run typecheck` | **exit 0** |
@@ -95,13 +96,45 @@ Detalhes, valores esperados e limitações em [`TESTES.md`](TESTES.md).
 
 ## 5. Estado do build e do deploy
 
+Atualizado em **14/10/2026**, depois da execução com as credenciais reais.
+
+### 5.1 GitHub — **executado**
+
+- Repositório privado **`ivandoplay/pizzaria-gestao-v2`**, branch `main`, commit `7791d98` (71 arquivos).
+- Conferido antes do push: nenhum `.env`, `node_modules` ou `dist`; nenhum token/segredo no conteúdo
+  versionado (só `.env.example` com marcadores).
+- O repositório antigo `ivandoplay/pizzaria-gestao` (versão Node.js + SQLite) **não foi alterado**.
+
+### 5.2 Supabase — **executado no projeto da org "Pizzaria"**
+
+- Projeto: `qmrcnoigaszditwchsdz` (org *Pizzaria*, região `sa-east-1`, PostgreSQL 17.11).
+- **Backup do estado anterior** antes de qualquer alteração: as 22 tabelas / 101 linhas foram exportadas
+  para `backups_supabase/` (dados em JSON + estrutura em SQL + instruções de restauração).
+- Schema `public` anterior removido (com a sua autorização) e as **8 migrações aplicadas em ordem**,
+  seguidas do `seed_structure.sql`. Catálogo conferido: **25 tabelas, 4 views, 22 funções, RLS e
+  FORCE RLS nas 25 tabelas** e 10 tabelas publicadas no Realtime.
+- **Suíte de testes executada contra o banco real** (00 → 06): **nenhuma falha**. Em seguida os dados de
+  teste foram removidos, as migrações reaplicadas e o banco ficou limpo (0 pedidos, 0 clientes, 0
+  atendimentos — apenas o administrador). O teste de concorrência (07) não roda pela API de consulta
+  (exige duas conexões simultâneas); ele foi executado localmente e está verde.
+- **Edge Function `admin-create-employee` publicada e verificada no ar:** sem token → HTTP 401; com
+  token de admin → cria funcionário, recusa login duplicado e redefine senha gerando senha temporária.
+- **Administrador criado**: `admin@pizzaria.local` (login `admin`, perfil `admin` ativo). O trigger do
+  banco cria todo perfil **inativo** por segurança; ele foi ativado explicitamente.
+- **Teste de fumaça com login real:** token emitido pelo Auth, leitura de `profiles` via PostgREST
+  (passando pela RLS) e chamada da RPC `get_operational_summary` retornando dados reais
+  (fuso `America/Fortaleza`, 12 mesas livres, caixa fechado). Acesso anônimo bloqueado: tabela devolve
+  `[]` e RPC devolve `42501 AUTH_REQUIRED`.
+
+### 5.3 Vercel — **pendente (um passo)**
+
 - **Build:** verde e reprodutível (`npm install && npm run build` → `dist/`).
-- **Deploy Vercel:** **não executado** — exige a sua conta e o repositório no GitHub. O projeto está
-  preparado: `vercel.json` com roteamento SPA e cabeçalhos de segurança, saída estática em `dist/`,
-  variáveis lidas de `import.meta.env`. Passo a passo em [`SETUP.md`](SETUP.md), seção 7.
-- **Supabase:** migrações, políticas e RPCs validados em PostgreSQL local; **ainda não aplicados** em
-  um projeto em nuvem (sem credenciais nesta sessão). Passo a passo: seções 1–5 do `SETUP.md`.
-- **GitHub:** repositório ainda não criado; comandos prontos na seção 8 do `SETUP.md`.
+- O deploy **não foi feito**: não houve token da Vercel. Duas opções:
+  1. **Pelo painel (5 cliques):** Vercel → *Add New → Project* → importe
+     `ivandoplay/pizzaria-gestao-v2` → confirme Vite / `npm run build` / `dist` → cadastre
+     `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` e `VITE_TIMEZONE` → *Deploy*.
+  2. **Por token:** crie um em vercel.com/account/tokens, me envie e **revogue depois** — eu faço o
+     deploy e cadastro as variáveis.
 
 ## 6. Variáveis de ambiente necessárias (sem valores)
 
@@ -123,15 +156,19 @@ Detalhes, valores esperados e limitações em [`TESTES.md`](TESTES.md).
 
 ## 7. Configurações manuais pendentes
 
-1. Criar o projeto Supabase e aplicar as 8 migrações + `seed_structure.sql`.
-2. Criar o primeiro administrador (`Authentication → Users`) e vinculá-lo em `public.profiles`.
-3. Publicar a Edge Function `admin-create-employee` e cadastrar seus 3 segredos.
-4. Confirmar a publicação `supabase_realtime` nas tabelas operacionais.
-5. Configurar as variáveis de ambiente na Vercel (Production/Preview/Development).
-6. Deploy na Vercel e teste de fumaça: abrir mesa → pedido → conta → caixa → relatório.
-7. Preencher a tela **Configurações** (identidade, fuso, descontos, taxas, modos aceitos) e cadastrar
-   o cardápio real.
-8. Revisar a política de backup do plano Supabase contratado.
+**Já executado:** projeto Supabase com migrações aplicadas, administrador criado, Edge Function
+publicada, Realtime ativo e banco limpo (seção 5.2); código publicado no GitHub (seção 5.1).
+
+**Ainda falta:**
+
+1. **Deploy na Vercel** (seção 5.3) com as três variáveis de ambiente.
+2. **Trocar a senha do administrador** no primeiro acesso — a senha temporária foi entregue no chat e
+   deve ser considerada exposta (use *Funcionários → Redefinir senha*, ou defina outra pelo painel).
+3. **Cadastrar o negócio:** tela Configurações (nome, telefone, fuso, descontos, taxa padrão, bairros,
+   ligar/desligar salão e delivery) e o cardápio real (categorias, tamanhos, produtos, preços, adicionais).
+4. **Cadastrar os funcionários** (caixa e garçons) pela tela Funcionários.
+5. Revisar a política de backup do plano contratado.
+6. **Rotacionar os tokens** usados nesta sessão (GitHub e Supabase) — eles trafegaram no chat.
 
 ## 8. Limitações conhecidas
 
@@ -164,5 +201,7 @@ Detalhes, valores esperados e limitações em [`TESTES.md`](TESTES.md).
 | Migrações, RLS, RPCs, views, Realtime | escritos e validados localmente |
 | Testes | executados, verdes (280 asserções SQL + 25 unitários + concorrência real) |
 | Build | verde |
-| Deploy | **pendente de ação manual** (Supabase + Vercel + GitHub) |
-| Pronto para venda real? | **não ainda** — depende da aplicação no Supabase e do teste de fumaça |
+| GitHub | **publicado** (`ivandoplay/pizzaria-gestao-v2`, privado) |
+| Supabase | **configurado e verificado na nuvem** (migrações, RLS, Realtime, Edge Function, admin, login real) |
+| Deploy Vercel | **pendente** — importar o repositório + 3 variáveis de ambiente |
+| Pronto para venda real? | **falta pouco:** deploy na Vercel, troca da senha do admin e cadastro do cardápio real. O banco e as permissões já estão verificados em produção. |

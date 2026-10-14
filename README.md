@@ -98,7 +98,7 @@ com `[DEMO]` — nunca misturar com dados reais).
 
 | Suíte | O que cobre | Resultado |
 |---|---|---|
-| `supabase/tests/00_setup.sql` … `06_reports.sql` | 280 asserções no PostgreSQL: RLS, privilégios, permissões por perfil, cardápio, mesas/pedidos, caixa/pagamentos, delivery, relatórios e auditoria | **verde** |
+| `supabase/tests/00_setup.sql` … `06_reports.sql` | 280 asserções no PostgreSQL: RLS, privilégios, permissões por perfil, cardápio, mesas/pedidos, caixa/pagamentos, delivery, relatórios e auditoria | **verde** (local **e** no Supabase real) |
 | `supabase/tests/07_concurrency.sh` | Concorrência real com duas conexões simultâneas (abertura de mesa, clique duplo de pagamento, fechamento duplo) | **verde** |
 | Vitest (`npm test`) | Regras de preço espelhadas do banco, formatação BRL/datas, tradução de erros | **25/25** |
 | `npm run build` | Build de produção | **exit 0** (~587 kB) |
@@ -122,10 +122,10 @@ Detalhes e limitações em [`docs/TESTES.md`](docs/TESTES.md).
 
 ## 8. Estado atual
 
-Código, migrações, RLS, RPCs, Edge Function, testes e documentação estão **prontos e verificados
-localmente**. O que ainda depende de ação manual (criar projeto Supabase, rodar migrações, cadastrar
-o primeiro administrador, configurar env vars na Vercel e ligar o Realtime) está listado passo a passo
-em [`docs/SETUP.md`](docs/SETUP.md) e resumido em [`docs/ENTREGA.md`](docs/ENTREGA.md).
-
-**Não coloque em produção com vendas reais antes de:** aplicar as migrações, criar o administrador,
-configurar as env vars, ativar o Realtime e executar a suíte de testes contra o banco real.
+- **Código:** publicado em `github.com/ivandoplay/pizzaria-gestao-v2` (privado).
+- **Banco:** migrações, RLS, Realtime e Edge Function **aplicados e verificados no Supabase real**
+  (projeto da org *Pizzaria*, `sa-east-1`), com a suíte de testes rodando contra a nuvem e o banco
+  deixado limpo (só o administrador).
+- **Falta:** deploy na Vercel (importar o repositório + cadastrar `VITE_SUPABASE_URL`,
+  `VITE_SUPABASE_ANON_KEY` e `VITE_TIMEZONE`), trocar a senha do administrador e cadastrar o cardápio
+  real. Veja [`docs/ENTREGA.md`](docs/ENTREGA.md), seções 5 e 7.

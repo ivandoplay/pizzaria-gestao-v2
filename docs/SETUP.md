@@ -1,9 +1,13 @@
 # Setup e deploy — Supabase + Vercel + GitHub
 
-Este é o passo a passo **manual** (não é possível automatizar sem as suas credenciais).
-Siga na ordem: banco → administrador → Edge Function → Vercel.
+Este é o passo a passo para preparar o ambiente (banco → administrador → Edge Function → Vercel).
 
-Tempo estimado: 20–30 minutos.
+> **Neste projeto as seções 1 a 5 já foram executadas** — projeto na org *Pizzaria* com as 8 migrações
+> aplicadas, administrador criado, Edge Function publicada e Realtime ativo (detalhes em
+> [`ENTREGA.md`](ENTREGA.md), seção 5). Este guia serve para conferir o que foi feito, reproduzir em
+> outro projeto ou recuperar o ambiente.
+
+Tempo estimado do zero: 20–30 minutos.
 
 ---
 
@@ -127,16 +131,27 @@ supabase link --project-ref SEU_REF
 supabase functions deploy admin-create-employee
 ```
 
-Configure os segredos da função (Project Settings → Edge Functions → Secrets, ou pela CLI):
+**Nada de segredo precisa ser cadastrado à mão:** o Supabase injeta automaticamente `SUPABASE_URL`,
+`SUPABASE_ANON_KEY` e `SUPABASE_SERVICE_ROLE_KEY` nas funções publicadas — são exatamente os nomes que o
+código lê. Cadastre algo manualmente (Project Settings → Edge Functions → Secrets) apenas se a função
+passar a precisar de outra variável.
+
+> ⚠️ Nunca coloque a `service_role` em variáveis `VITE_*` nem em arquivo versionado. Ela existe apenas
+> dentro da função, no servidor.
+
+Confirme também que a origem da sua aplicação é aceita pelo CORS do projeto (Settings → API).
+
+### 4.1 Alternativa sem a CLI (aplicar migrações e rodar os testes na nuvem)
+
+O repositório inclui `tools/supabase-cloud-sql.sh`, que executa SQL pelo Management API — útil para
+aplicar as migrações em ordem e rodar a suíte de testes contra o banco real:
 
 ```bash
-supabase secrets set \
-  SUPABASE_URL=https://SEU-PROJETO.supabase.co \
-  SUPABASE_ANON_KEY=SUA_ANON_KEY \
-  SERVICE_ROLE_KEY=SUA_SERVICE_ROLE_KEY
+export SUPABASE_ACCESS_TOKEN=...   # token pessoal: Account → Access Tokens
+export SUPABASE_PROJECT_REF=...
+bash tools/supabase-cloud-sql.sh supabase/migrations/20260101000001_foundation.sql   # ...e as demais, na ordem
+bash tools/supabase-cloud-sql.sh supabase/tests/00_setup.sql                        # ...e 01..06
 ```
-
-Confirme também: **Settings → API → CORS** não restringe a origem da sua aplicação.
 
 ## 5. Ativar o Realtime
 

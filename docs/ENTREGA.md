@@ -126,7 +126,35 @@ Atualizado em **14/10/2026**, depois da execução com as credenciais reais.
   (fuso `America/Fortaleza`, 12 mesas livres, caixa fechado). Acesso anônimo bloqueado: tabela devolve
   `[]` e RPC devolve `42501 AUTH_REQUIRED`.
 
-### 5.3 Vercel — **publicado**
+### 5.3 Cardápio de exemplo e funcionários — **aplicado a pedido do administrador**
+
+> ⚠️ **Isto é material de demonstração dentro do projeto de produção.** Foi aplicado porque o
+> administrador pediu um cardápio completo para testar o sistema antes de cadastrar o cardápio real.
+> Está identificado e é removível em um comando — o projeto manda não misturar demonstração com dados
+> reais, então: use para testar, depois apague com `supabase/seed/remove_cardapio_EXEMPLO.sql`
+> (se algum item já tiver sido vendido, o script apenas o desativa, preservando o histórico).
+
+- **72 itens** em 7 categorias: 14 pizzas salgadas (P/M/G/Família), 5 pizzas doces, 19 bebidas,
+  8 bebidas alcoólicas, 11 lanches (avulso e combo), 9 porções, 6 sobremesas.
+- **138 preços** (produto × tamanho), **32 adicionais** em 4 grupos (borda, extras, lanche, molhos) e
+  **8 bairros** de Teresina com taxa de entrega (Centro R$ 5,00 a Dirceu R$ 12,00); taxa padrão de
+  bairro não cadastrado definida em R$ 7,00 (só porque estava zerada).
+- **Funcionários criados e testados:** um perfil de **caixa** (`manager`) e um de **garçom** (`waiter`),
+  ambos ativos, criados pela Edge Function `admin-create-employee` — o mesmo caminho que a tela
+  Funcionários usa. As senhas **não** ficam no repositório nem na documentação.
+
+**Teste de fumaça com o cardápio real, dentro de uma transação desfeita no fim** (zero resíduo no banco):
+
+| Perfil | Ação | Resultado |
+|---|---|---|
+| Garçom | Abriu a mesa 3 e lançou o pedido | pedido com pizza meio a meio Média + borda cheddar + 2× Coca-Cola 2L = **R$ 84,00** |
+| Garçom | Tentou confirmar o pedido | **bloqueado pelo banco** (permissão negada) |
+| Caixa | Conduziu o preparo | `received → confirmed → preparing → ready` |
+| Garçom | Entregou na mesa | `delivered_to_table`, **5 mudanças registradas** no histórico |
+| Caixa | Recebeu no Pix e fechou a conta | mesa voltou a `available`; painel do dia: **R$ 84,00** |
+| Admin | Conferiu o relatório | 1 pedido, vendas R$ 84,00, recebido R$ 84,00, pendente R$ 0,00, ticket R$ 84,00 |
+
+### 5.4 Vercel — **publicado**
 
 - **Endereço:** <https://pizzaria-gestao-v2.vercel.app> (projeto ligado ao GitHub, deploy automático a
   cada push no `main`).
@@ -164,12 +192,13 @@ publicada, Realtime ativo e banco limpo (seção 5.2); código publicado no GitH
 
 **Ainda falta:**
 
-1. **Deploy na Vercel** (seção 5.3) com as três variáveis de ambiente.
-2. **Trocar a senha do administrador** no primeiro acesso — a senha temporária foi entregue no chat e
-   deve ser considerada exposta (use *Funcionários → Redefinir senha*, ou defina outra pelo painel).
-3. **Cadastrar o negócio:** tela Configurações (nome, telefone, fuso, descontos, taxa padrão, bairros,
-   ligar/desligar salão e delivery) e o cardápio real (categorias, tamanhos, produtos, preços, adicionais).
-4. **Cadastrar os funcionários** (caixa e garçons) pela tela Funcionários.
+1. ~~Deploy na Vercel~~ — **feito** (seção 5.4).
+2. **Trocar as senhas iniciais** de administrador, caixa e garçom — todas passaram pelo chat e devem ser
+   consideradas expostas (use *Funcionários → Redefinir senha*).
+3. **Substituir o cardápio de exemplo pelo real:** apague o exemplo
+   (`supabase/seed/remove_cardapio_EXEMPLO.sql`) e cadastre seus produtos, preços e bairros.
+4. **Preencher a tela Configurações** (nome da casa, telefone, descontos, taxa padrão, horários de
+   funcionamento e modo de serviço).
 5. Revisar a política de backup do plano contratado.
 6. **Rotacionar os tokens** usados nesta sessão (GitHub e Supabase) — eles trafegaram no chat.
 
@@ -205,6 +234,7 @@ publicada, Realtime ativo e banco limpo (seção 5.2); código publicado no GitH
 | Testes | executados, verdes (280 asserções SQL locais + suíte repetida na nuvem + 28 unitários + concorrência real) |
 | Build | verde |
 | GitHub | **publicado** (`ivandoplay/pizzaria-gestao-v2`, privado) |
-| Supabase | **configurado e verificado na nuvem** (migrações, RLS, Realtime, Edge Function, admin, login real) |
+| Supabase | **configurado e verificado na nuvem** (migrações, RLS, Realtime, Edge Function, 3 perfis, fluxo ponta a ponta) |
+| Cardápio | **72 itens de exemplo** aplicados (removíveis em um comando) + 8 bairros com taxa de entrega |
 | Deploy Vercel | **pendente** — importar o repositório + 3 variáveis de ambiente |
 | Pronto para venda real? | **falta pouco:** deploy na Vercel, troca da senha do admin e cadastro do cardápio real. O banco e as permissões já estão verificados em produção. |

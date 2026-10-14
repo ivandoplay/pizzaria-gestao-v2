@@ -87,9 +87,17 @@ As migrações ficam em `supabase/migrations/` e são aplicadas **em ordem**:
 | `20260101000007_rpc.sql` | Regras de negócio: 14 RPCs (pedidos, contas, pagamentos, caixa, delivery, clientes). |
 | `20260101000008_reports.sql` | 8 funções de relatório/indicadores agregando no banco (22 funções no total). |
 
-Seeds: `supabase/seed/seed_structure.sql` (estrutura mínima de produção: mesas, formas de pagamento,
-horários) e `supabase/seed/seed_demo_DESENVOLVIMENTO.sql` (**só para desenvolvimento**, tudo prefixado
-com `[DEMO]` — nunca misturar com dados reais).
+Seeds:
+
+| Arquivo | Para que serve |
+|---|---|
+| `supabase/seed/seed_structure.sql` | Estrutura mínima (categorias, tamanhos, mesas, formas de pagamento, horários). Seguro para produção. |
+| `supabase/seed/seed_cardapio_EXEMPLO.sql` | **Cardápio de exemplo** (72 itens: pizzas, bebidas, lanches, porções, sobremesas + 32 adicionais + 8 bairros com taxa). Idempotente. Remoção em um comando. |
+| `supabase/seed/remove_cardapio_EXEMPLO.sql` | Remove o cardápio de exemplo. **Se houver pedidos usando os itens, não apaga — apenas desativa**, para não quebrar histórico. |
+| `supabase/seed/seed_demo_DESENVOLVIMENTO.sql` | Dados de demonstração com prefixo `[DEMO]` — **nunca** usar em produção. |
+
+Os dois arquivos do cardápio de exemplo são gerados por `tools/gerar_seed_cardapio.py` (mesma fonte
+para o seed e a remoção, então as listas nunca ficam desencontradas).
 
 > Como as migrações se aplicam: **SQL Editor do Supabase, uma a uma, na ordem dos nomes** (ou
 > `supabase db push` se você usar a CLI). Detalhes em [`docs/SETUP.md`](docs/SETUP.md).

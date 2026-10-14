@@ -58,9 +58,18 @@ Projeto novo → arquitetura definida do zero, compatível com **Vercel + Supaba
 - [x] Edge Function `admin-create-employee` publicada e testada (401 sem token, criação/duplicidade/reset).
 - [x] Administrador criado e login validado pela API real; anônimo bloqueado (RLS + `AUTH_REQUIRED`).
 
+## Execução real (14/10/2026) — continuação
+
+- [x] Deploy na Vercel publicado (`pizzaria-gestao-v2.vercel.app`) com as variáveis `VITE_*` no
+  `vercel.json`; conferência automatizada por `tools/smoke-deploy.sh`.
+- [x] Cardápio de exemplo aplicado: 72 itens, 138 preços, 32 adicionais, 8 bairros com taxa
+  (`supabase/seed/seed_cardapio_EXEMPLO.sql`, removível por `remove_cardapio_EXEMPLO.sql`).
+- [x] Funcionários criados pela Edge Function: um caixa (`manager`) e um garçom (`waiter`), logins testados.
+- [x] Fluxo ponta a ponta validado em produção (garçom lança → caixa conduz → garçom entrega → caixa
+  recebe e fecha → admin confere), dentro de transação desfeita no fim: **zero resíduo**.
+
 ## Pendências (dependem de ação manual — não são código)
 
-1. Deploy na Vercel com as três variáveis de ambiente.
-2. Trocar a senha do administrador e cadastrar o cardápio/configurações reais.
-3. Cadastrar os funcionários (caixa e garçons).
-4. Rotacionar os tokens usados nesta sessão (GitHub e Supabase).
+1. Trocar as senhas iniciais (admin, caixa, garçom) — passaram pelo chat.
+2. Substituir o cardápio de exemplo pelo cardápio real e preencher as Configurações.
+3. Rotacionar os tokens usados nesta sessão (GitHub e Supabase).

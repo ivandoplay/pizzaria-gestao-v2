@@ -194,7 +194,7 @@ export function Card({
               </span>
             )}
             <div className="min-w-0">
-              <h2 className="truncate text-[15px] font-semibold text-ink-900">{title}</h2>
+              <h2 className="text-[15px] font-semibold leading-snug text-ink-900">{title}</h2>
               {descricao && <p className="text-xs text-ink-500">{descricao}</p>}
             </div>
           </div>
@@ -242,7 +242,7 @@ export function StatTile({
   return (
     <div className={`rounded-card border p-4 shadow-card transition-shadow hover:shadow-raised ${tons[tom]} ${className}`}>
       <div className="flex items-start justify-between gap-2">
-        <p className="rotulo">{rotulo}</p>
+        <p className="rotulo leading-tight">{rotulo}</p>
         {icone && (
           <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${iconeTom[tom]}`}>
             <Icon nome={icone} className="h-[18px] w-[18px]" />
@@ -445,11 +445,8 @@ export function Field({
   )
 }
 
-const inputClass =
-  'w-full rounded-control border border-ink-300 bg-white px-3 py-2.5 text-[15px] text-ink-900 shadow-sm transition ' +
-  'placeholder:text-ink-400 hover:border-ink-400 ' +
-  'focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10 ' +
-  'disabled:cursor-not-allowed disabled:bg-ink-100 disabled:text-ink-500 sm:text-sm'
+/** Classes dos campos: `campo` fica na camada de componentes (ver styles.css). */
+const inputClass = 'campo'
 
 export function Input({ className = '', ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={`${inputClass} ${className}`} />
@@ -857,6 +854,8 @@ export function DataTable<T>({
   dense,
   maxHeight,
   rodape,
+  minW = 'min-w-[560px]',
+  tamanho = 'padrao',
 }: {
   columns: {
     key: string
@@ -875,6 +874,10 @@ export function DataTable<T>({
   /** Altura máxima da área rolável (ex.: '60vh'); cabeçalho continua visível. */
   maxHeight?: string
   rodape?: ReactNode
+  /** Largura mínima da tabela (classe Tailwind). `min-w-0` deixa as colunas se ajustarem. */
+  minW?: string
+  /** `compacto` reduz a altura das linhas (listas longas dentro de cartões). */
+  tamanho?: 'padrao' | 'compacto'
 }) {
   if (rows.length === 0) {
     return (
@@ -884,12 +887,12 @@ export function DataTable<T>({
     )
   }
 
-  const padding = dense ? 'px-3 py-2' : 'px-3 py-3 sm:px-4'
+  const padding = dense || tamanho === 'compacto' ? 'px-3 py-2' : 'px-3 py-3 sm:px-4'
 
   return (
     <div className="overflow-hidden rounded-card border border-ink-200">
       <div className="scroll-thin overflow-x-auto" style={maxHeight ? { maxHeight } : undefined}>
-        <table className="w-full min-w-[560px] border-collapse text-sm">
+        <table className={`w-full ${minW} border-collapse text-sm`}>
           <thead className="sticky top-0 z-10">
             <tr className="bg-ink-50 text-left">
               {columns.map((column) => (

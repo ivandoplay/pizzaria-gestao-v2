@@ -26,6 +26,7 @@ import {
   formatDateTime,
   formatMoney,
   formatPhone,
+  plural,
   todayInputValue,
 } from '../lib/format'
 import { translateError } from '../lib/errors'
@@ -126,7 +127,7 @@ export default function HistoryPage() {
         row.cancel_reason ?? '',
       ]),
     ])
-    toast.success(`Página ${page + 1} exportada em CSV (${rows.length} pedido(s)).`)
+    toast.success(`Página ${page + 1} exportada em CSV (${plural(rows.length, 'pedido', 'pedidos')}).`)
   }
 
   function limparFiltros() {

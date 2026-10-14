@@ -12,7 +12,7 @@ import {
   StatTile,
 } from '../components/ui'
 import { Icon } from '../components/icons'
-import { duracaoDesde, formatMoney, formatTime } from '../lib/format'
+import { duracaoDesde, formatMoney, formatTime, plural } from '../lib/format'
 import { translateError } from '../lib/errors'
 import { ORDER_STATUS_LABELS, type OrderOverview } from '../lib/types'
 
@@ -114,7 +114,7 @@ export default function CashierHomePage() {
           valor={formatMoney(saldoSalao)}
           icone="dinheiro"
           tom="ambar"
-          detalhe={`${pedidosAbertos.length} conta(s) em aberto`}
+          detalhe={`${plural(pedidosAbertos.length, 'conta', 'contas')} em aberto`}
         />
       </div>
 

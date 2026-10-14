@@ -24,6 +24,7 @@ import {
   formatDate,
   formatDateTime,
   formatMoney,
+  plural,
   todayInputValue,
 } from '../lib/format'
 import { translateError } from '../lib/errors'
@@ -267,7 +268,7 @@ export default function ReportsPage() {
               rotulo="Pedidos válidos"
               valor={data?.orders_valid_count ?? 0}
               icone="lista"
-              detalhe={`${data?.orders_cancelled_count ?? 0} cancelado(s) no período`}
+              detalhe={`${plural(data?.orders_cancelled_count ?? 0, 'cancelado', 'cancelados')} no período`}
             />
           </div>
 
@@ -285,13 +286,13 @@ export default function ReportsPage() {
               rotulo="Cancelados"
               valor={formatMoney(data?.cancelled_cents ?? 0)}
               tom="vermelho"
-              detalhe={`${data?.orders_cancelled_count ?? 0} pedido(s) fora da venda válida`}
+              detalhe={`${plural(data?.orders_cancelled_count ?? 0, 'pedido', 'pedidos')} fora da venda válida`}
             />
             <StatTile
               rotulo="Caixas com divergência"
               valor={divergencias.length}
               tom={divergencias.length > 0 ? 'ambar' : 'verde'}
-              detalhe={`${cashSessions.data?.length ?? 0} turno(s) no período`}
+              detalhe={`${plural(cashSessions.data?.length ?? 0, 'turno', 'turnos')} no período`}
             />
           </div>
         </>

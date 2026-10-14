@@ -4,7 +4,7 @@ import { AppLayout } from './components/AppLayout'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { useAuth } from './context/AuthContext'
 import type { Role } from './lib/types'
-import { LoadingBlock, ErrorBlock } from './components/ui'
+import { Button, ErrorBlock, LoadingBlock } from './components/ui'
 import { isSupabaseConfigured } from './lib/supabase'
 
 // Cada tela é carregada sob demanda: o painel do salão abre rápido mesmo no
@@ -25,13 +25,16 @@ const AuditPage = lazy(() => import('./pages/AuditPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 
 function Guard({ roles, children }: { roles: Role[]; children: ReactNode }) {
-  const { profile, loading, blockedReason } = useAuth()
+  const { profile, loading, blockedReason, signOut } = useAuth()
 
   if (loading) return <LoadingBlock label="Carregando seu acesso…" />
   if (blockedReason) {
     return (
-      <div className="mx-auto max-w-lg p-6">
-        <ErrorBlock message={blockedReason} />
+      <div className="mx-auto max-w-lg px-4 py-10">
+        <ErrorBlock message={blockedReason} onRetry={() => window.location.reload()} />
+        <Button variant="secondary" block className="mt-3" onClick={() => void signOut()}>
+          Sair e entrar com outra conta
+        </Button>
       </div>
     )
   }

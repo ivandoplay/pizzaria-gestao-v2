@@ -35,7 +35,7 @@ caixa sem valor contado, `window.prompt` em operações sensíveis, endereço in
 |---|---|
 | Migrações 0001–0008 em banco limpo | aplicam sem erro |
 | `bash tools/run-sql-tests.sh` (00–07) | **280 asserções, 0 falhas** (inclui concorrência real) |
-| `npm test` (Vitest) | **33/33** |
+| `npm test` (Vitest) | **35/35** |
 | `npm run typecheck` (tsc) | exit 0 |
 | `npx vite build` | exit 0 — `dist/` (chunk principal 479 kB / 138 kB gzip + chunk por tela) |
 | `npm run dev` | telas servidas (HTTP 200) |

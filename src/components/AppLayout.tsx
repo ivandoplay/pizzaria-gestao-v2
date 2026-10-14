@@ -50,6 +50,10 @@ function Logo({ className = 'h-9 w-9' }: { className?: string }) {
 
 export function AppLayout() {
   const { profile, signOut, isAdmin } = useAuth()
+  // Evita repetir "Administrador · Administrador" quando o nome já é o da função.
+  const funcaoDoPerfil = profile ? ROLE_LABELS[profile.role] : ''
+  const descricaoDoUsuario =
+    funcaoDoPerfil.toLowerCase() === (profile?.full_name ?? '').toLowerCase() ? '' : funcaoDoPerfil
   const online = useOnlineStatus()
   const realtimeConnected = useRealtimeSync(Boolean(profile))
   const [menuOpen, setMenuOpen] = useState(false)
@@ -154,9 +158,7 @@ export function AppLayout() {
             </span>
             <div className="min-w-0 flex-1">
               <p className="truncate text-[13px] font-medium text-white">{profile?.full_name ?? '—'}</p>
-              <p className="truncate text-[11px] text-ink-400">
-                {profile ? ROLE_LABELS[profile.role] : ''}
-              </p>
+              <p className="truncate text-[11px] text-ink-400">{descricaoDoUsuario}</p>
             </div>
             <IconButton
               nome="sair"
@@ -207,7 +209,8 @@ export function AppLayout() {
             <div className="min-w-0 flex-1">
               <h1 className="truncate text-[15px] font-semibold text-ink-900">{atual?.rotulo ?? 'Sistema'}</h1>
               <p className="hidden truncate text-xs text-ink-500 sm:block">
-                {profile?.full_name} · {profile ? ROLE_LABELS[profile.role] : ''}
+                {profile?.full_name}
+                {descricaoDoUsuario && descricaoDoUsuario !== profile?.full_name ? ` · ${descricaoDoUsuario}` : ''}
               </p>
             </div>
 

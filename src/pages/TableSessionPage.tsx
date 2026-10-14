@@ -34,7 +34,7 @@ import {
   useToast,
 } from '../components/ui'
 import { Icon } from '../components/icons'
-import { duracaoDesde, formatDateTime, formatMoney, formatTime, newClientUuid } from '../lib/format'
+import { duracaoDesde, formatDateTime, formatMoney, formatTime, newClientUuid, plural } from '../lib/format'
 import { translateError } from '../lib/errors'
 import { ORDER_STATUS_LABELS, TABLE_STATUS_LABELS, type CartItem, type OrderItemOverview, type OrderOverview, type OrderStatus } from '../lib/types'
 
@@ -266,7 +266,7 @@ export default function TableSessionPage() {
         titulo={tableRow.name ?? `Mesa ${tableRow.number}`}
         descricao={`Aberta em ${formatTime(tableRow.opened_at)} (${duracaoDesde(tableRow.opened_at, agora)}) · ${
           tableRow.opened_by_name ?? 'sem responsável'
-        }${tableRow.guest_count ? ` · ${tableRow.guest_count} pessoa(s)` : ''}`}
+        }${tableRow.guest_count ? ` · ${plural(tableRow.guest_count, 'pessoa', 'pessoas')}` : ''}`}
         selo={
           <Badge
             tone={tableRow.status === 'attention' ? 'red' : tableRow.status === 'occupied' ? 'amber' : 'blue'}
@@ -322,7 +322,7 @@ export default function TableSessionPage() {
 
       {/* Resumo financeiro da conta */}
       <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Resumo rotulo="Total da conta" valor={formatMoney(totals.total)} detalhe={`${sessionOrders.length} pedido(s) · ${itensAtivos.length} item(ns)`} icone="dinheiro" />
+        <Resumo rotulo="Total da conta" valor={formatMoney(totals.total)} detalhe={`${plural(sessionOrders.length, 'pedido', 'pedidos')} · ${plural(itensAtivos.length, 'item', 'itens')}`} icone="dinheiro" />
         <Resumo rotulo="Recebido" valor={formatMoney(totals.paid)} detalhe={totals.change > 0 ? `troco ${formatMoney(totals.change)}` : 'sem troco registrado'} icone="check" tom="verde" />
         <Resumo rotulo="Falta receber" valor={formatMoney(balance)} detalhe={balance > 0 ? 'registre o pagamento antes de fechar' : 'conta quitada'} icone="relogio" tom={balance > 0 ? 'marca' : 'verde'} />
         <Resumo rotulo="Em produção" valor={String(emProducao)} detalhe="pedidos ainda não entregues" icone="raio" tom={emProducao > 0 ? 'ambar' : 'neutro'} />
@@ -492,7 +492,7 @@ export default function TableSessionPage() {
                     <p className="text-xs text-ink-500">
                       {quantidadeCart === 0
                         ? 'Nenhum item na lista'
-                        : `${quantidadeCart} item(ns) em ${cart.length} linha(s)`}
+                        : `${plural(quantidadeCart, 'item', 'itens')} em ${plural(cart.length, 'linha', 'linhas')}`}
                     </p>
                   </div>
                   <p className="num text-xl font-semibold text-ink-900">{formatMoney(totalCart)}</p>

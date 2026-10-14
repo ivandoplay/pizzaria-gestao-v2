@@ -71,7 +71,11 @@
 @layer components {
   /* Rótulo de seção: pequeno, caixa alta, discreto. */
   .rotulo {
-    @apply text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-400;
+    @apply text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-400;
+    /* Não quebrar palavra no meio (acontecia em cartão estreito no celular). */
+    overflow-wrap: normal;
+    word-break: keep-all;
+    hyphens: none;
   }
 
   /* Cartão base usado em todo o sistema. */
@@ -107,6 +111,17 @@
   }
   .scroll-thin::-webkit-scrollbar-thumb:hover {
     @apply bg-ink-400;
+  }
+
+  /* Campo de formulário padrão.
+     Fica em `components` (e não em utilitários) de propósito: assim a página
+     consegue sobrepor largura, espaçamento e cor só passando `className="w-32"`,
+     sem a largura padrão `w-full` vencer por ordem de CSS. */
+  .campo {
+    @apply w-full rounded-control border border-ink-300 bg-white px-3 py-2.5 text-[15px] text-ink-900 shadow-sm transition
+      placeholder:text-ink-400 hover:border-ink-400
+      focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10
+      disabled:cursor-not-allowed disabled:bg-ink-100 disabled:text-ink-500 sm:text-sm;
   }
 
   /* Barra inferior do celular respeitando a área segura do aparelho. */

@@ -17,7 +17,7 @@ import {
   Select,
   useToast,
 } from '../components/ui'
-import { downloadCsv, formatDateTime, formatMoney } from '../lib/format'
+import { downloadCsv, formatDateTime, formatMoney, plural } from '../lib/format'
 import { translateError } from '../lib/errors'
 
 const PAGE_SIZE = 50
@@ -190,7 +190,7 @@ export default function AuditPage() {
               rodape={
                 <>
                   <span>
-                    Página {page + 1} de {pages} · {total} evento(s) no total
+                    Página {page + 1} de {pages} · {plural(total, 'evento', 'eventos')} no total
                   </span>
                   <span className="flex gap-2">
                     <Button

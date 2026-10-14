@@ -23,7 +23,7 @@ import {
   useToast,
 } from '../components/ui'
 import { Icon } from '../components/icons'
-import { duracaoDesde, formatMoney, formatTime, newClientUuid } from '../lib/format'
+import { duracaoDesde, formatMoney, formatTime, newClientUuid, plural } from '../lib/format'
 import { translateError } from '../lib/errors'
 import { TABLE_STATUS_LABELS, type TableOverview, type TableStatus } from '../lib/types'
 
@@ -329,7 +329,7 @@ export default function TablesPage() {
 
           {isAdmin && resumo.inativas > 0 && filtro !== 'todas' && (
             <p className="mt-4 text-xs text-ink-500">
-              {resumo.inativas} mesa(s) desativada(s) não aparecem nos filtros atuais.
+              {plural(resumo.inativas, 'mesa desativada não aparece', 'mesas desativadas não aparecem')} nos filtros atuais.
             </p>
           )}
         </>
@@ -456,7 +456,7 @@ function DetalhesMesa({
         )}
 
         {mesa.pending_kitchen_count > 0 && (
-          <Callout tom="atencao" titulo={`${mesa.pending_kitchen_count} pedido(s) em produção`}>
+          <Callout tom="atencao" titulo={`${plural(mesa.pending_kitchen_count, 'pedido', 'pedidos')} em produção`}>
             Há itens ainda não entregues nesta mesa. Combine a entrega antes de fechar a conta.
           </Callout>
         )}

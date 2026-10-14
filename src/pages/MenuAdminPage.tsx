@@ -242,7 +242,16 @@ function ProductsTab({ menu, refresh }: { menu: NonNullable<ReturnType<typeof us
               header: 'Categoria',
               render: (row) => menu.categories.find((category) => category.id === row.category_id)?.name ?? '—',
             },
-            { key: 'kind', header: 'Tipo', render: (row) => (row.kind === 'pizza' ? 'Pizza (sabores)' : 'Item simples') },
+            {
+              key: 'kind',
+              header: 'Tipo',
+              width: 'w-24',
+              render: (row) => (
+                <span title={row.kind === 'pizza' ? 'Pizza montada por sabores e tamanhos' : 'Item simples (bebida, sobremesa, lanche)'}>
+                  <Badge tone={row.kind === 'pizza' ? 'brand' : 'slate'}>{row.kind === 'pizza' ? 'Pizza' : 'Item'}</Badge>
+                </span>
+              ),
+            },
             {
               key: 'status',
               header: 'Situação',

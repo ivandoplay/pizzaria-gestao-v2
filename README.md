@@ -108,7 +108,7 @@ para o seed e a remoção, então as listas nunca ficam desencontradas).
 |---|---|---|
 | `supabase/tests/00_setup.sql` … `06_reports.sql` | 280 asserções no PostgreSQL: RLS, privilégios, permissões por perfil, cardápio, mesas/pedidos, caixa/pagamentos, delivery, relatórios e auditoria | **verde** (local **e** no Supabase real) |
 | `supabase/tests/07_concurrency.sh` | Concorrência real com duas conexões simultâneas (abertura de mesa, clique duplo de pagamento, fechamento duplo) | **verde** |
-| Vitest (`npm test`) | Regras de preço espelhadas do banco, formatação BRL/datas/durações, tradução de erros e criação sob demanda do cliente Supabase | **33/33** |
+| Vitest (`npm test`) | Regras de preço espelhadas do banco, formatação BRL/datas/durações/plural, tradução de erros e criação sob demanda do cliente Supabase | **35/35** |
 | `npm run typecheck` | TypeScript em modo estrito, sem emissão | **exit 0** |
 | `npm run build` | Build de produção com cada tela em um chunk próprio | **exit 0** (principal 479 kB / 138 kB gzip + chunks por tela) |
 

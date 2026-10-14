@@ -88,7 +88,7 @@ trilha de auditoria somente-adição.
 | Suíte do banco (00–06), local | `bash tools/run-sql-tests.sh` | **280 asserções aprovadas**, 0 falhas |
 | Suíte do banco (00–06), **no Supabase real** | `tools/supabase-cloud-sql.sh` | **nenhuma falha** (falha em qualquer asserção aborta o arquivo) |
 | Concorrência real (07) | idem (duas conexões em paralelo) | **verde**: abertura dupla bloqueada, clique duplo → 1 pagamento, fechamento duplo → recusado |
-| Testes unitários | `npm test` (Vitest) | **33/33** (após a revisão de interface) |
+| Testes unitários | `npm test` (Vitest) | **35/35** (após a revisão de interface) |
 | Tipos | `npm run typecheck` | **exit 0** |
 | Build de produção | `npx vite build` | **exit 0** (chunk principal 479 kB / 138 kB gzip + 1 chunk por tela) |
 

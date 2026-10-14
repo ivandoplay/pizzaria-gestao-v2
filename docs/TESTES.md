@@ -64,14 +64,14 @@ Execução final: **280 asserções, todas aprovadas**, sem `ERROR` e sem `ASSER
 
 ---
 
-## 3. Testes da aplicação — resultado: **33/33**
+## 3. Testes da aplicação — resultado: **35/35**
 
 `npm test` (Vitest, sem ambiente de navegador):
 
 | Arquivo | Testes | Cobre |
 |---|---|---|
 | `src/lib/pricing.test.ts` | 11 | preço simples, meio a meio (`highest`/`average`), arredondamento, adicionais por unidade, bordas de entrada |
-| `src/lib/format.test.ts` | 14 | BRL com NBSP, `parseMoneyToCents` (vírgula/ponto), datas com fuso `America/Fortaleza`, `duracaoDesde` (tempo de mesa/pedido), `newClientUuid`, CSV |
+| `src/lib/format.test.ts` | 16 | BRL com NBSP, `parseMoneyToCents` (vírgula/ponto), datas com fuso `America/Fortaleza`, `duracaoDesde` (tempo de mesa/pedido), `plural` (1 pedido / 2 pedidos), `newClientUuid`, CSV |
 | `src/lib/errors.test.ts` | 5 | tradução de códigos do banco, códigos desconhecidos, mensagens do Supabase |
 | `src/lib/supabase.test.ts` | 3 | importar o módulo não cria cliente (regressão do WebSocket em Node), `CONFIGURACAO_PENDENTE` sem env e fuso padrão |
 

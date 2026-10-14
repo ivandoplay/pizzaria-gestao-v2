@@ -9,6 +9,7 @@ import {
   formatTime,
   newClientUuid,
   parseMoneyToCents,
+  plural,
 } from './format'
 
 /** O Intl usa espaço não separável entre "R$" e o valor — normalizamos na comparação. */
@@ -101,5 +102,18 @@ describe('duracaoDesde', () => {
   it('trata valor ausente ou inválido', () => {
     expect(duracaoDesde(null, agora)).toBe('—')
     expect(duracaoDesde('data-invalida', agora)).toBe('—')
+  })
+})
+
+describe('plural', () => {
+  it('usa o singular com 1', () => {
+    expect(plural(1, 'pedido', 'pedidos')).toBe('1 pedido')
+    expect(plural(1, 'conta', 'contas')).toBe('1 conta')
+  })
+
+  it('usa o plural com 0 e com mais de 1', () => {
+    expect(plural(0, 'pedido', 'pedidos')).toBe('0 pedidos')
+    expect(plural(2, 'pedido', 'pedidos')).toBe('2 pedidos')
+    expect(plural(11, 'mesa desativada', 'mesas desativadas')).toBe('11 mesas desativadas')
   })
 })

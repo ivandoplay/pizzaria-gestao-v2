@@ -65,6 +65,14 @@ export function timeAgo(iso: string | null | undefined): string {
 }
 
 /**
+ * Plural correto em português: `plural(1, 'pedido', 'pedidos')` → "1 pedido".
+ * Evita o "1 pedido(s)" que aparecia nas telas.
+ */
+export function plural(quantidade: number, singular: string, pluralDaPalavra: string): string {
+  return `${quantidade} ${quantidade === 1 ? singular : pluralDaPalavra}`
+}
+
+/**
  * Há quanto tempo um instante aconteceu, em linguagem de operação:
  * "agora mesmo", "há 12 min", "há 1h35", "há 2 dia(s)".
  *

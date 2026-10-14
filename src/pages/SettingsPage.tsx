@@ -11,6 +11,7 @@ import {
   DataTable,
   EmptyState,
   Field,
+  IconButton,
   Input,
   LoadingBlock,
   Modal,
@@ -21,7 +22,7 @@ import {
 } from '../components/ui'
 import { formatMoney, parseMoneyToCents } from '../lib/format'
 import { translateError } from '../lib/errors'
-import type { BusinessSettings, DeliveryFeeZone, PaymentMethod } from '../lib/types'
+import { ROLE_LABELS, type BusinessSettings, type DeliveryFeeZone, type PaymentMethod } from '../lib/types'
 
 const TIMEZONES = [
   'America/Fortaleza',
@@ -212,7 +213,7 @@ export default function SettingsPage() {
         </div>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          <Field label="Desconto máximo do caixa (% )" hint="Acima disso o sistema exige administrador.">
+          <Field label="Desconto máximo do caixa (%)" hint="Acima disso o sistema exige autorização do administrador.">
             <Input
               type="number"
               min={0}
@@ -221,7 +222,7 @@ export default function SettingsPage() {
               onChange={(event) => setDraft({ ...draft, max_discount_pct_without_auth: Number(event.target.value) })}
             />
           </Field>
-          <Field label="Teto absoluto de desconto (%)" hint="Limite máximo aceito pelo sistema.">
+          <Field label="Teto absoluto de desconto (%)" hint="Nunca ultrapassado — nem pelo administrador.">
             <Input
               type="number"
               min={0}
@@ -239,8 +240,13 @@ export default function SettingsPage() {
         </div>
 
         <p className="mt-3 text-[11px] text-ink-500">
-          Alterações de configuração são auditadas com o valor anterior e o novo. Perfil atual:{' '}
-          <strong>{profile?.full_name}</strong> {profile && <Badge tone="brand">{profile.role}</Badge>}
+          Toda alteração de configuração é registrada na auditoria com o valor anterior e o novo. Perfil atual:{' '}
+          <strong className="text-ink-700">{profile?.full_name}</strong>{' '}
+          {profile && profile.login && <span className="text-ink-500">({profile.login})</span>}{' '}
+          {profile &&
+            ROLE_LABELS[profile.role].toLowerCase() !== (profile.full_name ?? '').toLowerCase() && (
+              <Badge tone="brand">{ROLE_LABELS[profile.role]}</Badge>
+            )}
         </p>
       </Card>
 
@@ -272,6 +278,8 @@ export default function SettingsPage() {
           }
         >
           <DataTable
+            minW="min-w-0"
+            tamanho="compacto"
             rows={methods.data ?? []}
             rowKey={(row) => row.id}
             emptyMessage="Nenhuma forma cadastrada."
@@ -333,6 +341,8 @@ export default function SettingsPage() {
             />
           ) : (
             <DataTable
+              minW="min-w-0"
+              tamanho="compacto"
               rows={zones.data ?? []}
               rowKey={(row) => row.id}
               columns={[
@@ -348,9 +358,7 @@ export default function SettingsPage() {
                   header: '',
                   align: 'right',
                   render: (row) => (
-                    <Button size="sm" variant="ghost" onClick={() => setZoneForm(row)}>
-                      Editar
-                    </Button>
+                    <IconButton nome="lapis" titulo={`Editar ${row.neighborhood}`} size="sm" onClick={() => setZoneForm(row)} />
                   ),
                 },
               ]}
@@ -370,8 +378,15 @@ export default function SettingsPage() {
         ) : (
           <div className="space-y-2">
             {(hours.data ?? []).map((hour) => (
-              <div key={hour.id} className="flex flex-wrap items-center gap-3 rounded-md border border-ink-200 px-3 py-2">
-                <span className="w-32 text-sm text-ink-700">{WEEKDAYS[hour.weekday]}</span>
+              <div
+                key={hour.id}
+                className={`flex flex-wrap items-center gap-3 rounded-control border px-3 py-2 transition ${
+                  hour.is_open ? 'border-ink-200 bg-white' : 'border-ink-100 bg-ink-50/70'
+                }`}
+              >
+                <span className={`w-32 text-sm font-medium ${hour.is_open ? 'text-ink-800' : 'text-ink-500'}`}>
+                  {WEEKDAYS[hour.weekday]}
+                </span>
                 <Checkbox
                   label="Aberto"
                   checked={hour.is_open}

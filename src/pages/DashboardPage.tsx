@@ -19,7 +19,16 @@ import {
   useToast,
 } from '../components/ui'
 import { Icon } from '../components/icons'
-import { addDaysInputValue, dayBounds, downloadCsv, formatDate, formatMoney, todayInputValue, todayRange } from '../lib/format'
+import {
+  addDaysInputValue,
+  dayBounds,
+  downloadCsv,
+  formatDate,
+  formatMoney,
+  plural,
+  todayInputValue,
+  todayRange,
+} from '../lib/format'
 import { translateError } from '../lib/errors'
 import type { OrderStatus } from '../lib/types'
 
@@ -196,13 +205,13 @@ export default function DashboardPage() {
             valor={producao.length}
             icone="raio"
             tom="marca"
-            detalhe={`${prontos.length} pronto(s) aguardando entrega`}
+            detalhe={`${plural(prontos.length, 'pronto', 'prontos')} aguardando entrega`}
           />
           <StatTile
             rotulo="A receber agora"
             valor={formatMoney(aReceber)}
             icone="dinheiro"
-            detalhe={`${pedidosAbertos.length} conta(s) em aberto`}
+            detalhe={`${plural(pedidosAbertos.length, 'conta', 'contas')} em aberto`}
           />
         </div>
       </section>
@@ -225,7 +234,7 @@ export default function DashboardPage() {
               valor={formatMoney(data?.net_valid_cents ?? 0)}
               icone="dinheiro"
               tom="marca"
-              detalhe={`${data?.orders_valid_count ?? 0} pedido(s) válidos`}
+              detalhe={plural(data?.orders_valid_count ?? 0, 'pedido válido', 'pedidos válidos')}
             />
             <StatTile
               rotulo="Recebido"
@@ -258,7 +267,7 @@ export default function DashboardPage() {
             rotulo="Cancelados"
             valor={formatMoney(data?.cancelled_cents ?? 0)}
             tom="vermelho"
-            detalhe={`${data?.orders_cancelled_count ?? 0} pedido(s) — fora da venda válida`}
+            detalhe={`${plural(data?.orders_cancelled_count ?? 0, 'pedido', 'pedidos')} fora da venda válida`}
           />
         </div>
       </section>
@@ -279,40 +288,60 @@ export default function DashboardPage() {
             />
           ) : (
             <div className="space-y-3">
-              <div className="flex h-48 items-end gap-1 overflow-x-auto pb-1">
-                {pontos.map((point) => {
-                  const altura = Math.max(3, (point.net_cents / maxNet) * 100)
-                  const destaque = point.net_cents === maxNet
-                  return (
-                    <div
-                      key={point.bucket_start}
-                      className="group flex min-w-[26px] flex-1 flex-col items-center justify-end gap-1"
-                    >
-                      <span className="num text-[10px] font-medium text-ink-500 opacity-0 transition group-hover:opacity-100">
-                        {formatMoney(point.net_cents)}
-                      </span>
-                      <div
-                        className={`w-full rounded-t transition-all duration-200 group-hover:opacity-90 ${
-                          destaque ? 'bg-brand-600' : 'bg-brand-400'
-                        }`}
-                        style={{ height: `${altura}%` }}
-                        title={`${formatDate(point.bucket_start)}: ${formatMoney(point.net_cents)} em ${point.orders_count} pedido(s)`}
-                      />
-                      <span className="whitespace-nowrap text-[10px] text-ink-500">
-                        {new Date(point.bucket_start).toLocaleDateString('pt-BR', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          timeZone: settings.data?.timezone ?? 'America/Fortaleza',
-                        })}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
+              {(() => {
+                // Altura em pixels (e não em %): porcentagem dentro de uma coluna
+                // de altura automática colapsa — era o motivo de a barra de um
+                // único dia não aparecer no gráfico.
+                const ALTURA_MAXIMA = 150
+                const mostrarValores = pontos.length <= 10
+                return (
+                  <div className="scroll-thin flex items-end gap-1.5 overflow-x-auto pb-1" style={{ minHeight: ALTURA_MAXIMA + 44 }}>
+                    {pontos.map((point) => {
+                      const altura = Math.max(6, Math.round((point.net_cents / maxNet) * ALTURA_MAXIMA))
+                      const destaque = point.net_cents === maxNet
+                      const titulo = `${formatDate(point.bucket_start)}: ${formatMoney(point.net_cents)} em ${plural(point.orders_count, 'pedido', 'pedidos')}`
+                      return (
+                        <div
+                          key={point.bucket_start}
+                          className="group flex min-w-[38px] flex-1 flex-col items-center justify-end gap-1"
+                          title={titulo}
+                        >
+                          <span
+                            className={`num whitespace-nowrap text-[10px] font-medium text-ink-500 transition ${
+                              mostrarValores ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                            }`}
+                          >
+                            {formatMoney(point.net_cents)}
+                          </span>
+                          <div
+                            className={`w-full max-w-[52px] rounded-t-md transition-all duration-200 group-hover:opacity-90 ${
+                              destaque ? 'bg-brand-600' : 'bg-brand-400'
+                            }`}
+                            style={{ height: altura }}
+                          />
+                          <span className="whitespace-nowrap text-[10px] text-ink-500">
+                            {new Date(point.bucket_start).toLocaleDateString('pt-BR', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              timeZone: settings.data?.timezone ?? 'America/Fortaleza',
+                            })}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              })()}
 
               <div className="flex flex-wrap gap-2 border-t border-ink-100 pt-3">
-                <Badge tone="brand">Salão: {data?.dine_in.orders_count ?? 0} pedido(s) · {formatMoney(data?.dine_in.net_cents ?? 0)}</Badge>
-                <Badge tone="blue">Delivery: {data?.delivery.orders_count ?? 0} pedido(s) · {formatMoney(data?.delivery.net_cents ?? 0)}</Badge>
+                <Badge tone="brand">
+                  Salão: {plural(data?.dine_in.orders_count ?? 0, 'pedido', 'pedidos')} ·{' '}
+                  {formatMoney(data?.dine_in.net_cents ?? 0)}
+                </Badge>
+                <Badge tone="blue">
+                  Delivery: {plural(data?.delivery.orders_count ?? 0, 'pedido', 'pedidos')} ·{' '}
+                  {formatMoney(data?.delivery.net_cents ?? 0)}
+                </Badge>
               </div>
             </div>
           )}
@@ -332,7 +361,7 @@ export default function DashboardPage() {
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[13px] font-medium text-ink-800">{product.product_name}</span>
-                    <span className="text-[11px] text-ink-500">{product.quantity} unidade(s)</span>
+                    <span className="text-[11px] text-ink-500">{plural(product.quantity, 'unidade', 'unidades')}</span>
                   </span>
                   <span className="num shrink-0 text-[13px] font-semibold text-ink-900">
                     {formatMoney(product.total_cents)}

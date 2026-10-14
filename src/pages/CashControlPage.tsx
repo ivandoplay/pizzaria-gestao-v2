@@ -20,7 +20,7 @@ import {
   useToast,
 } from '../components/ui'
 import { Icon } from '../components/icons'
-import { formatDateTime, formatMoney, newClientUuid, parseMoneyToCents } from '../lib/format'
+import { formatDateTime, formatMoney, newClientUuid, parseMoneyToCents, plural } from '../lib/format'
 import { translateError } from '../lib/errors'
 import { CASH_CATEGORY_LABELS } from '../lib/types'
 
@@ -228,7 +228,7 @@ export default function CashControlPage() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatTile rotulo="Fundo de troco" valor={formatMoney(current.opening_amount_cents)} icone="cofre" detalhe="Valor inicial em gaveta" />
         <StatTile rotulo="Vendas em dinheiro" valor={formatMoney(current.cash_sales_cents)} icone="dinheiro" tom="verde" detalhe="Recebimentos em espécie do turno" />
-        <StatTile rotulo="Entradas manuais" valor={formatMoney(totais.entradas)} icone="mais" detalhe={`${totais.automaticas} lançamento(s) automático(s) no total`} />
+        <StatTile rotulo="Entradas manuais" valor={formatMoney(totais.entradas)} icone="mais" detalhe={`${plural(totais.automaticas, 'lançamento automático', 'lançamentos automáticos')} no total`} />
         <StatTile rotulo="Saídas" valor={formatMoney(totais.saidas)} icone="menos" tom="vermelho" detalhe="Sangrias e despesas" />
       </div>
 

@@ -1,23 +1,30 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useMenu } from '../lib/hooks'
 import * as api from '../lib/api'
 import {
   Badge,
   Button,
+  Callout,
   Card,
   ConfirmDialog,
   DataTable,
   EmptyState,
   ErrorBlock,
   Field,
+  IconButton,
   Input,
   LoadingBlock,
   Modal,
+  PageHeader,
+  SearchInput,
+  SegmentedControl,
   Select,
+  StatTile,
   Textarea,
   useToast,
 } from '../components/ui'
+import { Icon } from '../components/icons'
 import { formatMoney, parseMoneyToCents } from '../lib/format'
 import { translateError } from '../lib/errors'
 import type { Category, ModifierGroup, ModifierOption, Product, ProductSize } from '../lib/types'
@@ -31,24 +38,59 @@ export default function MenuAdminPage() {
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['menu'] })
 
-  if (menu.isLoading) return <LoadingBlock label="Carregando o cardápio…" />
+  const resumo = useMemo(() => {
+    const produtos = menu.data?.products ?? []
+    const variantes = menu.data?.variants ?? []
+    const semPreco = produtos.filter(
+      (produto) => !variantes.some((variante) => variante.product_id === produto.id && variante.is_available),
+    ).length
+    return {
+      ativos: produtos.filter((produto) => produto.is_active).length,
+      indisponiveis: produtos.filter((produto) => produto.is_active && !produto.is_available).length,
+      semPreco,
+      categorias: (menu.data?.categories ?? []).filter((categoria) => categoria.is_active).length,
+      adicionais: (menu.data?.options ?? []).filter((opcao) => opcao.is_available).length,
+    }
+  }, [menu.data])
+
+  if (menu.isLoading && !menu.data) return <LoadingBlock label="Carregando o cardápio…" linhas={6} />
   if (menu.error) return <ErrorBlock message={translateError(menu.error)} onRetry={() => void menu.refetch()} />
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap gap-2">
-        {(
-          [
-            ['produtos', 'Produtos e preços'],
-            ['categorias', 'Categorias'],
-            ['tamanhos', 'Tamanhos'],
-            ['adicionais', 'Adicionais'],
-          ] as [Tab, string][]
-        ).map(([key, label]) => (
-          <Button key={key} variant={tab === key ? 'primary' : 'secondary'} size="sm" onClick={() => setTab(key)}>
-            {label}
-          </Button>
-        ))}
+    <div>
+      <PageHeader
+        titulo="Cardápio"
+        descricao="Produtos, preços por tamanho, categorias e adicionais. Nada é apagado: desativar preserva o histórico de vendas."
+        acoes={
+          <IconButton
+            nome="atualizar"
+            titulo="Recarregar cardápio"
+            variant="secondary"
+            onClick={() => void menu.refetch()}
+            disabled={menu.isFetching}
+          />
+        }
+      />
+
+      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatTile rotulo="Produtos ativos" valor={resumo.ativos} icone="cardapio" tom="marca" detalhe={`${resumo.categorias} categorias ativas`} />
+        <StatTile rotulo="Sem preço cadastrado" valor={resumo.semPreco} icone="alerta" tom={resumo.semPreco > 0 ? 'ambar' : 'verde'} detalhe="não aparecem para venda" />
+        <StatTile rotulo="Indisponíveis hoje" valor={resumo.indisponiveis} icone="relogio" tom="ambar" detalhe="ativo, mas fora do lançamento" />
+        <StatTile rotulo="Adicionais disponíveis" valor={resumo.adicionais} icone="soma" detalhe="opções de complemento" />
+      </div>
+
+      <div className="mb-5">
+        <SegmentedControl<Tab>
+          valor={tab}
+          onChange={setTab}
+          opcoes={[
+            { valor: 'produtos', rotulo: 'Produtos e preços', icone: 'pizza' },
+            { valor: 'categorias', rotulo: 'Categorias', icone: 'lista' },
+            { valor: 'tamanhos', rotulo: 'Tamanhos', icone: 'mesa' },
+            { valor: 'adicionais', rotulo: 'Adicionais', icone: 'soma' },
+          ]}
+          className="flex-wrap"
+        />
       </div>
 
       {tab === 'produtos' && <ProductsTab menu={menu.data!} refresh={refresh} />}
@@ -76,6 +118,19 @@ function ProductsTab({ menu, refresh }: { menu: NonNullable<ReturnType<typeof us
   const [busy, setBusy] = useState(false)
   const [deactivating, setDeactivating] = useState<Product | null>(null)
   const [pricesFor, setPricesFor] = useState<Product | null>(null)
+  const [busca, setBusca] = useState('')
+  const [categoriaFiltro, setCategoriaFiltro] = useState('')
+
+  const filtrados = useMemo(() => {
+    const termo = busca.trim().toLowerCase()
+    return menu.products.filter((produto) => {
+      const combinaBusca = termo
+        ? produto.name.toLowerCase().includes(termo) || (produto.description ?? '').toLowerCase().includes(termo)
+        : true
+      const combinaCategoria = categoriaFiltro ? produto.category_id === categoriaFiltro : true
+      return combinaBusca && combinaCategoria
+    })
+  }, [busca, categoriaFiltro, menu.products])
 
   const pizzaSizes = menu.sizes.filter((size) => size.kind === 'pizza' && size.is_active)
   const otherSizes = menu.sizes.filter((size) => size.kind === 'other' && size.is_active)
@@ -134,21 +189,51 @@ function ProductsTab({ menu, refresh }: { menu: NonNullable<ReturnType<typeof us
   return (
     <>
       <Card
-        title={`Produtos (${menu.products.length})`}
-        actions={<Button size="sm" onClick={() => setEditing({ kind: 'simple', is_available: true, is_active: true })}>+ Novo produto</Button>}
+        icone="pizza"
+        title={`Produtos${busca ? ` — filtrados (${filtrados.length})` : ` (${menu.products.length})`}`}
+        descricao="Os preços por tamanho são definidos em “Preços”. Alterar valores não muda pedidos já registrados."
+        padded={false}
+        actions={
+          <>
+            <div className="w-full sm:w-64">
+              <SearchInput value={busca} onValueChange={setBusca} placeholder="Buscar produto…" />
+            </div>
+            <Select
+              value={categoriaFiltro}
+              onChange={(event) => setCategoriaFiltro(event.target.value)}
+              className="w-full sm:w-48"
+            >
+              <option value="">Todas as categorias</option>
+              {menu.categories.map((categoria) => (
+                <option key={categoria.id} value={categoria.id}>
+                  {categoria.name}
+                </option>
+              ))}
+            </Select>
+            <Button
+              icone="mais"
+              onClick={() => setEditing({ kind: 'simple', is_available: true, is_active: true })}
+            >
+              Novo produto
+            </Button>
+          </>
+        }
       >
+        <div className="p-3.5">
         <DataTable
-          rows={menu.products}
+          rows={filtrados}
           rowKey={(row) => row.id}
-          emptyMessage="Nenhum produto cadastrado."
+          maxHeight="60vh"
+          emptyMessage="Nenhum produto encontrado"
+          emptyDescription="Ajuste a busca ou o filtro de categoria — itens desativados também aparecem aqui."
           columns={[
             {
               key: 'name',
               header: 'Produto',
               render: (row) => (
                 <div>
-                  <p className="font-medium text-slate-800">{row.name}</p>
-                  {row.description && <p className="text-[11px] text-slate-500">{row.description}</p>}
+                  <p className="font-medium text-ink-800">{row.name}</p>
+                  {row.description && <p className="text-[11px] text-ink-500">{row.description}</p>}
                 </div>
               ),
             },
@@ -174,9 +259,12 @@ function ProductsTab({ menu, refresh }: { menu: NonNullable<ReturnType<typeof us
               render: (row) => {
                 const variants = menu.variants.filter((variant) => variant.product_id === row.id)
                 return (
-                  <div className="text-xs text-slate-600">
+                  <div className="text-xs text-ink-600">
                     {variants.length === 0 ? (
-                      <span className="text-amber-700">sem preço cadastrado</span>
+                      <span className="inline-flex items-center gap-1 font-medium text-amber-700">
+                        <Icon nome="alerta" className="h-3.5 w-3.5" />
+                        sem preço — não aparece no lançamento
+                      </span>
                     ) : (
                       variants
                         .map((variant) => {
@@ -194,28 +282,43 @@ function ProductsTab({ menu, refresh }: { menu: NonNullable<ReturnType<typeof us
               header: '',
               align: 'right',
               render: (row) => (
-                <div className="flex flex-wrap justify-end gap-1">
-                  <Button size="sm" variant="secondary" onClick={() => setPricesFor(row)}>
-                    Preços
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setEditing(row)}>
-                    Editar
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => toggleAvailable(row)}>
-                    {row.is_available ? 'Marcar indisponível' : 'Disponibilizar'}
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setDeactivating(row)}>
-                    {row.is_active ? 'Desativar' : 'Reativar'}
-                  </Button>
+                <div className="flex justify-end gap-1">
+                  <IconButton
+                    nome="dinheiro"
+                    titulo="Definir preços por tamanho"
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setPricesFor(row)}
+                  />
+                  <IconButton nome="lapis" titulo="Editar produto" size="sm" variant="ghost" onClick={() => setEditing(row)} />
+                  <IconButton
+                    nome={row.is_available ? 'relogio' : 'check'}
+                    titulo={row.is_available ? 'Marcar como indisponível hoje' : 'Voltar a disponibilizar'}
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => toggleAvailable(row)}
+                  />
+                  <IconButton
+                    nome="cadeado"
+                    titulo={row.is_active ? 'Desativar produto' : 'Reativar produto'}
+                    size="sm"
+                    variant="ghost"
+                    className={row.is_active ? 'text-red-600 hover:bg-red-50' : 'text-emerald-700 hover:bg-emerald-50'}
+                    onClick={() => setDeactivating(row)}
+                  />
                 </div>
               ),
             },
           ]}
         />
-        <p className="mt-2 text-[11px] text-slate-500">
-          Produtos nunca são apagados: desativar preserva o histórico de vendas. Alterar preços aqui não muda pedidos já
-          registrados.
-        </p>
+        </div>
+        <div className="border-t border-ink-100 bg-ink-50/60 p-4">
+          <ul className="list-disc space-y-1 pl-5 text-xs leading-relaxed text-ink-500">
+            <li>Produtos nunca são apagados: desativar preserva o histórico e os relatórios.</li>
+            <li>“Indisponível” tira o item do lançamento de pedidos sem mexer no cadastro.</li>
+            <li>Preços valem apenas para pedidos futuros — os pedidos guardam o valor do momento da venda.</li>
+          </ul>
+        </div>
       </Card>
 
       <Modal
@@ -338,6 +441,18 @@ function PricesModal({
     return variant ? (variant.price_cents / 100).toFixed(2).replace('.', ',') : ''
   }
 
+  // Abre com os preços atuais no campo: o operador edita o que precisa e vê o que mudou.
+  useEffect(() => {
+    if (!product) {
+      setValues({})
+      return
+    }
+    const inicio: Record<string, string> = {}
+    for (const size of sizes) inicio[size.id] = current(size.id)
+    setValues(inicio)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product?.id, sizes.length])
+
   async function save() {
     if (!product) return
     setBusy(true)
@@ -377,19 +492,37 @@ function PricesModal({
       {product && (
         <div className="space-y-3">
           {sizes.length === 0 && <p className="text-sm text-amber-700">Cadastre tamanhos antes de definir preços.</p>}
-          {sizes.map((size) => (
-            <Field key={size.id} label={size.name} hint={size.kind === 'pizza' ? `até ${size.max_flavors} sabor(es)` : undefined}>
-              <Input
-                inputMode="decimal"
-                placeholder={current(size.id) || '0,00'}
-                value={values[size.id] ?? ''}
-                onChange={(event) => setValues({ ...values, [size.id]: event.target.value })}
-              />
-            </Field>
-          ))}
-          <p className="text-[11px] text-slate-500">
-            Deixe em branco os tamanhos que não devem ser alterados. Preços novos valem apenas para pedidos futuros.
-          </p>
+          {sizes.map((size) => {
+            const atual = current(size.id)
+            const digitado = values[size.id] ?? ''
+            const mudou = atual !== digitado.trim()
+            return (
+              <Field
+                key={size.id}
+                label={size.name}
+                hint={
+                  mudou
+                    ? `Mudando de ${atual ? `R$ ${atual}` : 'sem preço'} para R$ ${digitado || '0,00'}`
+                    : size.kind === 'pizza'
+                      ? `até ${size.max_flavors} sabor(es) · atual R$ ${atual || '—'}`
+                      : `atual R$ ${atual || '—'}`
+                }
+              >
+                <div className="flex items-center gap-2">
+                  <Input
+                    inputMode="decimal"
+                    placeholder="0,00"
+                    value={digitado}
+                    onChange={(event) => setValues({ ...values, [size.id]: event.target.value })}
+                  />
+                  {mudou && <Badge tone="amber">alterado</Badge>}
+                </div>
+              </Field>
+            )
+          })}
+          <Callout tom="info">
+            Preços novos valem apenas para pedidos futuros. Deixar um campo com o valor atual mantém o preço como está.
+          </Callout>
         </div>
       )}
     </Modal>
@@ -469,7 +602,7 @@ function CategoriesTab({ categories, refresh }: { categories: Category[]; refres
             },
           ]}
         />
-        <p className="mt-2 text-[11px] text-slate-500">
+        <p className="mt-2 text-[11px] text-ink-500">
           Desativar uma categoria não apaga produtos nem histórico de vendas.
         </p>
       </Card>
@@ -594,7 +727,7 @@ function SizesTab({ sizes, refresh }: { sizes: ProductSize[]; refresh: () => voi
             },
           ]}
         />
-        <p className="mt-2 text-[11px] text-slate-500">
+        <p className="mt-2 text-[11px] text-ink-500">
           O tamanho define quantos sabores a pizza aceita (até 2: sabor único ou meio a meio).
         </p>
       </Card>
@@ -751,8 +884,8 @@ function ModifiersTab({
               header: 'Grupo',
               render: (row) => (
                 <div>
-                  <p className="font-medium text-slate-800">{row.name}</p>
-                  {row.description && <p className="text-[11px] text-slate-500">{row.description}</p>}
+                  <p className="font-medium text-ink-800">{row.name}</p>
+                  {row.description && <p className="text-[11px] text-ink-500">{row.description}</p>}
                 </div>
               ),
             },
@@ -774,7 +907,7 @@ function ModifiersTab({
                         onClick={() =>
                           setOptionForm({ ...option, price_cents: option.price_cents })
                         }
-                        className="rounded border border-slate-300 px-2 py-0.5 text-[11px] text-slate-700 hover:border-brand-400"
+                        className="rounded border border-ink-300 px-2 py-0.5 text-[11px] text-ink-700 hover:border-brand-400"
                         title="Editar opção (preço em reais será pedido abaixo)"
                       >
                         {option.name} · {formatMoney(option.price_cents)}
@@ -794,7 +927,7 @@ function ModifiersTab({
                   .filter((link) => link.group_id === row.id)
                   .map((link) => products.find((product) => product.id === link.product_id)?.name)
                   .filter(Boolean)
-                return <span className="text-xs text-slate-600">{linkedProducts.length === 0 ? 'nenhum produto' : linkedProducts.join(', ')}</span>
+                return <span className="text-xs text-ink-600">{linkedProducts.length === 0 ? 'nenhum produto' : linkedProducts.join(', ')}</span>
               },
             },
             {
@@ -917,7 +1050,7 @@ function ModifiersTab({
           {products.map((product) => {
             const linked = links.some((link) => link.group_id === linkFor?.id && link.product_id === product.id)
             return (
-              <label key={product.id} className="flex items-center gap-2 rounded px-2 py-1 text-sm hover:bg-slate-50">
+              <label key={product.id} className="flex items-center gap-2 rounded px-2 py-1 text-sm hover:bg-ink-50">
                 <input
                   type="checkbox"
                   checked={linked}
@@ -931,10 +1064,10 @@ function ModifiersTab({
                       toast.error(translateError(error))
                     }
                   }}
-                  className="h-4 w-4 rounded border-slate-300 text-brand-600"
+                  className="h-4 w-4 rounded border-ink-300 text-brand-600"
                 />
                 {product.name}
-                <span className="text-[11px] text-slate-500">{product.kind === 'pizza' ? '(pizza)' : ''}</span>
+                <span className="text-[11px] text-ink-500">{product.kind === 'pizza' ? '(pizza)' : ''}</span>
               </label>
             )
           })}

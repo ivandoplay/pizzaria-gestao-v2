@@ -21,15 +21,23 @@ Projeto novo → arquitetura definida do zero, compatível com **Vercel + Supaba
 - [x] **Etapa 7 — Qualidade:** suíte SQL real (00–07) no PostgreSQL 17 local, 25 testes Vitest,
   typecheck, build de produção e documentação (README + `docs/`).
 
+## Revisão de interface e correções (14/10/2026) — concluída
+
+Design system próprio (`src/components/ui.tsx`, `src/components/icons.tsx`, tokens em `tailwind.config.js`),
+12 correções de bugs reais (forma de pagamento exibida como UUID, diálogo usado como formulário, fechamento de
+caixa sem valor contado, `window.prompt` em operações sensíveis, endereço incompleto no delivery, campo de dinheiro
+"pulando" o cursor, impressão existente e nunca usada etc.) e bundle dividido por tela. Detalhes na seção 5.5 de
+`docs/ENTREGA.md`. **Nenhuma alteração de banco, RPC, RLS ou regra de negócio.**
+
 ## Verificações executadas (resultados reais)
 
 | Verificação | Resultado |
 |---|---|
 | Migrações 0001–0008 em banco limpo | aplicam sem erro |
 | `bash tools/run-sql-tests.sh` (00–07) | **280 asserções, 0 falhas** (inclui concorrência real) |
-| `npm test` (Vitest) | **28/28** |
+| `npm test` (Vitest) | **33/33** |
 | `npm run typecheck` (tsc) | exit 0 |
-| `npx vite build` | exit 0 — `dist/` (587 kB / 162 kB gzip) |
+| `npx vite build` | exit 0 — `dist/` (chunk principal 479 kB / 138 kB gzip + chunk por tela) |
 | `npm run dev` | telas servidas (HTTP 200) |
 
 ## Decisões de ambiente (sem credenciais externas nesta sessão)

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext'
@@ -7,6 +7,7 @@ import {
   useMenu,
   useOrderItems,
   useOrders,
+  usePaymentMethods,
   usePayments,
   useSettings,
   useStatusHistory,
@@ -15,10 +16,27 @@ import {
 import * as api from '../lib/api'
 import { OrderComposer, type MenuData } from '../components/OrderComposer'
 import { PaymentModal } from '../components/PaymentPanel'
-import { Button, Card, ConfirmDialog, ErrorBlock, LoadingBlock, Modal, useToast } from '../components/ui'
-import { formatDateTime, formatMoney, formatTime, newClientUuid, timeAgo } from '../lib/format'
+import {
+  Badge,
+  Button,
+  Callout,
+  Card,
+  ConfirmDialog,
+  EmptyState,
+  ErrorBlock,
+  Field,
+  IconButton,
+  Input,
+  LoadingBlock,
+  Modal,
+  PageHeader,
+  StatusPill,
+  useToast,
+} from '../components/ui'
+import { Icon } from '../components/icons'
+import { duracaoDesde, formatDateTime, formatMoney, formatTime, newClientUuid } from '../lib/format'
 import { translateError } from '../lib/errors'
-import { ORDER_STATUS_LABELS, type CartItem, type OrderStatus } from '../lib/types'
+import { ORDER_STATUS_LABELS, TABLE_STATUS_LABELS, type CartItem, type OrderItemOverview, type OrderOverview, type OrderStatus } from '../lib/types'
 
 export default function TableSessionPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
@@ -31,16 +49,23 @@ export default function TableSessionPage() {
   const menu = useMenu()
   const settings = useSettings()
   const orders = useOrders({ sessionId, limit: 100 })
+  const metodos = usePaymentMethods(true)
 
   const [cart, setCart] = useState<CartItem[]>([])
   const [sending, setSending] = useState(false)
   const [paymentOrder, setPaymentOrder] = useState<string | null>(null)
   const [closing, setClosing] = useState(false)
-  const [closeDialog, setCloseDialog] = useState<{ force: boolean; reason: string } | null>(null)
+  const [closeDialog, setCloseDialog] = useState<{ reason: string } | null>(null)
   const [statusModalOrder, setStatusModalOrder] = useState<string | null>(null)
   const [cancelItem, setCancelItem] = useState<{ id: string; label: string } | null>(null)
   const [cancelReason, setCancelReason] = useState('')
   const [busy, setBusy] = useState(false)
+  const [agora, setAgora] = useState(() => Date.now())
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setAgora(Date.now()), 30_000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   const tableRow = tables.data?.find((table) => table.open_session_id === sessionId) ?? null
   const orderList = useMemo(() => orders.data ?? [], [orders.data])
@@ -54,13 +79,19 @@ export default function TableSessionPage() {
 
   const activeSession = tableRow?.status !== 'available' && tableRow?.open_session_id === sessionId
   const totals = {
-    subtotal: sessionOrders.reduce((sum, order) => sum + order.subtotal_cents, 0),
-    discount: sessionOrders.reduce((sum, order) => sum + order.discount_cents, 0),
-    total: sessionOrders.reduce((sum, order) => sum + order.total_cents, 0),
-    paid: sessionOrders.reduce((sum, order) => sum + order.paid_cents, 0),
+    subtotal: sessionOrders.reduce((soma, order) => soma + order.subtotal_cents, 0),
+    discount: sessionOrders.reduce((soma, order) => soma + order.discount_cents, 0),
+    total: sessionOrders.reduce((soma, order) => soma + order.total_cents, 0),
+    paid: sessionOrders.reduce((soma, order) => soma + order.paid_cents, 0),
+    change: sessionOrders.reduce((soma, order) => soma + order.change_given_cents, 0),
   }
-  const balance = totals.total - totals.paid
+  const balance = Math.max(totals.total - totals.paid, 0)
   const canClose = isManager || profile?.role === 'admin'
+  const nomeMetodo = (id: string) => metodos.data?.find((metodo) => metodo.id === id)?.label ?? 'forma não identificada'
+  const itensAtivos = items.filter((item) => !item.is_cancelled)
+  const emProducao = sessionOrders.filter((order) =>
+    ['received', 'confirmed', 'preparing', 'ready'].includes(order.status),
+  ).length
 
   async function handleSendOrder() {
     if (!sessionId || cart.length === 0) return
@@ -79,7 +110,8 @@ export default function TableSessionPage() {
         })),
       }
       const order = await api.createOrder(payload, newClientUuid())
-      toast.success(`Pedido #${(order as unknown as { order_number: number }).order_number} enviado para a produção.`)
+      const numero = (order as unknown as { order_number: number }).order_number
+      toast.success(`Pedido #${numero} enviado para a produção.`)
       setCart([])
       invalidateOrderData(queryClient)
     } catch (error) {
@@ -93,7 +125,7 @@ export default function TableSessionPage() {
     setBusy(true)
     try {
       await api.advanceOrderStatus(orderId, status)
-      toast.success(`Pedido atualizado para "${ORDER_STATUS_LABELS[status]}".`)
+      toast.success(`Pedido atualizado para “${ORDER_STATUS_LABELS[status]}”.`)
       invalidateOrderData(queryClient)
       setStatusModalOrder(null)
     } catch (error) {
@@ -107,8 +139,8 @@ export default function TableSessionPage() {
     if (!cancelItem) return
     setBusy(true)
     try {
-      await api.cancelOrderItem(cancelItem.id, cancelReason)
-      toast.success('Item cancelado e valores recalculados.')
+      await api.cancelOrderItem(cancelItem.id, cancelReason.trim())
+      toast.success('Item cancelado. O valor da conta foi recalculado.')
       invalidateOrderData(queryClient)
       setCancelItem(null)
       setCancelReason('')
@@ -129,8 +161,8 @@ export default function TableSessionPage() {
       })) as { balance_cents: number }
       toast.success(
         result.balance_cents > 0
-          ? 'Conta encerrada com saldo pendente registrado na auditoria.'
-          : 'Conta fechada e mesa liberada.',
+          ? `Conta encerrada com saldo pendente de ${formatMoney(result.balance_cents)} — registrado na auditoria.`
+          : 'Conta fechada e mesa liberada para o próximo atendimento.',
       )
       invalidateOrderData(queryClient)
       setCloseDialog(null)
@@ -142,13 +174,66 @@ export default function TableSessionPage() {
     }
   }
 
-  if (tables.isLoading || menu.isLoading || settings.isLoading) return <LoadingBlock label="Carregando atendimento…" />
+  /** Comanda de produção: o que a cozinha precisa saber, item por item. */
+  function imprimirComanda(order: OrderOverview) {
+    const itensDoPedido = items.filter((item) => item.order_id === order.id && !item.is_cancelled)
+    api.printReceipt({
+      title: 'Comanda de produção',
+      subtitle: `${tableRow?.name ?? `Mesa ${tableRow?.number ?? ''}`} · pedido #${order.order_number}`,
+      lines: [
+        { label: 'Abertura', value: formatDateTime(tableRow?.opened_at ?? order.created_at) },
+        { label: 'Lançado por', value: order.created_by_name },
+        { label: 'Situação', value: ORDER_STATUS_LABELS[order.status], emphasis: true },
+        { label: 'Pessoas na mesa', value: String(tableRow?.guest_count ?? '—') },
+      ],
+      items: itensDoPedido.map((item) => itemParaImpressao(item)),
+      footer: 'Conferir a mesa antes de entregar.',
+    })
+  }
+
+  /** Recibo do cliente com o total da conta e os recebimentos registrados. */
+  function imprimirRecibo(order?: OrderOverview) {
+    const itens = order ? items.filter((item) => item.order_id === order.id && !item.is_cancelled) : itensAtivos
+    const pedidos = order ? [order] : sessionOrders
+    const recebido = pedidos.reduce((soma, pedido) => soma + pedido.paid_cents, 0)
+    const total = pedidos.reduce((soma, pedido) => soma + pedido.total_cents, 0)
+    const recebimentos = (payments.data ?? []).filter(
+      (payment) => payment.status === 'confirmed' && pedidos.some((pedido) => pedido.id === payment.order_id),
+    )
+    const troco = recebimentos.reduce((soma, payment) => soma + payment.change_cents, 0)
+
+    api.printReceipt({
+      title: 'Recibo do cliente',
+      subtitle: `${tableRow?.name ?? `Mesa ${tableRow?.number ?? ''}`} · atendimento aberto em ${formatTime(tableRow?.opened_at)}`,
+      lines: [
+        { label: 'Pedidos', value: pedidos.map((pedido) => `#${pedido.order_number}`).join(', ') },
+        { label: 'Subtotal', value: formatMoney(totals.subtotal) },
+        ...(totals.discount > 0 ? [{ label: 'Desconto', value: `- ${formatMoney(totals.discount)}` }] : []),
+        { label: 'Total', value: formatMoney(total), emphasis: true },
+        { label: 'Recebido', value: formatMoney(recebido) },
+        { label: 'Saldo a pagar', value: formatMoney(Math.max(total - recebido, 0)), emphasis: true },
+        ...(troco > 0 ? [{ label: 'Troco entregue', value: formatMoney(troco) }] : []),
+        ...recebimentos.map((payment) => ({
+          label: `Pgto. ${nomeMetodo(payment.method_id)}`,
+          value: formatMoney(payment.amount_cents),
+        })),
+      ],
+      items: itens.map((item) => itemParaImpressao(item)),
+      footer: 'Documento não fiscal. Obrigado pela preferência!',
+    })
+  }
+
+  if (tables.isLoading || menu.isLoading || settings.isLoading) {
+    return <LoadingBlock label="Carregando o atendimento…" linhas={6} />
+  }
   if (tables.error) return <ErrorBlock message={translateError(tables.error)} onRetry={() => void tables.refetch()} />
   if (!tableRow || !sessionId) {
     return (
-      <div className="space-y-3">
-        <ErrorBlock message="Atendimento não encontrado. A mesa pode já ter sido fechada por outro usuário." />
-        <Button variant="secondary" onClick={() => navigate('/mesas')}>
+      <div className="space-y-4">
+        <Callout tom="atencao" titulo="Atendimento não encontrado">
+          A mesa pode já ter sido fechada por outro usuário. Os pedidos continuam disponíveis no histórico.
+        </Callout>
+        <Button variant="secondary" icone="seta-esquerda" onClick={() => navigate('/mesas')}>
           Voltar para as mesas
         </Button>
       </div>
@@ -165,199 +250,231 @@ export default function TableSessionPage() {
     links: menu.data?.links ?? [],
   }
 
-  const itemsByOrder = new Map<string, typeof items>()
+  const itemsByOrder = new Map<string, OrderItemOverview[]>()
   for (const item of items) {
-    const list = itemsByOrder.get(item.order_id) ?? []
-    list.push(item)
-    itemsByOrder.set(item.order_id, list)
+    const lista = itemsByOrder.get(item.order_id) ?? []
+    lista.push(item)
+    itemsByOrder.set(item.order_id, lista)
   }
 
-  return (
-    <div className="space-y-4">
-      {/* Cabeçalho da mesa */}
-      <Card padded={false}>
-        <div className="flex flex-wrap items-center justify-between gap-3 p-3">
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
-            <div>
-              <p className="text-[11px] uppercase tracking-wide text-slate-500">Mesa</p>
-              <p className="text-base font-semibold text-slate-900">
-                {tableRow.name ?? `Mesa ${tableRow.number}`}
-              </p>
-            </div>
-            <div>
-              <p className="text-[11px] uppercase tracking-wide text-slate-500">Abertura</p>
-              <p className="text-slate-800">
-                {formatTime(tableRow.opened_at)} ({timeAgo(tableRow.opened_at)})
-              </p>
-            </div>
-            <div>
-              <p className="text-[11px] uppercase tracking-wide text-slate-500">Responsável</p>
-              <p className="text-slate-800">{tableRow.opened_by_name ?? '—'}</p>
-            </div>
-            <div>
-              <p className="text-[11px] uppercase tracking-wide text-slate-500">Pessoas</p>
-              <p className="text-slate-800">{tableRow.guest_count ?? '—'}</p>
-            </div>
-            <div>
-              <p className="text-[11px] uppercase tracking-wide text-slate-500">Total / Saldo</p>
-              <p className="font-semibold text-slate-900">
-                {formatMoney(totals.total)}{' '}
-                <span className={balance > 0 ? 'text-brand-700' : 'text-emerald-700'}>
-                  ({balance > 0 ? `falta ${formatMoney(balance)}` : 'quitada'})
-                </span>
-              </p>
-            </div>
-          </div>
+  const totalCart = cart.reduce((soma, item) => soma + item.preview.unit_price_cents * item.quantity, 0)
+  const quantidadeCart = cart.reduce((soma, item) => soma + item.quantity, 0)
 
-          <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" size="sm" onClick={() => navigate('/mesas')}>
-              ← Mesas
+  return (
+    <div>
+      <PageHeader
+        titulo={tableRow.name ?? `Mesa ${tableRow.number}`}
+        descricao={`Aberta em ${formatTime(tableRow.opened_at)} (${duracaoDesde(tableRow.opened_at, agora)}) · ${
+          tableRow.opened_by_name ?? 'sem responsável'
+        }${tableRow.guest_count ? ` · ${tableRow.guest_count} pessoa(s)` : ''}`}
+        selo={
+          <Badge
+            tone={tableRow.status === 'attention' ? 'red' : tableRow.status === 'occupied' ? 'amber' : 'blue'}
+            ponto
+          >
+            {TABLE_STATUS_LABELS[tableRow.status]}
+          </Badge>
+        }
+        voltar={
+          <IconButton
+            nome="seta-esquerda"
+            titulo="Voltar para as mesas"
+            variant="secondary"
+            onClick={() => navigate('/mesas')}
+          />
+        }
+        acoes={
+          <>
+            <IconButton
+              nome="atualizar"
+              titulo="Atualizar agora"
+              variant="secondary"
+              onClick={() => {
+                invalidateOrderData(queryClient)
+                void tables.refetch()
+              }}
+            />
+            <Button variant="secondary" icone="imprimir" onClick={() => imprimirRecibo()} disabled={itensAtivos.length === 0}>
+              Recibo
             </Button>
             {canClose && (
               <Button
-                size="sm"
                 variant={balance > 0 ? 'secondary' : 'success'}
-                onClick={() => setCloseDialog({ force: false, reason: '' })}
+                icone={balance > 0 ? 'dinheiro' : 'check'}
+                onClick={() => setCloseDialog({ reason: '' })}
                 disabled={sessionOrders.length === 0}
               >
-                Fechar conta
+                {balance > 0 ? 'Fechar conta' : 'Fechar conta e liberar'}
               </Button>
             )}
-          </div>
-        </div>
-      </Card>
+          </>
+        }
+      />
 
       {!activeSession && (
-        <ErrorBlock message="Este atendimento já foi encerrado. Os pedidos continuam disponíveis no histórico." />
+        <div className="mb-4">
+          <Callout tom="atencao" titulo="Atendimento encerrado">
+            Esta mesa já foi liberada. Os pedidos continuam disponíveis no histórico, mas novos itens não podem ser
+            lançados.
+          </Callout>
+        </div>
       )}
 
-      <div className="grid gap-4 xl:grid-cols-[1.15fr_1fr]">
-        {/* Pedidos da sessão */}
+      {/* Resumo financeiro da conta */}
+      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Resumo rotulo="Total da conta" valor={formatMoney(totals.total)} detalhe={`${sessionOrders.length} pedido(s) · ${itensAtivos.length} item(ns)`} icone="dinheiro" />
+        <Resumo rotulo="Recebido" valor={formatMoney(totals.paid)} detalhe={totals.change > 0 ? `troco ${formatMoney(totals.change)}` : 'sem troco registrado'} icone="check" tom="verde" />
+        <Resumo rotulo="Falta receber" valor={formatMoney(balance)} detalhe={balance > 0 ? 'registre o pagamento antes de fechar' : 'conta quitada'} icone="relogio" tom={balance > 0 ? 'marca' : 'verde'} />
+        <Resumo rotulo="Em produção" valor={String(emProducao)} detalhe="pedidos ainda não entregues" icone="raio" tom={emProducao > 0 ? 'ambar' : 'neutro'} />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[1.1fr_1fr]">
+        {/* Pedidos do atendimento */}
         <Card
-          title={`Pedidos do atendimento (${sessionOrders.length})`}
-          actions={<span className="text-xs text-slate-500">Atualiza automaticamente</span>}
+          title="Pedidos do atendimento"
+          descricao="Atualiza automaticamente quando alguém lança ou altera um pedido."
+          icone="historico"
+          actions={<Badge tone="slate">{sessionOrders.length}</Badge>}
+          padded={false}
         >
-          {orders.isLoading ? (
-            <LoadingBlock label="Carregando pedidos…" />
-          ) : sessionOrders.length === 0 && orderList.filter((o) => o.is_cancelled).length === 0 ? (
-            <p className="py-6 text-center text-sm text-slate-500">
-              Nenhum pedido lançado ainda. Monte o pedido ao lado e envie para a produção.
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {orderList.map((order) => {
-                const orderItemList = itemsByOrder.get(order.id) ?? []
-                const orderPayments = (payments.data ?? []).filter((payment) => payment.order_id === order.id)
-                return (
-                  <div
-                    key={order.id}
-                    className={`rounded-lg border p-3 ${order.is_cancelled ? 'border-red-200 bg-red-50' : 'border-slate-200'}`}
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-slate-800">#{order.order_number}</span>
-                        <StatusBadge status={order.status} />
-                        <span className="text-[11px] text-slate-500">
-                          {formatTime(order.created_at)} · {order.created_by_name}
-                        </span>
+          <div className="p-3 sm:p-4">
+            {orders.isLoading ? (
+              <LoadingBlock label="Carregando pedidos…" linhas={4} />
+            ) : orderList.length === 0 ? (
+              <EmptyState
+                icone="cardapio"
+                title="Nenhum pedido lançado ainda"
+                description="Monte o pedido ao lado e envie para a produção — ele aparece aqui na hora."
+              />
+            ) : (
+              <ul className="space-y-3">
+                {orderList.map((order) => {
+                  const itensDoPedido = itemsByOrder.get(order.id) ?? []
+                  const pagamentosDoPedido = (payments.data ?? []).filter(
+                    (payment) => payment.order_id === order.id,
+                  )
+                  return (
+                    <li
+                      key={order.id}
+                      className={`overflow-hidden rounded-card border shadow-card ${
+                        order.is_cancelled ? 'border-red-200 bg-red-50/60' : 'border-ink-200 bg-white'
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink-100 px-3.5 py-2.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-sm font-semibold text-ink-900">#{order.order_number}</span>
+                          <StatusPill status={order.status} />
+                          {order.account_closed_at && <Badge tone="slate">conta fechada</Badge>}
+                        </div>
+                        <div className="flex items-center gap-3 text-right">
+                          <span className="text-[11px] text-ink-500">
+                            {formatTime(order.created_at)} · {order.created_by_name}
+                          </span>
+                          <span className="num text-sm font-semibold text-ink-900">
+                            {formatMoney(order.total_cents)}
+                          </span>
+                        </div>
                       </div>
-                      <div className="text-right text-sm">
-                        <span className="font-semibold text-slate-800">{formatMoney(order.total_cents)}</span>
-                        {order.discount_cents > 0 && (
-                          <span className="ml-2 text-[11px] text-slate-500">
-                            desc. {formatMoney(order.discount_cents)}
+
+                      <ul className="divide-y divide-ink-100">
+                        {itensDoPedido.map((item) => (
+                          <li
+                            key={item.id}
+                            className={`flex items-start justify-between gap-3 px-3.5 py-2.5 text-[13px] ${
+                              item.is_cancelled ? 'bg-ink-50/50 text-ink-400' : 'text-ink-700'
+                            }`}
+                          >
+                            <div className="min-w-0">
+                              <p className={item.is_cancelled ? 'line-through' : ''}>
+                                <span className="num font-semibold text-ink-900">{item.quantity}×</span>{' '}
+                                <span className="font-medium">{item.product_name}</span>
+                                <span className="text-ink-500"> ({item.size_name})</span>
+                              </p>
+                              {item.flavors.length > 1 && (
+                                <p className="text-[11px] text-ink-500">
+                                  Sabores: {item.flavors.map((flavor) => flavor.name).join(' + ')}
+                                </p>
+                              )}
+                              {item.modifiers.length > 0 && (
+                                <p className="text-[11px] text-ink-500">
+                                  {item.modifiers.map((modifier) => modifier.option_name).join(', ')}
+                                </p>
+                              )}
+                              {item.notes && <p className="text-[11px] italic text-ink-500">“{item.notes}”</p>}
+                              {item.is_cancelled && item.cancel_reason && (
+                                <p className="text-[11px] font-medium text-red-600">
+                                  cancelado: {item.cancel_reason}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex shrink-0 items-center gap-2.5 whitespace-nowrap">
+                              <span className="num">{formatMoney(item.total_cents)}</span>
+                              {isManager && !item.is_cancelled && !order.account_closed_at && (
+                                <IconButton
+                                  nome="lixeira"
+                                  titulo="Cancelar este item"
+                                  size="sm"
+                                  variant="ghost"
+                                  className="text-ink-400 hover:bg-red-50 hover:text-red-600"
+                                  onClick={() =>
+                                    setCancelItem({ id: item.id, label: `${item.quantity}× ${item.product_name}` })
+                                  }
+                                />
+                              )}
+                            </div>
+                          </li>
+                        ))}
+                        {itensDoPedido.length === 0 && (
+                          <li className="px-3.5 py-2.5 text-xs text-ink-500">Itens não disponíveis para consulta.</li>
+                        )}
+                      </ul>
+
+                      {pagamentosDoPedido.length > 0 && (
+                        <div className="border-t border-ink-100 bg-ink-50/60 px-3.5 py-2 text-[11px] text-ink-600">
+                          Recebimentos:{' '}
+                          {pagamentosDoPedido
+                            .map(
+                              (payment) =>
+                                `${formatMoney(payment.amount_cents)} em ${nomeMetodo(payment.method_id)}${
+                                  payment.status === 'reversed' ? ' (estornado)' : ''
+                                }`,
+                            )
+                            .join(' · ')}
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap items-center gap-2 border-t border-ink-100 px-3.5 py-2.5">
+                        <Button size="sm" variant="secondary" icone="relogio" onClick={() => setStatusModalOrder(order.id)}>
+                          Situação
+                        </Button>
+                        <Button size="sm" variant="secondary" icone="imprimir" onClick={() => imprimirComanda(order)}>
+                          Comanda
+                        </Button>
+                        {isManager && !order.account_closed_at && !order.is_cancelled && (
+                          <Button size="sm" icone="dinheiro" onClick={() => setPaymentOrder(order.id)}>
+                            Receber
+                          </Button>
+                        )}
+                        {order.account_closed_at && (
+                          <span className="text-[11px] text-emerald-700">
+                            Conta fechada em {formatDateTime(order.account_closed_at)}
                           </span>
                         )}
                       </div>
-                    </div>
-
-                    <ul className="mt-2 space-y-1">
-                      {orderItemList.map((item) => (
-                        <li
-                          key={item.id}
-                          className={`flex items-start justify-between gap-2 text-xs ${item.is_cancelled ? 'text-slate-400 line-through' : 'text-slate-700'}`}
-                        >
-                          <div>
-                            <span className="font-medium">
-                              {item.quantity}× {item.product_name}
-                            </span>{' '}
-                            <span className="text-slate-500">({item.size_name})</span>
-                            {item.flavors.length > 1 && (
-                              <span className="block text-[11px] text-slate-500">
-                                Sabores: {item.flavors.map((flavor) => flavor.name).join(' + ')}
-                              </span>
-                            )}
-                            {item.modifiers.length > 0 && (
-                              <span className="block text-[11px] text-slate-500">
-                                {item.modifiers.map((modifier) => modifier.option_name).join(', ')}
-                              </span>
-                            )}
-                            {item.notes && <span className="block text-[11px] italic text-slate-500">{item.notes}</span>}
-                            {item.is_cancelled && item.cancel_reason && (
-                              <span className="block text-[11px] text-red-600">cancelado: {item.cancel_reason}</span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 whitespace-nowrap">
-                            <span>{formatMoney(item.total_cents)}</span>
-                            {isManager && !item.is_cancelled && !order.account_closed_at && (
-                              <button
-                                className="text-[11px] text-red-600 hover:underline"
-                                onClick={() => setCancelItem({ id: item.id, label: `${item.quantity}× ${item.product_name}` })}
-                              >
-                                cancelar
-                              </button>
-                            )}
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-
-                    {orderPayments.length > 0 && (
-                      <div className="mt-2 border-t border-slate-100 pt-1 text-[11px] text-slate-600">
-                        Recebimentos:{' '}
-                        {orderPayments
-                          .map(
-                            (payment) =>
-                              `${formatMoney(payment.amount_cents)} (${payment.method_id}${payment.status === 'reversed' ? ' estornado' : ''})`,
-                          )
-                          .join(' · ')}
-                      </div>
-                    )}
-
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <button
-                        onClick={() => setStatusModalOrder(order.id)}
-                        className="text-[11px] text-brand-700 hover:underline"
-                      >
-                        acompanhar situação
-                      </button>
-                      {isManager && !order.account_closed_at && !order.is_cancelled && (
-                        <button
-                          onClick={() => setPaymentOrder(order.id)}
-                          className="text-[11px] text-brand-700 hover:underline"
-                        >
-                          registrar pagamento
-                        </button>
-                      )}
-                      {order.account_closed_at && (
-                        <span className="text-[11px] text-emerald-700">
-                          conta fechada em {formatDateTime(order.account_closed_at)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
         </Card>
 
-        {/* Compositor de novo pedido */}
-        <div className="space-y-3">
+        {/* Novo pedido */}
+        <div className="space-y-4">
           {activeSession && profile ? (
             <>
-              <Card title="Novo pedido" padded={false}>
-                <div className="p-3">
+              <Card title="Novo pedido" descricao="Monte os itens e envie para a produção." icone="pizza" padded={false}>
+                <div className="p-3 sm:p-4">
                   <OrderComposer
                     menu={menuData}
                     halfRule={settings.data?.half_and_half_price_rule ?? 'highest'}
@@ -367,26 +484,43 @@ export default function TableSessionPage() {
                   />
                 </div>
               </Card>
-              <div className="sticky bottom-3 rounded-lg border border-slate-200 bg-white p-3 shadow-lg">
-                <div className="mb-2 flex items-center justify-between text-sm">
-                  <span className="text-slate-600">Itens: {cart.reduce((sum, item) => sum + item.quantity, 0)}</span>
-                  <span className="font-semibold text-slate-900">
-                    Prévia: {formatMoney(cart.reduce((sum, item) => sum + item.preview.unit_price_cents * item.quantity, 0))}
-                  </span>
+
+              <div className="sticky bottom-20 z-10 rounded-card border border-ink-200 bg-white p-4 shadow-float lg:bottom-4">
+                <div className="mb-3 flex items-end justify-between gap-3">
+                  <div>
+                    <p className="rotulo">Prévia do pedido</p>
+                    <p className="text-xs text-ink-500">
+                      {quantidadeCart === 0
+                        ? 'Nenhum item na lista'
+                        : `${quantidadeCart} item(ns) em ${cart.length} linha(s)`}
+                    </p>
+                  </div>
+                  <p className="num text-xl font-semibold text-ink-900">{formatMoney(totalCart)}</p>
                 </div>
-                <Button className="w-full" size="lg" onClick={handleSendOrder} loading={sending} disabled={cart.length === 0}>
+                <Button
+                  block
+                  size="lg"
+                  icone="seta-direita"
+                  onClick={handleSendOrder}
+                  loading={sending}
+                  disabled={cart.length === 0}
+                >
                   Enviar pedido para a produção
                 </Button>
-                <p className="mt-1 text-center text-[11px] text-slate-500">
-                  Cliques repetidos não duplicam o pedido: o envio é idempotente.
+                <p className="mt-2 flex items-center justify-center gap-1.5 text-[11px] text-ink-500">
+                  <Icon nome="cadeado" className="h-3.5 w-3.5" />
+                  O envio é idempotente: cliques repetidos não duplicam o pedido.
                 </p>
               </div>
             </>
           ) : (
-            <Card title="Atendimento encerrado">
-              <p className="text-sm text-slate-600">
+            <Card title="Atendimento encerrado" icone="cadeado">
+              <p className="text-sm text-ink-600">
                 Esta mesa foi liberada. Para lançar novos itens, inicie um novo atendimento no mapa de mesas.
               </p>
+              <Button className="mt-3" variant="secondary" icone="mesas" onClick={() => navigate('/mesas')}>
+                Ir para as mesas
+              </Button>
             </Card>
           )}
         </div>
@@ -397,48 +531,84 @@ export default function TableSessionPage() {
         <PaymentModal
           orderId={paymentOrder}
           orderNumber={orderList.find((order) => order.id === paymentOrder)?.order_number ?? 0}
-          balanceCents={
-            (orderList.find((order) => order.id === paymentOrder)?.total_cents ?? 0) -
-            (orderList.find((order) => order.id === paymentOrder)?.paid_cents ?? 0)
-          }
+          balanceCents={(orderList.find((order) => order.id === paymentOrder)?.total_cents ?? 0) -
+            (orderList.find((order) => order.id === paymentOrder)?.paid_cents ?? 0)}
+          descricaoPedido={`${tableRow.name ?? `Mesa ${tableRow.number}`} · ${TABLE_STATUS_LABELS[tableRow.status]}`}
           onClose={() => setPaymentOrder(null)}
+          onImprimirRecibo={() => {
+            const pedido = orderList.find((order) => order.id === paymentOrder)
+            setTimeout(() => imprimirRecibo(pedido), 150)
+          }}
         />
       )}
 
-      {/* Situação do pedido */}
+      {/* Acompanhamento da situação */}
       <Modal
         open={Boolean(statusModalOrder)}
         title="Acompanhamento do pedido"
+        descricao={
+          statusModalOrder
+            ? `Pedido #${orderList.find((order) => order.id === statusModalOrder)?.order_number ?? ''} — cada mudança fica registrada com autor e horário.`
+            : undefined
+        }
         onClose={() => setStatusModalOrder(null)}
         size="md"
       >
         {statusModalOrder && (
-          <div className="space-y-3">
-            <div className="flex flex-wrap gap-2">
-              {buildAllowedTransitions(
-                orderList.find((order) => order.id === statusModalOrder)?.status ?? 'received',
-                profile?.role ?? 'waiter',
-              ).map((status) => (
-                <Button key={status} size="sm" onClick={() => handleStatusChange(statusModalOrder, status)} loading={busy}>
-                  Marcar como {ORDER_STATUS_LABELS[status]}
-                </Button>
-              ))}
-            </div>
+          <div className="space-y-5">
             <div>
-              <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Histórico</h4>
+              <p className="rotulo mb-2">Próximo passo permitido</p>
+              <div className="flex flex-wrap gap-2">
+                {buildAllowedTransitions(
+                  orderList.find((order) => order.id === statusModalOrder)?.status ?? 'received',
+                  profile?.role ?? 'waiter',
+                ).map((status) => (
+                  <Button
+                    key={status}
+                    size="sm"
+                    variant={status === 'cancelled' ? 'danger' : 'primary'}
+                    loading={busy}
+                    onClick={() => handleStatusChange(statusModalOrder, status)}
+                  >
+                    Marcar como {ORDER_STATUS_LABELS[status]}
+                  </Button>
+                ))}
+                {buildAllowedTransitions(
+                  orderList.find((order) => order.id === statusModalOrder)?.status ?? 'received',
+                  profile?.role ?? 'waiter',
+                ).length === 0 && (
+                  <p className="text-sm text-ink-500">
+                    {profile?.role === 'waiter'
+                      ? 'Você (garçom) confirma a entrega apenas quando o pedido está pronto. O preparo é conduzido pelo caixa.'
+                      : 'Nenhuma mudança disponível para esta situação.'}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <p className="rotulo mb-2">Histórico de mudanças</p>
               {history.isLoading ? (
-                <LoadingBlock label="Carregando histórico…" />
+                <LoadingBlock label="Carregando histórico…" linhas={2} />
+              ) : (history.data ?? []).length === 0 ? (
+                <p className="text-sm text-ink-500">Nenhuma mudança registrada ainda.</p>
               ) : (
-                <ul className="space-y-1 text-xs text-slate-600">
+                <ol className="relative space-y-3 border-l border-ink-200 pl-4">
                   {(history.data ?? []).map((entry) => (
-                    <li key={entry.id}>
-                      {formatDateTime(entry.changed_at)} — de “{entry.from_status ? ORDER_STATUS_LABELS[entry.from_status as OrderStatus] : '—'}”
-                      para “{ORDER_STATUS_LABELS[entry.to_status as OrderStatus]}”
-                      {entry.notes ? ` · ${entry.notes}` : ''}
+                    <li key={entry.id} className="relative">
+                      <span className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full bg-brand-500 ring-4 ring-white" />
+                      <p className="text-[13px] font-medium text-ink-800">
+                        {entry.from_status
+                          ? `${ORDER_STATUS_LABELS[entry.from_status as OrderStatus]} → ${ORDER_STATUS_LABELS[entry.to_status as OrderStatus]}`
+                          : ORDER_STATUS_LABELS[entry.to_status as OrderStatus]}
+                      </p>
+                      <p className="text-[11px] text-ink-500">
+                        {formatDateTime(entry.changed_at)}
+                        {entry.notes ? ` · ${entry.notes}` : ''}
+                      </p>
                     </li>
                   ))}
-                  {(history.data ?? []).length === 0 && <li>Nenhuma mudança registrada ainda.</li>}
-                </ul>
+                </ol>
               )}
             </div>
           </div>
@@ -448,8 +618,8 @@ export default function TableSessionPage() {
       {/* Cancelar item */}
       <ConfirmDialog
         open={Boolean(cancelItem)}
-        title="Cancelar item"
-        confirmLabel="Cancelar item"
+        title="Cancelar item da conta"
+        confirmLabel="Confirmar cancelamento"
         tone="danger"
         loading={busy}
         onCancel={() => {
@@ -458,19 +628,22 @@ export default function TableSessionPage() {
         }}
         onConfirm={confirmCancelItem}
         message={
-          <div className="space-y-2">
+          <div className="space-y-3">
             <p>
               Item: <strong>{cancelItem?.label}</strong>
             </p>
-            <input
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-              placeholder="Motivo do cancelamento (obrigatório)"
-              value={cancelReason}
-              onChange={(event) => setCancelReason(event.target.value)}
-            />
-            <p className="text-xs text-slate-500">
-              O item não é apagado: fica marcado como cancelado, com motivo, responsável e horário.
-            </p>
+            <Field label="Motivo do cancelamento" obrigatorio hint="Mínimo de 3 caracteres.">
+              <Input
+                value={cancelReason}
+                onChange={(event) => setCancelReason(event.target.value)}
+                placeholder="ex.: cliente desistiu, item lançado errado"
+                autoFocus
+              />
+            </Field>
+            <Callout tom="info">
+              O item não é apagado: fica marcado como cancelado com motivo, responsável e horário, e o total da conta
+              é recalculado.
+            </Callout>
           </div>
         }
       />
@@ -479,6 +652,7 @@ export default function TableSessionPage() {
       <Modal
         open={Boolean(closeDialog)}
         title="Fechar conta da mesa"
+        descricao={tableRow.name ?? `Mesa ${tableRow.number}`}
         onClose={() => setCloseDialog(null)}
         size="sm"
         footer={
@@ -498,6 +672,7 @@ export default function TableSessionPage() {
             )}
             <Button
               variant="success"
+              icone="check"
               loading={closing}
               disabled={balance > 0}
               onClick={() => handleCloseAccount(false)}
@@ -507,30 +682,41 @@ export default function TableSessionPage() {
           </>
         }
       >
-        <div className="space-y-3 text-sm">
-          <div className="rounded-md border border-slate-200 p-3">
-            <Row label="Subtotal" value={formatMoney(totals.subtotal)} />
-            <Row label="Descontos" value={`- ${formatMoney(totals.discount)}`} />
-            <Row label="Total" value={formatMoney(totals.total)} emphasis />
-            <Row label="Recebido" value={formatMoney(totals.paid)} />
-            <Row label="Saldo" value={formatMoney(balance)} emphasis />
+        <div className="space-y-4 text-sm">
+          <div className="rounded-card border border-ink-200 bg-ink-50/60 p-4">
+            <Linha rotulo="Subtotal" valor={formatMoney(totals.subtotal)} />
+            <Linha rotulo="Descontos" valor={`- ${formatMoney(totals.discount)}`} />
+            <Linha rotulo="Total" valor={formatMoney(totals.total)} destaque />
+            <Linha rotulo="Recebido" valor={formatMoney(totals.paid)} />
+            {totals.change > 0 && <Linha rotulo="Troco entregue" valor={formatMoney(totals.change)} />}
+            <div className="mt-1 border-t border-ink-200 pt-1">
+              <Linha
+                rotulo={balance > 0 ? 'Falta receber' : 'Conta quitada'}
+                valor={formatMoney(balance)}
+                destaque
+                cor={balance > 0 ? 'text-brand-700' : 'text-emerald-700'}
+              />
+            </div>
           </div>
 
           {balance > 0 ? (
-            <div className="space-y-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-900">
-              <p className="text-xs">
-                Ainda há saldo pendente. Registre os pagamentos antes de fechar — o banco recusa fechar conta com saldo
-                (o fechamento excepcional é exclusivo do administrador e fica auditado).
-              </p>
-              <input
-                className="w-full rounded-md border border-amber-300 px-3 py-2 text-sm"
-                placeholder="Justificativa (obrigatória para fechamento excepcional)"
-                value={closeDialog?.reason ?? ''}
-                onChange={(event) => setCloseDialog({ force: true, reason: event.target.value })}
-              />
+            <div className="space-y-3">
+              <Callout tom="atencao" titulo="Ainda há saldo pendente">
+                Registre os recebimentos antes de fechar: o banco recusa fechar conta com saldo. O fechamento
+                excepcional é exclusivo do administrador e fica gravado na auditoria.
+              </Callout>
+              {profile?.role === 'admin' && (
+                <Field label="Justificativa do fechamento excepcional" obrigatorio hint="Mínimo de 3 caracteres.">
+                  <Input
+                    value={closeDialog?.reason ?? ''}
+                    onChange={(event) => setCloseDialog({ reason: event.target.value })}
+                    placeholder="ex.: cliente saiu sem pagar o restante"
+                  />
+                </Field>
+              )}
             </div>
           ) : (
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-ink-500">
               Ao confirmar, os pedidos ficam com a conta encerrada e a mesa é liberada para o próximo atendimento.
             </p>
           )}
@@ -540,27 +726,71 @@ export default function TableSessionPage() {
   )
 }
 
-function Row({ label, value, emphasis }: { label: string; value: string; emphasis?: boolean }) {
+function Resumo({
+  rotulo,
+  valor,
+  detalhe,
+  icone,
+  tom = 'neutro',
+}: {
+  rotulo: string
+  valor: string
+  detalhe: string
+  icone: 'dinheiro' | 'check' | 'relogio' | 'raio'
+  tom?: 'neutro' | 'verde' | 'marca' | 'ambar'
+}) {
+  const cores = {
+    neutro: 'border-ink-200 bg-white',
+    verde: 'border-emerald-200 bg-emerald-50/60',
+    marca: 'border-brand-200 bg-brand-50/60',
+    ambar: 'border-amber-200 bg-amber-50/60',
+  }
   return (
-    <div className="flex justify-between py-0.5">
-      <span className="text-slate-600">{label}</span>
-      <span className={emphasis ? 'font-semibold text-slate-900' : 'text-slate-800'}>{value}</span>
+    <div className={`rounded-card border p-3.5 shadow-card ${cores[tom]}`}>
+      <div className="flex items-center justify-between gap-2">
+        <p className="rotulo">{rotulo}</p>
+        <Icon nome={icone} className="h-4 w-4 text-ink-400" />
+      </div>
+      <p className="num mt-1.5 text-xl font-semibold text-ink-900">{valor}</p>
+      <p className="mt-0.5 text-[11px] text-ink-500">{detalhe}</p>
     </div>
   )
 }
 
-function StatusBadge({ status }: { status: OrderStatus }) {
-  const tones: Record<OrderStatus, string> = {
-    received: 'bg-slate-100 text-slate-700',
-    confirmed: 'bg-blue-100 text-blue-800',
-    preparing: 'bg-amber-100 text-amber-900',
-    ready: 'bg-emerald-100 text-emerald-800',
-    delivered_to_table: 'bg-emerald-100 text-emerald-800',
-    out_for_delivery: 'bg-indigo-100 text-indigo-800',
-    delivered: 'bg-emerald-100 text-emerald-800',
-    cancelled: 'bg-red-100 text-red-800',
+function Linha({
+  rotulo,
+  valor,
+  destaque,
+  cor = 'text-ink-800',
+}: {
+  rotulo: string
+  valor: string
+  destaque?: boolean
+  cor?: string
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 py-0.5">
+      <span className={destaque ? 'font-medium text-ink-700' : 'text-ink-500'}>{rotulo}</span>
+      <span className={`num ${destaque ? 'text-base font-semibold' : 'font-medium'} ${cor}`}>{valor}</span>
+    </div>
+  )
+}
+
+/** Converte um item do pedido no formato de impressão (comanda/recibo). */
+function itemParaImpressao(item: OrderItemOverview) {
+  const detalhes: string[] = []
+  if (item.size_name) detalhes.push(item.size_name)
+  if (item.flavors.length > 1) detalhes.push(`Sabores: ${item.flavors.map((flavor) => flavor.name).join(' + ')}`)
+  if (item.modifiers.length > 0)
+    detalhes.push(`Adicionais: ${item.modifiers.map((modifier) => modifier.option_name).join(', ')}`)
+  if (item.notes) detalhes.push(`Obs.: ${item.notes}`)
+  return {
+    description: item.product_name,
+    details: detalhes,
+    qty: item.quantity,
+    unit: formatMoney(item.unit_price_cents),
+    total: formatMoney(item.total_cents),
   }
-  return <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${tones[status]}`}>{ORDER_STATUS_LABELS[status]}</span>
 }
 
 /** Transições permitidas por perfil (as mesmas regras são validadas no banco). */

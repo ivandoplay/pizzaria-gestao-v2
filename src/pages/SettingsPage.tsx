@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext'
 import { useBusinessHours, usePaymentMethods, useSettings, useZones } from '../lib/hooks'
@@ -14,6 +14,7 @@ import {
   Input,
   LoadingBlock,
   Modal,
+  PageHeader,
   Select,
   Textarea,
   useToast,
@@ -35,6 +36,15 @@ const TIMEZONES = [
 
 const WEEKDAYS = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado']
 
+/** Tipos de pagamento aceitos pelo banco, com o nome que o operador lê. */
+const TIPOS_PAGAMENTO: { valor: PaymentMethod['kind']; rotulo: string }[] = [
+  { valor: 'cash', rotulo: 'Dinheiro' },
+  { valor: 'pix', rotulo: 'Pix' },
+  { valor: 'debit_card', rotulo: 'Cartão de débito' },
+  { valor: 'credit_card', rotulo: 'Cartão de crédito' },
+  { valor: 'other', rotulo: 'Outro' },
+]
+
 export default function SettingsPage() {
   const toast = useToast()
   const queryClient = useQueryClient()
@@ -52,6 +62,12 @@ export default function SettingsPage() {
   useEffect(() => {
     if (settings.data && !draft) setDraft(settings.data)
   }, [draft, settings.data])
+
+  /** Há alterações digitadas que ainda não foram gravadas? */
+  const sujo = useMemo(
+    () => Boolean(draft && settings.data && JSON.stringify(draft) !== JSON.stringify(settings.data)),
+    [draft, settings.data],
+  )
 
   async function saveSettings() {
     if (!draft) return
@@ -86,22 +102,35 @@ export default function SettingsPage() {
     }
   }
 
-  if (settings.isLoading || !draft) return <LoadingBlock label="Carregando configurações…" />
+  if (settings.isLoading || !draft) return <LoadingBlock label="Carregando configurações…" linhas={6} />
 
   return (
-    <div className="space-y-4">
-      <Card
-        title="Dados da pizzaria"
-        actions={
-          <div className="flex gap-2">
-            <Button size="sm" variant="secondary" onClick={() => settings.data && setDraft(settings.data)} disabled={busy}>
-              Descartar alterações
+    <div>
+      <PageHeader
+        titulo="Configurações"
+        descricao="Dados da pizzaria, formas de pagamento, bairros atendidos e horários. Toda alteração fica registrada na auditoria."
+        selo={sujo ? <Badge tone="amber" ponto>alterações não salvas</Badge> : undefined}
+        acoes={
+          <>
+            <Button
+              variant="secondary"
+              icone="troca"
+              onClick={() => settings.data && setDraft(settings.data)}
+              disabled={busy || !sujo}
+            >
+              Descartar
             </Button>
-            <Button size="sm" onClick={saveSettings} loading={busy}>
+            <Button icone="check" onClick={saveSettings} loading={busy} disabled={!sujo}>
               Salvar configurações
             </Button>
-          </div>
+          </>
         }
+      />
+
+      <Card
+        title="Dados da pizzaria"
+        icone="config"
+        descricao="Estes dados aparecem no topo dos comprovantes impressos."
       >
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Nome fantasia *">
@@ -141,7 +170,7 @@ export default function SettingsPage() {
         </div>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="space-y-2 rounded-md border border-slate-200 p-3">
+          <div className="space-y-2 rounded-md border border-ink-200 p-3">
             <Checkbox
               label="Aceita salão (mesas)"
               checked={draft.accept_dine_in}
@@ -158,20 +187,17 @@ export default function SettingsPage() {
               onChange={(checked) => setDraft({ ...draft, split_payment_enabled: checked })}
             />
           </div>
-          <Field label="Taxa de entrega padrão (R$)">
-            <Input
-              inputMode="decimal"
-              value={(draft.default_delivery_fee_cents / 100).toFixed(2).replace('.', ',')}
-              onChange={(event) => setDraft({ ...draft, default_delivery_fee_cents: parseMoneyToCents(event.target.value) })}
-            />
-          </Field>
-          <Field label="Pedido mínimo para delivery (R$)">
-            <Input
-              inputMode="decimal"
-              value={(draft.min_delivery_order_cents / 100).toFixed(2).replace('.', ',')}
-              onChange={(event) => setDraft({ ...draft, min_delivery_order_cents: parseMoneyToCents(event.target.value) })}
-            />
-          </Field>
+          <CampoDinheiro
+            label="Taxa de entrega padrão (R$)"
+            cents={draft.default_delivery_fee_cents}
+            onChange={(valor) => setDraft({ ...draft, default_delivery_fee_cents: valor })}
+          />
+          <CampoDinheiro
+            label="Pedido mínimo para delivery (R$)"
+            hint="Abaixo deste valor o pedido não pode ser lançado no delivery."
+            cents={draft.min_delivery_order_cents}
+            onChange={(valor) => setDraft({ ...draft, min_delivery_order_cents: valor })}
+          />
           <Field label="Regra do meio a meio" hint="Como cobrar pizza com dois sabores.">
             <Select
               value={draft.half_and_half_price_rule}
@@ -204,16 +230,15 @@ export default function SettingsPage() {
               onChange={(event) => setDraft({ ...draft, max_discount_pct_hard: Number(event.target.value) })}
             />
           </Field>
-          <Field label="Tolerância de divergência de caixa (R$)" hint="Diferenças acima disso exigem justificativa.">
-            <Input
-              inputMode="decimal"
-              value={(draft.cash_variance_tolerance_cents / 100).toFixed(2).replace('.', ',')}
-              onChange={(event) => setDraft({ ...draft, cash_variance_tolerance_cents: parseMoneyToCents(event.target.value) })}
-            />
-          </Field>
+          <CampoDinheiro
+            label="Tolerância de divergência de caixa (R$)"
+            hint="Diferenças acima disso exigem justificativa no fechamento."
+            cents={draft.cash_variance_tolerance_cents}
+            onChange={(valor) => setDraft({ ...draft, cash_variance_tolerance_cents: valor })}
+          />
         </div>
 
-        <p className="mt-3 text-[11px] text-slate-500">
+        <p className="mt-3 text-[11px] text-ink-500">
           Alterações de configuração são auditadas com o valor anterior e o novo. Perfil atual:{' '}
           <strong>{profile?.full_name}</strong> {profile && <Badge tone="brand">{profile.role}</Badge>}
         </p>
@@ -222,6 +247,8 @@ export default function SettingsPage() {
       <div className="grid gap-4 xl:grid-cols-2">
         <Card
           title="Formas de pagamento"
+          icone="dinheiro"
+          descricao="Pix, cartão e dinheiro são registrados manualmente pelo operador."
           actions={
             <Button
               size="sm"
@@ -249,8 +276,16 @@ export default function SettingsPage() {
             rowKey={(row) => row.id}
             emptyMessage="Nenhuma forma cadastrada."
             columns={[
-              { key: 'label', header: 'Forma', render: (row) => row.label },
-              { key: 'kind', header: 'Tipo', render: (row) => row.kind },
+              { key: 'label', header: 'Forma', render: (row) => <span className="font-medium text-ink-800">{row.label}</span> },
+              {
+                key: 'kind',
+                header: 'Tipo',
+                render: (row) => (
+                  <span className="text-xs text-ink-600">
+                    {TIPOS_PAGAMENTO.find((tipo) => tipo.valor === row.kind)?.rotulo ?? row.kind}
+                  </span>
+                ),
+              },
               {
                 key: 'flags',
                 header: 'Comportamento',
@@ -275,7 +310,7 @@ export default function SettingsPage() {
               },
             ]}
           />
-          <p className="mt-2 text-[11px] text-slate-500">
+          <p className="mt-2 text-[11px] text-ink-500">
             Pix, cartão e dinheiro são <strong>registrados manualmente</strong> pelo operador. Não há integração com
             adquirentes nem conciliação automática nesta versão.
           </p>
@@ -283,6 +318,8 @@ export default function SettingsPage() {
 
         <Card
           title="Bairros e taxas de entrega"
+          icone="local"
+          descricao="A taxa do bairro tem prioridade sobre a taxa padrão."
           actions={
             <Button size="sm" variant="secondary" onClick={() => setZoneForm({ neighborhood: '', fee_cents: 0, is_active: true })}>
               + Novo bairro
@@ -322,14 +359,19 @@ export default function SettingsPage() {
         </Card>
       </div>
 
-      <Card title="Horário de funcionamento" actions={<Badge tone="blue">informativo nesta versão</Badge>}>
+      <Card
+        title="Horário de funcionamento"
+        icone="relogio"
+        descricao="Registro informativo: nesta versão o sistema não bloqueia pedidos fora do horário."
+        actions={<Badge tone="blue">informativo</Badge>}
+      >
         {hours.isLoading ? (
           <LoadingBlock />
         ) : (
           <div className="space-y-2">
             {(hours.data ?? []).map((hour) => (
-              <div key={hour.id} className="flex flex-wrap items-center gap-3 rounded-md border border-slate-200 px-3 py-2">
-                <span className="w-32 text-sm text-slate-700">{WEEKDAYS[hour.weekday]}</span>
+              <div key={hour.id} className="flex flex-wrap items-center gap-3 rounded-md border border-ink-200 px-3 py-2">
+                <span className="w-32 text-sm text-ink-700">{WEEKDAYS[hour.weekday]}</span>
                 <Checkbox
                   label="Aberto"
                   checked={hour.is_open}
@@ -360,7 +402,7 @@ export default function SettingsPage() {
                     }
                   }}
                 />
-                <span className="text-slate-400">até</span>
+                <span className="text-ink-400">até</span>
                 <Input
                   type="time"
                   className="w-32"
@@ -377,7 +419,7 @@ export default function SettingsPage() {
                 />
               </div>
             ))}
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-ink-500">
               Os horários são registro informativo: nesta versão o sistema <strong>não</strong> bloqueia pedidos fora do
               horário, nem integra com apps de entrega.
             </p>
@@ -539,5 +581,54 @@ export default function SettingsPage() {
         )}
       </Modal>
     </div>
+  )
+}
+
+/**
+ * Campo de dinheiro com digitação confortável.
+ *
+ * O valor no banco é sempre em centavos, mas o operador digita texto livre
+ * ("12", "12,5", "R$ 12,50"). O campo só normaliza ao sair do foco — assim o
+ * cursor não pula enquanto se digita.
+ */
+function CampoDinheiro({
+  label,
+  hint,
+  cents,
+  onChange,
+  className,
+}: {
+  label: string
+  hint?: string
+  cents: number
+  onChange: (cents: number) => void
+  className?: string
+}) {
+  const formatar = (valor: number) => (valor / 100).toFixed(2).replace('.', ',')
+  const [texto, setTexto] = useState(() => formatar(cents))
+  const digitando = useRef(false)
+
+  useEffect(() => {
+    if (!digitando.current) setTexto(formatar(cents))
+  }, [cents])
+
+  return (
+    <Field label={label} hint={hint} className={className}>
+      <Input
+        inputMode="decimal"
+        value={texto}
+        onFocus={() => {
+          digitando.current = true
+        }}
+        onChange={(event) => {
+          setTexto(event.target.value)
+          onChange(parseMoneyToCents(event.target.value))
+        }}
+        onBlur={() => {
+          digitando.current = false
+          setTexto(formatar(cents))
+        }}
+      />
+    </Field>
   )
 }

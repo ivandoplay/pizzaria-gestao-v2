@@ -64,6 +64,25 @@ export function timeAgo(iso: string | null | undefined): string {
   return `há ${days} dia(s)`
 }
 
+/**
+ * Há quanto tempo um instante aconteceu, em linguagem de operação:
+ * "agora mesmo", "há 12 min", "há 1h35", "há 2 dia(s)".
+ *
+ * Recebe `agora` para que as telas possam recalcular o texto num intervalo
+ * sem depender do relógio do render.
+ */
+export function duracaoDesde(iso: string | null | undefined, agora = Date.now()): string {
+  if (!iso) return '—'
+  const minutos = Math.floor((agora - new Date(iso).getTime()) / 60000)
+  if (Number.isNaN(minutos)) return '—'
+  if (minutos < 1) return 'agora mesmo'
+  if (minutos < 60) return `há ${minutos} min`
+  const horas = Math.floor(minutos / 60)
+  if (horas < 24) return `há ${horas}h${String(minutos % 60).padStart(2, '0')}`
+  const dias = Math.floor(horas / 24)
+  return `há ${dias} dia${dias === 1 ? '' : 's'}`
+}
+
 export function formatPhone(phone: string | null | undefined): string {
   if (!phone) return '—'
   const digits = phone.replace(/\D/g, '')

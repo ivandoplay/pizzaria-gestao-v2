@@ -64,14 +64,14 @@ Execução final: **280 asserções, todas aprovadas**, sem `ERROR` e sem `ASSER
 
 ---
 
-## 3. Testes da aplicação — resultado: **28/28**
+## 3. Testes da aplicação — resultado: **33/33**
 
 `npm test` (Vitest, sem ambiente de navegador):
 
 | Arquivo | Testes | Cobre |
 |---|---|---|
 | `src/lib/pricing.test.ts` | 11 | preço simples, meio a meio (`highest`/`average`), arredondamento, adicionais por unidade, bordas de entrada |
-| `src/lib/format.test.ts` | 9 | BRL com NBSP, `parseMoneyToCents` (vírgula/ponto), datas com fuso `America/Fortaleza`, `newClientUuid`, CSV |
+| `src/lib/format.test.ts` | 14 | BRL com NBSP, `parseMoneyToCents` (vírgula/ponto), datas com fuso `America/Fortaleza`, `duracaoDesde` (tempo de mesa/pedido), `newClientUuid`, CSV |
 | `src/lib/errors.test.ts` | 5 | tradução de códigos do banco, códigos desconhecidos, mensagens do Supabase |
 | `src/lib/supabase.test.ts` | 3 | importar o módulo não cria cliente (regressão do WebSocket em Node), `CONFIGURACAO_PENDENTE` sem env e fuso padrão |
 
@@ -84,11 +84,10 @@ os testes travam esse alinhamento.
 | Comando | Resultado |
 |---|---|
 | `npm run typecheck` (`tsc -b`) | exit 0, sem erros (com `noUnusedLocals`) |
-| `npx vite build` | exit 0 — `dist/index.html` + `assets/index-*.css` (23,9 kB) + `assets/index-*.js` (587 kB / 162 kB gzip) |
+| `npx vite build` | exit 0 — `dist/index.html` + CSS (42 kB / 7,9 kB gzip) + **chunk principal** 479 kB (138 kB gzip) + **um chunk por tela** (6–24 kB cada) |
 
-O aviso de chunk acima de 500 kB é **cosmético** (bibliotecas React/Query/Supabase no bundle único).
-Se incomodar, o caminho é `build.rollupOptions.output.manualChunks` ou `React.lazy` nas páginas
-administrativas — não é correção de bug.
+Desde a revisão de 14/10/2026 as telas são carregadas com `React.lazy`: o garçom baixa o mapa de mesas sem
+carregar cardápio, relatórios e auditoria. O aviso de chunk acima de 500 kB deixou de aparecer.
 
 ---
 

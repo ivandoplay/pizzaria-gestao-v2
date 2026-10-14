@@ -1,100 +1,160 @@
 import { useNavigate } from 'react-router-dom'
 import { useOpenCashSession, useOrders, useTables } from '../lib/hooks'
-import { Badge, Button, Card, EmptyState, ErrorBlock, LoadingBlock } from '../components/ui'
-import { formatMoney, formatTime, timeAgo } from '../lib/format'
+import {
+  Badge,
+  Button,
+  Callout,
+  Card,
+  EmptyState,
+  ErrorBlock,
+  LoadingBlock,
+  PageHeader,
+  StatTile,
+} from '../components/ui'
+import { Icon } from '../components/icons'
+import { duracaoDesde, formatMoney, formatTime } from '../lib/format'
 import { translateError } from '../lib/errors'
-import { ORDER_STATUS_LABELS } from '../lib/types'
+import { ORDER_STATUS_LABELS, type OrderOverview } from '../lib/types'
 
-/** Tela inicial do caixa: situação da operação e atalhos. */
+/** Tela inicial do caixa: situação da operação e atalhos para o que está pendente. */
 export default function CashierHomePage() {
   const navigate = useNavigate()
   const tables = useTables()
   const cash = useOpenCashSession()
   const openOrders = useOrders({ openOnly: true, limit: 200 })
-  const deliveries = useOrders({ serviceMode: 'delivery', statuses: ['received', 'confirmed', 'preparing', 'ready', 'out_for_delivery'], limit: 100 })
+  const deliveries = useOrders({
+    serviceMode: 'delivery',
+    statuses: ['received', 'confirmed', 'preparing', 'ready', 'out_for_delivery'],
+    limit: 100,
+  })
 
-  if (tables.isLoading || cash.isLoading) return <LoadingBlock label="Carregando o painel do caixa…" />
+  if (tables.isLoading && !tables.data) return <LoadingBlock label="Carregando o painel do caixa…" linhas={5} />
   if (tables.error) return <ErrorBlock message={translateError(tables.error)} onRetry={() => void tables.refetch()} />
 
-  const tableList = tables.data ?? []
-  const available = tableList.filter((table) => table.status === 'available')
-  const occupied = tableList.filter((table) => table.status !== 'available' && table.status !== 'inactive')
-  const awaitingClose = tableList.filter((table) => table.status === 'awaiting_close')
-  const orderList = openOrders.data ?? []
-  const deliveryList = deliveries.data ?? []
+  const mesas = tables.data ?? []
+  const livres = mesas.filter((mesa) => mesa.status === 'available')
+  const emUso = mesas.filter((mesa) => mesa.status !== 'available' && mesa.status !== 'inactive')
+  const prontasParaFechar = mesas.filter((mesa) => mesa.status === 'awaiting_close')
+  const pedidosAbertos = openOrders.data ?? []
+  const deliveryEmAndamento = deliveries.data ?? []
 
-  const openBalance = orderList.reduce((sum, order) => sum + order.balance_cents, 0)
+  const saldoSalao = emUso.reduce((soma, mesa) => soma + mesa.balance_cents, 0)
+  const saldoDelivery = deliveryEmAndamento.reduce((soma, pedido) => soma + pedido.balance_cents, 0)
 
   return (
-    <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MiniCard
-          title="Caixa"
-          value={cash.data ? 'Aberto' : 'Fechado'}
-          tone={cash.data ? 'green' : 'red'}
-          footer={
-            cash.data
-              ? `Por ${cash.data.opened_by_name ?? '—'} desde ${formatTime(cash.data.opened_at)} · gaveta ${formatMoney(cash.data.expected_cash_cents)}`
-              : 'Abra o caixa para registrar recebimentos'
-          }
-          action={
-            <Button size="sm" variant="secondary" onClick={() => navigate('/caixa-controle')}>
-              {cash.data ? 'Ver caixa' : 'Abrir caixa'}
-            </Button>
-          }
-        />
-        <MiniCard
-          title="Mesas"
-          value={`${available.length} livres / ${occupied.length} em uso`}
-          tone="blue"
-          footer={`${awaitingClose.length} aguardando fechamento`}
-          action={
-            <Button size="sm" variant="secondary" onClick={() => navigate('/mesas')}>
+    <div>
+      <PageHeader
+        titulo="Caixa"
+        descricao="O que está acontecendo agora no salão e no delivery — e o que precisa do seu caixa."
+        acoes={
+          <>
+            <Button variant="secondary" icone="mesas" onClick={() => navigate('/mesas')}>
               Mapa de mesas
             </Button>
+            {cash.data ? (
+              <Button icone="cofre" onClick={() => navigate('/caixa-controle')}>
+                Ver turno de caixa
+              </Button>
+            ) : (
+              <Button icone="cofre" onClick={() => navigate('/caixa-controle')}>
+                Abrir o caixa
+              </Button>
+            )}
+          </>
+        }
+      />
+
+      {!cash.data && !cash.isLoading && (
+        <div className="mb-5">
+          <Callout
+            tom="atencao"
+            titulo="O caixa está fechado"
+            acoes={
+              <Button size="sm" icone="cofre" onClick={() => navigate('/caixa-controle')}>
+                Abrir agora
+              </Button>
+            }
+          >
+            Recebimentos e movimentos de dinheiro só podem ser registrados com um turno de caixa aberto.
+          </Callout>
+        </div>
+      )}
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatTile
+          rotulo="Turno de caixa"
+          valor={cash.isLoading ? '…' : cash.data ? 'Aberto' : 'Fechado'}
+          icone="cofre"
+          tom={cash.data ? 'verde' : 'vermelho'}
+          detalhe={
+            cash.data
+              ? `Aberto por ${cash.data.opened_by_name ?? '—'} às ${formatTime(cash.data.opened_at)} · gaveta esperada ${formatMoney(cash.data.expected_cash_cents)}`
+              : 'Sem turno aberto — clique em “Abrir o caixa”'
           }
         />
-        <MiniCard
-          title="Delivery em andamento"
-          value={String(deliveryList.length)}
-          tone="brand"
-          footer="Pedidos recebidos por telefone/WhatsApp lançados manualmente"
-          action={
-            <Button size="sm" variant="secondary" onClick={() => navigate('/delivery')}>
-              Abrir delivery
-            </Button>
-          }
+
+        <StatTile
+          rotulo="Mesas no salão"
+          valor={`${livres.length} livres`}
+          icone="mesas"
+          tom="neutro"
+          detalhe={`${emUso.length} em atendimento · ${prontasParaFechar.length} prontas para fechar`}
         />
-        <MiniCard
-          title="Saldo a receber"
-          value={formatMoney(openBalance)}
-          tone="amber"
-          footer={`${orderList.length} conta(s) em aberto`}
-          action={
-            <Button size="sm" variant="secondary" onClick={() => navigate('/mesas')}>
-              Fechar contas
-            </Button>
-          }
+
+        <StatTile
+          rotulo="Delivery em andamento"
+          valor={deliveryEmAndamento.length}
+          icone="entrega"
+          tom="marca"
+          detalhe={`${formatMoney(saldoDelivery)} a receber no delivery`}
+        />
+
+        <StatTile
+          rotulo="A receber no salão"
+          valor={formatMoney(saldoSalao)}
+          icone="dinheiro"
+          tom="ambar"
+          detalhe={`${pedidosAbertos.length} conta(s) em aberto`}
         />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card title="Contas aguardando fechamento">
-          {awaitingClose.length === 0 ? (
-            <EmptyState title="Nenhuma conta pronta para fechar" description="As mesas aparecem aqui quando o valor já foi recebido ou quando o cliente pede a conta." />
+      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+        <Card
+          title="Prontas para fechar"
+          descricao="Mesas com o saldo já recebido ou aguardando apenas a emissão do fechamento."
+          icone="check"
+          actions={
+            <Badge tone={prontasParaFechar.length > 0 ? 'brand' : 'slate'}>{prontasParaFechar.length}</Badge>
+          }
+        >
+          {prontasParaFechar.length === 0 ? (
+            <EmptyState
+              icone="caixa"
+              title="Nenhuma mesa pronta para fechar"
+              description="Quando o cliente pedir a conta ou o pagamento for registrado, a mesa aparece aqui."
+            />
           ) : (
             <ul className="space-y-2">
-              {awaitingClose.map((table) => (
-                <li key={table.id} className="flex items-center justify-between rounded-md border border-blue-200 bg-blue-50 px-3 py-2">
-                  <div>
-                    <p className="text-sm font-medium text-slate-800">{table.name ?? `Mesa ${table.number}`}</p>
-                    <p className="text-[11px] text-slate-600">
-                      Total {formatMoney(table.total_cents)} · recebido {formatMoney(table.paid_cents)} · falta{' '}
-                      {formatMoney(table.balance_cents)}
+              {prontasParaFechar.map((mesa) => (
+                <li
+                  key={mesa.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-sky-200 bg-sky-50/70 px-3.5 py-3"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-ink-900">{mesa.name ?? `Mesa ${mesa.number}`}</p>
+                    <p className="num mt-0.5 text-xs text-ink-600">
+                      Total {formatMoney(mesa.total_cents)} · recebido {formatMoney(mesa.paid_cents)} ·{' '}
+                      <strong className={mesa.balance_cents > 0 ? 'text-brand-700' : 'text-emerald-700'}>
+                        falta {formatMoney(mesa.balance_cents)}
+                      </strong>
                     </p>
                   </div>
-                  <Button size="sm" onClick={() => navigate(`/mesas/${table.open_session_id}`)}>
-                    Fechar conta
+                  <Button
+                    size="sm"
+                    icone="seta-direita"
+                    onClick={() => navigate(`/mesas/${mesa.open_session_id}`)}
+                  >
+                    Receber
                   </Button>
                 </li>
               ))}
@@ -102,64 +162,103 @@ export default function CashierHomePage() {
           )}
         </Card>
 
-        <Card title="Contas em aberto">
-          {orderList.length === 0 ? (
-            <EmptyState title="Nenhuma conta em aberto" />
+        <Card
+          title="Contas em aberto"
+          descricao="Salão e delivery sem fechamento — ordenadas pelas mais recentes."
+          icone="lista"
+          actions={<Badge tone="slate">{pedidosAbertos.length}</Badge>}
+        >
+          {pedidosAbertos.length === 0 ? (
+            <EmptyState icone="caixa" title="Nenhuma conta em aberto" />
           ) : (
-            <ul className="max-h-80 space-y-2 overflow-y-auto scroll-thin">
-              {orderList.slice(0, 25).map((order) => (
-                <li key={order.id} className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2">
-                  <div>
-                    <p className="text-sm font-medium text-slate-800">
-                      #{order.order_number}{' '}
-                      {order.service_mode === 'dine_in'
-                        ? `· ${order.table_number ? `Mesa ${order.table_number}` : 'Salão'}`
-                        : `· ${order.customer_name_snapshot ?? 'Delivery'}`}
-                    </p>
-                    <p className="text-[11px] text-slate-600">
-                      {ORDER_STATUS_LABELS[order.status]} · aberto {timeAgo(order.created_at)} · falta{' '}
-                      {formatMoney(order.balance_cents)}
-                    </p>
-                  </div>
-                  <Badge tone={order.balance_cents > 0 ? 'amber' : 'green'}>
-                    {order.balance_cents > 0 ? 'a receber' : 'quitada'}
-                  </Badge>
-                </li>
+            <ul className="scroll-thin max-h-80 space-y-2 overflow-y-auto pr-1">
+              {pedidosAbertos.slice(0, 40).map((pedido) => (
+                <PedidoLinha key={pedido.id} pedido={pedido} onAbrir={() => abrirPedido(pedido)} />
               ))}
             </ul>
           )}
         </Card>
       </div>
 
-      <p className="text-xs text-slate-500">
-        Dica: pedidos com saldo pendente <strong>não podem</strong> ser marcados como totalmente pagos — o banco recusa
-        e exige pagamento ou procedimento excepcional do administrador, registrado em auditoria.
-      </p>
+      {deliveryEmAndamento.length > 0 && (
+        <div className="mt-4">
+          <Card
+            title="Delivery em andamento"
+            descricao="Pedidos lançados manualmente (telefone/WhatsApp) que ainda não foram entregues."
+            icone="entrega"
+            actions={
+              <Button size="sm" variant="secondary" onClick={() => navigate('/delivery')}>
+                Gerenciar delivery
+              </Button>
+            }
+          >
+            <ul className="grid gap-2 sm:grid-cols-2">
+              {deliveryEmAndamento.slice(0, 8).map((pedido) => (
+                <li key={pedido.id} className="rounded-card border border-ink-200 px-3.5 py-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="truncate text-sm font-semibold text-ink-900">
+                      #{pedido.order_number} · {pedido.customer_name_snapshot ?? 'Cliente'}
+                    </p>
+                    <Badge tone={pedido.balance_cents > 0 ? 'amber' : 'green'} ponto>
+                      {pedido.balance_cents > 0 ? 'a receber' : 'pago'}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-xs text-ink-600">
+                    {ORDER_STATUS_LABELS[pedido.status]} · {duracaoDesde(pedido.created_at)} ·{' '}
+                    {formatMoney(pedido.total_cents)}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </div>
+      )}
+
+      <div className="mt-4">
+        <Callout tom="info" titulo="Regra de fechamento">
+          Pedidos com saldo pendente <strong>não podem</strong> ser marcados como totalmente pagos: o banco recusa
+          e exige registro do pagamento — ou um procedimento excepcional do administrador, que fica gravado na
+          auditoria.
+        </Callout>
+      </div>
     </div>
   )
+
+  function abrirPedido(pedido: OrderOverview) {
+    if (pedido.table_session_id) navigate(`/mesas/${pedido.table_session_id}`)
+    else navigate('/delivery')
+  }
 }
 
-function MiniCard({
-  title,
-  value,
-  footer,
-  tone,
-  action,
-}: {
-  title: string
-  value: string
-  footer: string
-  tone: 'green' | 'red' | 'blue' | 'amber' | 'brand'
-  action?: React.ReactNode
-}) {
+function PedidoLinha({ pedido, onAbrir }: { pedido: OrderOverview; onAbrir: () => void }) {
+  const pago = pedido.balance_cents <= 0
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{title}</p>
-        <Badge tone={tone}>{value}</Badge>
-      </div>
-      <p className="mt-2 text-xs text-slate-600">{footer}</p>
-      {action && <div className="mt-3">{action}</div>}
-    </div>
+    <li>
+      <button
+        onClick={onAbrir}
+        className="flex w-full items-center justify-between gap-3 rounded-card border border-ink-200 px-3.5 py-3 text-left transition hover:border-ink-300 hover:bg-ink-50"
+      >
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium text-ink-900">
+            #{pedido.order_number}{' '}
+            <span className="font-normal text-ink-500">
+              {pedido.service_mode === 'dine_in'
+                ? `· ${pedido.table_number ? `Mesa ${pedido.table_number}` : 'Salão'}`
+                : `· ${pedido.customer_name_snapshot ?? 'Delivery'}`}
+            </span>
+          </p>
+          <p className="mt-0.5 text-xs text-ink-600">
+            {ORDER_STATUS_LABELS[pedido.status]} · aberto {duracaoDesde(pedido.created_at)} ·{' '}
+            {formatMoney(pedido.total_cents)}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <Badge tone={pago ? 'green' : 'amber'} ponto>
+            {pago ? 'quitada' : `falta ${formatMoney(pedido.balance_cents)}`}
+          </Badge>
+          <Icon nome="seta-direita" className="h-4 w-4 text-ink-400" />
+        </div>
+      </button>
+    </li>
   )
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   addDaysInputValue,
   dayBounds,
+  duracaoDesde,
   formatDate,
   formatMoney,
   formatPhone,
@@ -74,5 +75,31 @@ describe('utilidades', () => {
   it('addDaysInputValue devolve datas no formato do campo de calendário', () => {
     expect(addDaysInputValue(0)).toMatch(/^\d{4}-\d{2}-\d{2}$/)
     expect(addDaysInputValue(7) > addDaysInputValue(0)).toBe(true)
+  })
+})
+
+describe('duracaoDesde', () => {
+  const agora = new Date('2026-10-14T20:00:00Z').getTime()
+
+  it('mostra "agora mesmo" para menos de um minuto', () => {
+    expect(duracaoDesde('2026-10-14T20:00:00Z', agora)).toBe('agora mesmo')
+  })
+
+  it('conta minutos até a primeira hora', () => {
+    expect(duracaoDesde('2026-10-14T19:48:00Z', agora)).toBe('há 12 min')
+  })
+
+  it('conta horas e minutos preenchendo com zero', () => {
+    expect(duracaoDesde('2026-10-14T18:25:00Z', agora)).toBe('há 1h35')
+  })
+
+  it('conta dias no plural', () => {
+    expect(duracaoDesde('2026-10-12T20:00:00Z', agora)).toBe('há 2 dias')
+    expect(duracaoDesde('2026-10-13T20:00:00Z', agora)).toBe('há 1 dia')
+  })
+
+  it('trata valor ausente ou inválido', () => {
+    expect(duracaoDesde(null, agora)).toBe('—')
+    expect(duracaoDesde('data-invalida', agora)).toBe('—')
   })
 })

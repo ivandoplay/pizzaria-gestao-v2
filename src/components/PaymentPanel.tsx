@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Button, Field, Input, Modal, useToast } from './ui'
-import { formatMoney, newClientUuid, parseMoneyToCents } from '../lib/format'
+import { Button, Callout, ConfirmDialog, Field, Input, Modal, useToast } from './ui'
+import { Icon, type NomeIcone } from './icons'
+import { formatMoney, formatTime, newClientUuid, parseMoneyToCents } from '../lib/format'
 import { translateError } from '../lib/errors'
 import * as api from '../lib/api'
 import { invalidateOrderData, useOpenCashSession, usePaymentMethods, usePayments } from '../lib/hooks'
+import type { Payment } from '../lib/types'
 
 /**
  * Registro de recebimentos de um pedido.
@@ -17,16 +19,39 @@ import { invalidateOrderData, useOpenCashSession, usePaymentMethods, usePayments
  *  - o valor nunca pode passar do saldo pendente;
  *  - o recebimento exige um caixa aberto.
  */
+
+const ICONE_POR_TIPO: Record<string, NomeIcone> = {
+  cash: 'dinheiro',
+  pix: 'qr',
+  debit_card: 'cartao',
+  credit_card: 'cartao',
+  other: 'soma',
+}
+
+const TAXA_POR_TIPO: Record<string, string> = {
+  pix: 'cobrança',
+  debit_card: 'débito',
+  credit_card: 'crédito',
+  cash: 'espécie',
+  other: '',
+}
+
 export function PaymentModal({
   orderId,
   orderNumber,
   balanceCents,
+  descricaoPedido,
   onClose,
+  onImprimirRecibo,
 }: {
   orderId: string
   orderNumber: number
   balanceCents: number
+  /** Texto curto que identifica o pedido na tela (ex.: "Mesa 3 · salão"). */
+  descricaoPedido?: string
   onClose: () => void
+  /** Chamado depois de um recebimento confirmado, para imprimir o comprovante. */
+  onImprimirRecibo?: () => void
 }) {
   const toast = useToast()
   const queryClient = useQueryClient()
@@ -40,19 +65,34 @@ export function PaymentModal({
   const [note, setNote] = useState('')
   const [isPrepaid, setIsPrepaid] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [estorno, setEstorno] = useState<Payment | null>(null)
+  const [motivoEstorno, setMotivoEstorno] = useState('')
 
   const activeMethods = useMemo(() => methods.data ?? [], [methods.data])
   const selectedMethod = activeMethods.find((method) => method.id === methodId) ?? activeMethods[0] ?? null
 
-  const amountCents = parseMoneyToCents(amount || (balanceCents / 100).toFixed(2).replace('.', ','))
+  const confirmed = (payments.data ?? []).filter((payment) => payment.status === 'confirmed')
+  const estornados = (payments.data ?? []).filter((payment) => payment.status === 'reversed')
+  const paidCents = confirmed.reduce((soma, payment) => soma + payment.amount_cents, 0)
+  const changeTotal = confirmed.reduce((soma, payment) => soma + payment.change_cents, 0)
+  const remaining = Math.max(balanceCents - paidCents, 0)
+
+  const nomeMetodo = (id: string) => activeMethods.find((method) => method.id === id)?.label ?? 'Forma de pagamento'
+
+  // Pré-preenche o valor com o saldo pendente: é o caso mais comum (conta cheia).
+  useEffect(() => {
+    if (amount === '') setAmount((remaining / 100).toFixed(2).replace('.', ','))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remaining])
+
+  const amountCents = parseMoneyToCents(amount)
   const tenderedCents = tendered ? parseMoneyToCents(tendered) : null
   const changeCents =
     selectedMethod?.requires_change && tenderedCents !== null ? Math.max(tenderedCents - amountCents, 0) : 0
 
-  const confirmed = (payments.data ?? []).filter((payment) => payment.status === 'confirmed')
-  const paidCents = confirmed.reduce((sum, payment) => sum + payment.amount_cents, 0)
-  const changeTotal = confirmed.reduce((sum, payment) => sum + payment.change_cents, 0)
-  const remaining = balanceCents - paidCents
+  const semMetodo = !methods.isLoading && activeMethods.length === 0
+  const caixaFechado = !cashSession.isLoading && !cashSession.data
+  const podeRegistrar = remaining > 0 && !semMetodo && !caixaFechado && amountCents > 0
 
   async function handleSubmit() {
     if (!selectedMethod) return
@@ -61,11 +101,13 @@ export function PaymentModal({
       return
     }
     if (amountCents > remaining) {
-      toast.error('O valor informado é maior que o saldo pendente.')
+      toast.error(
+        `O valor informado é maior que o saldo pendente (${formatMoney(remaining)}). Corrija o valor ou registre um pagamento parcial antes.`,
+      )
       return
     }
     if (selectedMethod.requires_change && (tenderedCents === null || tenderedCents < amountCents)) {
-      toast.error('Informe o valor recebido em dinheiro (maior ou igual ao valor do pagamento).')
+      toast.error('Informe quanto o cliente entregou em dinheiro — precisa ser igual ou maior que o valor do pagamento.')
       return
     }
 
@@ -82,12 +124,13 @@ export function PaymentModal({
       })
       toast.success(
         changeCents > 0
-          ? `Recebimento registrado. Troco: ${formatMoney(changeCents)}.`
-          : 'Recebimento registrado.',
+          ? `Recebimento de ${formatMoney(amountCents)} registrado. Troco a devolver: ${formatMoney(changeCents)}.`
+          : `Recebimento de ${formatMoney(amountCents)} registrado em ${selectedMethod.label}.`,
       )
       setAmount('')
       setTendered('')
       setNote('')
+      setIsPrepaid(false)
       invalidateOrderData(queryClient)
     } catch (error) {
       toast.error(translateError(error))
@@ -96,14 +139,15 @@ export function PaymentModal({
     }
   }
 
-  async function handleReverse(paymentId: string) {
-    const reason = window.prompt('Motivo do estorno (obrigatório):')
-    if (!reason || reason.trim().length < 3) return
+  async function confirmarEstorno() {
+    if (!estorno) return
     setBusy(true)
     try {
-      await api.reversePayment(paymentId, reason.trim())
-      toast.success('Recebimento estornado (registro preservado e auditado).')
+      await api.reversePayment(estorno.id, motivoEstorno.trim())
+      toast.success('Recebimento estornado. O registro original continua no histórico e fica auditado.')
       invalidateOrderData(queryClient)
+      setEstorno(null)
+      setMotivoEstorno('')
     } catch (error) {
       toast.error(translateError(error))
     } finally {
@@ -112,137 +156,310 @@ export function PaymentModal({
   }
 
   return (
-    <Modal
-      open
-      title={`Recebimentos — pedido #${orderNumber}`}
-      onClose={onClose}
-      size="md"
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose} disabled={busy}>
-            Fechar
-          </Button>
-          <Button onClick={handleSubmit} loading={busy} disabled={remaining <= 0}>
-            Registrar {formatMoney(amountCents)}
-          </Button>
-        </>
-      }
-    >
-      <div className="space-y-4">
-        {!cashSession.data && (
-          <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
-            Nenhum caixa aberto. Abra o caixa em <strong>Controle de caixa</strong> antes de registrar recebimentos —
-            o banco recusa pagamentos sem sessão de caixa.
-          </div>
-        )}
+    <>
+      <Modal
+        open
+        title={`Receber — pedido #${orderNumber}`}
+        descricao={descricaoPedido}
+        onClose={onClose}
+        size="md"
+        footer={
+          <>
+            <Button variant="secondary" onClick={onClose} disabled={busy}>
+              Fechar
+            </Button>
+            {onImprimirRecibo && paidCents > 0 && (
+              <Button variant="secondary" icone="imprimir" onClick={onImprimirRecibo} disabled={busy}>
+                Imprimir recibo
+              </Button>
+            )}
+            <Button
+              icone="dinheiro"
+              onClick={handleSubmit}
+              loading={busy}
+              disabled={!podeRegistrar}
+              title={!podeRegistrar ? 'Verifique o caixa, a forma de pagamento e o valor' : undefined}
+            >
+              Registrar {formatMoney(amountCents)}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          {caixaFechado && (
+            <Callout tom="atencao" titulo="Nenhum caixa aberto">
+              Abra o caixa em <strong>Controle de caixa</strong> antes de registrar recebimentos — o banco recusa
+              pagamentos sem uma sessão de caixa aberta.
+            </Callout>
+          )}
 
-        <div className="rounded-md border border-slate-200 p-3 text-sm">
-          <div className="flex justify-between">
-            <span className="text-slate-600">Saldo do pedido</span>
-            <span className="font-semibold text-slate-900">{formatMoney(balanceCents)}</span>
+          {semMetodo && (
+            <Callout tom="erro" titulo="Nenhuma forma de pagamento ativa">
+              Ative ao menos uma forma de pagamento em <strong>Configurações</strong> para poder receber.
+            </Callout>
+          )}
+
+          {/* Resumo do pedido */}
+          <div className="grid grid-cols-3 gap-3 rounded-card border border-ink-200 bg-ink-50/60 p-3.5 text-center">
+            <div>
+              <p className="rotulo">Saldo do pedido</p>
+              <p className="num mt-1 text-sm font-semibold text-ink-900">{formatMoney(balanceCents)}</p>
+            </div>
+            <div>
+              <p className="rotulo">Já recebido</p>
+              <p className="num mt-1 text-sm font-semibold text-emerald-700">{formatMoney(paidCents)}</p>
+            </div>
+            <div>
+              <p className="rotulo">Falta receber</p>
+              <p className={`num mt-1 text-base font-semibold ${remaining > 0 ? 'text-brand-700' : 'text-emerald-700'}`}>
+                {formatMoney(remaining)}
+              </p>
+            </div>
           </div>
-          <div className="flex justify-between">
-            <span className="text-slate-600">Já recebido</span>
-            <span className="text-slate-800">{formatMoney(paidCents)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-slate-600">Falta receber</span>
-            <span className="font-semibold text-brand-700">{formatMoney(remaining)}</span>
-          </div>
-          {changeTotal > 0 && (
-            <div className="flex justify-between text-[11px] text-slate-500">
-              <span>Troco entregue</span>
-              <span>{formatMoney(changeTotal)}</span>
+
+          {remaining > 0 && (
+            <>
+              <Field label="Forma de pagamento" obrigatorio>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {activeMethods.map((method) => {
+                    const ativo = selectedMethod?.id === method.id
+                    return (
+                      <button
+                        key={method.id}
+                        type="button"
+                        onClick={() => setMethodId(method.id)}
+                        aria-pressed={ativo}
+                        className={`flex items-center gap-2 rounded-control border px-3 py-2.5 text-left text-[13px] font-medium transition ${
+                          ativo
+                            ? 'border-brand-600 bg-brand-50 text-brand-800 shadow-sm'
+                            : 'border-ink-300 bg-white text-ink-700 hover:border-ink-400 hover:bg-ink-50'
+                        }`}
+                      >
+                        <Icon nome={ICONE_POR_TIPO[method.kind] ?? 'dinheiro'} className="h-4 w-4 shrink-0" />
+                        <span className="min-w-0">
+                          <span className="block truncate">{method.label}</span>
+                          {TAXA_POR_TIPO[method.kind] && (
+                            <span className="block text-[10px] font-normal text-ink-500">
+                              {TAXA_POR_TIPO[method.kind]}
+                            </span>
+                          )}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </Field>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Valor a receber (R$)" hint={`Máximo: ${formatMoney(remaining)}`}>
+                  <Input
+                    value={amount}
+                    onChange={(event) => setAmount(event.target.value)}
+                    inputMode="decimal"
+                    autoFocus
+                  />
+                </Field>
+
+                {selectedMethod?.requires_change ? (
+                  <Field
+                    label="Quanto o cliente entregou (R$)"
+                    hint={tenderedCents !== null && changeCents > 0 ? undefined : 'Informe para calcular o troco'}
+                  >
+                    <Input
+                      value={tendered}
+                      onChange={(event) => setTendered(event.target.value)}
+                      placeholder="ex.: 100,00"
+                      inputMode="decimal"
+                    />
+                  </Field>
+                ) : (
+                  <Field label="Observação" hint="Opcional — fica gravada no recebimento.">
+                    <Input
+                      value={note}
+                      onChange={(event) => setNote(event.target.value)}
+                      placeholder="ex.: aprovado na maquininha"
+                    />
+                  </Field>
+                )}
+              </div>
+
+              {selectedMethod?.requires_change && (
+                <div>
+                  <div className="flex flex-wrap gap-2">
+                    <ChipDinheiro valor={amountCents} onEscolher={setTendered} />
+                    {[5000, 10000, 20000].map((valor) => (
+                      <button
+                        key={valor}
+                        type="button"
+                        onClick={() => setTendered((valor / 100).toFixed(2).replace('.', ','))}
+                        className="rounded-full border border-ink-300 bg-white px-3 py-1 text-xs font-medium text-ink-600 transition hover:border-ink-400 hover:bg-ink-50"
+                      >
+                        {formatMoney(valor)}
+                      </button>
+                    ))}
+                    <Button size="sm" variant="ghost" onClick={() => setTendered('')}>
+                      Limpar
+                    </Button>
+                  </div>
+
+                  {tenderedCents !== null && (
+                    <div
+                      className={`mt-2.5 flex items-center justify-between rounded-card border px-3.5 py-2.5 ${
+                        tenderedCents < amountCents
+                          ? 'border-red-200 bg-red-50 text-red-800'
+                          : 'border-emerald-200 bg-emerald-50 text-emerald-900'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2 text-[13px] font-medium">
+                        <Icon nome={tenderedCents < amountCents ? 'alerta' : 'dinheiro'} className="h-4 w-4" />
+                        {tenderedCents < amountCents ? 'Valor insuficiente para este pagamento' : 'Troco a devolver'}
+                      </span>
+                      <span className="num text-lg font-semibold">
+                        {tenderedCents < amountCents
+                          ? `faltam ${formatMoney(amountCents - tenderedCents)}`
+                          : formatMoney(changeCents)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {selectedMethod && ['pix', 'debit_card', 'credit_card'].includes(selectedMethod.kind) && (
+                <Callout tom="info" titulo="Confirmação manual">
+                  Confira o recebimento no aplicativo do banco ou na maquininha <strong>antes</strong> de registrar.
+                  Nesta versão o sistema não confirma pagamentos automaticamente.
+                </Callout>
+              )}
+
+              {selectedMethod?.allows_prepaid && (
+                <label className="flex cursor-pointer items-start gap-2.5 rounded-card border border-ink-200 p-3 text-sm text-ink-700">
+                  <input
+                    type="checkbox"
+                    checked={isPrepaid}
+                    onChange={(event) => setIsPrepaid(event.target.checked)}
+                    className="mt-0.5 h-[18px] w-[18px] rounded border-ink-300 text-brand-600"
+                  />
+                  <span>
+                    Pagamento antecipado
+                    <span className="mt-0.5 block text-xs text-ink-500">
+                      Marque quando o cliente paga antes de receber o pedido (comum no delivery).
+                    </span>
+                  </span>
+                </label>
+              )}
+            </>
+          )}
+
+          {remaining <= 0 && (
+            <Callout tom="sucesso" titulo="Pedido totalmente recebido">
+              Não há saldo pendente neste pedido. Você já pode fechar a conta e liberar a mesa.
+            </Callout>
+          )}
+
+          {(confirmed.length > 0 || estornados.length > 0) && (
+            <div>
+              <h4 className="rotulo mb-2">Recebimentos deste pedido</h4>
+              <ul className="space-y-1.5">
+                {[...confirmed, ...estornados].map((payment) => (
+                  <li
+                    key={payment.id}
+                    className={`flex items-center justify-between gap-3 rounded-card border px-3 py-2 text-[13px] ${
+                      payment.status === 'reversed'
+                        ? 'border-red-200 bg-red-50/60 text-ink-500'
+                        : 'border-ink-200 bg-white text-ink-800'
+                    }`}
+                  >
+                    <span className="min-w-0">
+                      <span className={`num font-semibold ${payment.status === 'reversed' ? 'line-through' : ''}`}>
+                        {formatMoney(payment.amount_cents)}
+                      </span>{' '}
+                      <span className={payment.status === 'reversed' ? 'line-through' : ''}>
+                        · {nomeMetodo(payment.method_id)}
+                      </span>
+                      <span className="block text-[11px] text-ink-500">
+                        {formatTime(payment.created_at)}
+                        {payment.change_cents > 0 && ` · troco ${formatMoney(payment.change_cents)}`}
+                        {payment.is_prepaid && ' · antecipado'}
+                        {payment.status === 'reversed' && ' · estornado'}
+                      </span>
+                      {payment.reverse_reason && (
+                        <span className="block text-[11px] text-red-600">motivo: {payment.reverse_reason}</span>
+                      )}
+                    </span>
+                    {payment.status === 'confirmed' && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-red-600 hover:bg-red-50"
+                        onClick={() => {
+                          setEstorno(payment)
+                          setMotivoEstorno('')
+                        }}
+                        disabled={busy}
+                      >
+                        Estornar
+                      </Button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              {changeTotal > 0 && (
+                <p className="mt-2 text-[11px] text-ink-500">
+                  Troco entregue neste pedido: {formatMoney(changeTotal)} — troco não é receita e não entra no
+                  faturamento.
+                </p>
+              )}
             </div>
           )}
         </div>
+      </Modal>
 
-        <Field label="Forma de pagamento">
-          <div className="flex flex-wrap gap-2">
-            {activeMethods.map((method) => (
-              <button
-                key={method.id}
-                onClick={() => setMethodId(method.id)}
-                className={`rounded-md border px-3 py-2 text-xs ${
-                  (selectedMethod?.id ?? '') === method.id
-                    ? 'border-brand-600 bg-brand-50 text-brand-800'
-                    : 'border-slate-300 bg-white text-slate-700'
-                }`}
-              >
-                {method.label}
-                {method.kind === 'cash' && <span className="ml-1 text-[10px] text-slate-500">(gaveta)</span>}
-              </button>
-            ))}
-          </div>
-        </Field>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Valor a receber (R$)" hint="Aceita valores parciais.">
-            <Input
-              value={amount}
-              onChange={(event) => setAmount(event.target.value)}
-              placeholder={(remaining / 100).toFixed(2).replace('.', ',')}
-              inputMode="decimal"
-            />
-          </Field>
-
-          {selectedMethod?.requires_change ? (
-            <Field label="Valor recebido em dinheiro (R$)" hint={changeCents > 0 ? `Troco: ${formatMoney(changeCents)}` : undefined}>
+      <ConfirmDialog
+        open={Boolean(estorno)}
+        title="Estornar recebimento"
+        tone="danger"
+        confirmLabel="Estornar"
+        loading={busy}
+        onCancel={() => setEstorno(null)}
+        onConfirm={confirmarEstorno}
+        message={
+          <div className="space-y-3">
+            <p>
+              O recebimento de <strong>{formatMoney(estorno?.amount_cents ?? 0)}</strong> em{' '}
+              <strong>{estorno ? nomeMetodo(estorno.method_id) : ''}</strong> será marcado como estornado. O registro
+              original <strong>não é apagado</strong> — ele fica no histórico, com o motivo, para auditoria.
+            </p>
+            <Field label="Motivo do estorno" obrigatorio hint="Mínimo de 3 caracteres.">
               <Input
-                value={tendered}
-                onChange={(event) => setTendered(event.target.value)}
-                placeholder="ex.: 100,00"
-                inputMode="decimal"
+                value={motivoEstorno}
+                onChange={(event) => setMotivoEstorno(event.target.value)}
+                placeholder="ex.: valor digitado errado, cliente pagou em outra forma"
+                autoFocus
               />
             </Field>
-          ) : (
-            <Field label="Observação (opcional)">
-              <Input value={note} onChange={(event) => setNote(event.target.value)} placeholder="ex.: aprovado na maquininha" />
-            </Field>
-          )}
-        </div>
-
-        {selectedMethod && ['pix', 'debit_card', 'credit_card'].includes(selectedMethod.kind) && (
-          <div className="rounded-md bg-slate-50 p-3 text-[11px] text-slate-600">
-            O recebimento é registrado manualmente: confirme no aplicativo da maquininha/banco antes de registrar.
-            Nesta versão o sistema <strong>não</strong> confirma pagamentos automaticamente.
           </div>
-        )}
+        }
+      />
+    </>
+  )
+}
 
-        {selectedMethod?.allows_prepaid && (
-          <label className="flex items-center gap-2 text-sm text-slate-700">
-            <input
-              type="checkbox"
-              checked={isPrepaid}
-              onChange={(event) => setIsPrepaid(event.target.checked)}
-              className="h-4 w-4 rounded border-slate-300 text-brand-600"
-            />
-            Pagamento antecipado (antes da entrega)
-          </label>
-        )}
-
-        {confirmed.length > 0 && (
-          <div>
-            <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Recebimentos deste pedido
-            </h4>
-            <ul className="space-y-1 text-xs text-slate-700">
-              {confirmed.map((payment) => (
-                <li key={payment.id} className="flex items-center justify-between gap-2 rounded border border-slate-200 px-2 py-1">
-                  <span>
-                    {formatMoney(payment.amount_cents)} · {payment.method_id}
-                    {payment.change_cents > 0 && ` · troco ${formatMoney(payment.change_cents)}`}
-                    {payment.is_prepaid && ' · antecipado'}
-                  </span>
-                  <button className="text-red-600 hover:underline" onClick={() => handleReverse(payment.id)} disabled={busy}>
-                    estornar
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
-    </Modal>
+function ChipDinheiro({ valor, onEscolher }: { valor: number; onEscolher: (valor: string) => void }) {
+  if (valor <= 0) return null
+  const sugestoes = [valor, Math.ceil(valor / 5000) * 5000, Math.ceil(valor / 10000) * 10000]
+  const unicas = [...new Set(sugestoes)].filter((v) => v >= valor).slice(0, 2)
+  return (
+    <>
+      {unicas.map((v) => (
+        <button
+          key={v}
+          type="button"
+          onClick={() => onEscolher((v / 100).toFixed(2).replace('.', ','))}
+          className="rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-xs font-medium text-brand-800 transition hover:bg-brand-100"
+        >
+          {formatMoney(v)}
+        </button>
+      ))}
+    </>
   )
 }

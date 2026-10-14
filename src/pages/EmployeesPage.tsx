@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext'
 import { useProfiles } from '../lib/hooks'
@@ -6,18 +6,23 @@ import * as api from '../lib/api'
 import {
   Badge,
   Button,
+  Callout,
   Card,
   ConfirmDialog,
-  DataTable,
   ErrorBlock,
   Field,
+  IconButton,
   Input,
   LoadingBlock,
   Modal,
+  PageHeader,
+  SearchInput,
   Select,
+  StatTile,
   useToast,
 } from '../components/ui'
-import { formatDateTime } from '../lib/format'
+import { Icon } from '../components/icons'
+import { formatDateTime, formatPhone } from '../lib/format'
 import { translateError } from '../lib/errors'
 import { ROLE_LABELS, type Profile, type Role } from '../lib/types'
 
@@ -44,9 +49,28 @@ export default function EmployeesPage() {
   }>(null)
   const [busy, setBusy] = useState(false)
   const [confirm, setConfirm] = useState<null | { kind: 'toggle_active' | 'reset_password'; profile: Profile }>(null)
+  const [trocaFuncao, setTrocaFuncao] = useState<null | { profile: Profile; role: Role }>(null)
   const [tempPassword, setTempPassword] = useState<{ login: string; password: string } | null>(null)
+  const [busca, setBusca] = useState('')
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['profiles'] })
+
+  const lista = useMemo(() => {
+    const termo = busca.trim().toLowerCase()
+    return (profiles.data ?? []).filter((row) =>
+      termo ? row.full_name.toLowerCase().includes(termo) || row.login.toLowerCase().includes(termo) : true,
+    )
+  }, [profiles.data, busca])
+
+  const resumo = useMemo(() => {
+    const todos = profiles.data ?? []
+    return {
+      total: todos.length,
+      ativos: todos.filter((row) => row.is_active).length,
+      admins: todos.filter((row) => row.role === 'admin' && row.is_active).length,
+      pendentesSenha: todos.filter((row) => row.must_change_password).length,
+    }
+  }, [profiles.data])
 
   async function handleCreate() {
     if (!form) return
@@ -91,7 +115,11 @@ export default function EmployeesPage() {
     setBusy(true)
     try {
       await api.updateProfile(target.id, { is_active: !target.is_active })
-      toast.success(target.is_active ? 'Acesso desativado.' : 'Acesso ativado.')
+      toast.success(
+        target.is_active
+          ? `Acesso de ${target.full_name} desativado. O histórico de vendas dele continua intacto.`
+          : `Acesso de ${target.full_name} liberado.`,
+      )
       setConfirm(null)
       refresh()
     } catch (error) {
@@ -101,13 +129,18 @@ export default function EmployeesPage() {
     }
   }
 
-  async function changeRole(target: Profile, role: Role) {
+  async function salvarFuncao() {
+    if (!trocaFuncao) return
+    setBusy(true)
     try {
-      await api.updateProfile(target.id, { role })
-      toast.success(`Função alterada para ${ROLE_LABELS[role]}.`)
+      await api.updateProfile(trocaFuncao.profile.id, { role: trocaFuncao.role })
+      toast.success(`Função de ${trocaFuncao.profile.full_name} alterada para ${ROLE_LABELS[trocaFuncao.role]}.`)
+      setTrocaFuncao(null)
       refresh()
     } catch (error) {
       toast.error(translateError(error))
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -125,105 +158,160 @@ export default function EmployeesPage() {
     }
   }
 
-  if (profiles.isLoading) return <LoadingBlock label="Carregando funcionários…" />
+  async function copiarSenha() {
+    if (!tempPassword) return
+    try {
+      await navigator.clipboard.writeText(tempPassword.password)
+      toast.success('Senha copiada — cole no canal combinado com o funcionário.')
+    } catch {
+      toast.error('O navegador não permitiu copiar automaticamente. Selecione a senha e copie manualmente.')
+    }
+  }
+
+  if (profiles.isLoading && !profiles.data) return <LoadingBlock label="Carregando funcionários…" linhas={5} />
   if (profiles.error) return <ErrorBlock message={translateError(profiles.error)} onRetry={() => void profiles.refetch()} />
 
-  const list = profiles.data ?? []
-
   return (
-    <div className="space-y-4">
-      <Card
-        title={`Funcionários (${list.length})`}
-        actions={
-          <Button
-            size="sm"
-            onClick={() => setForm({ full_name: '', login: '', role: 'waiter', password: '', phone: '', activate: true })}
-          >
-            + Novo funcionário
-          </Button>
+    <div>
+      <PageHeader
+        titulo="Funcionários"
+        descricao="Equipe com acesso ao sistema: caixa, garçom e administrador. Contas com histórico nunca são apagadas."
+        acoes={
+          <>
+            <IconButton
+              nome="atualizar"
+              titulo="Atualizar lista"
+              variant="secondary"
+              onClick={() => void profiles.refetch()}
+              disabled={profiles.isFetching}
+            />
+            <Button
+              icone="mais"
+              onClick={() => setForm({ full_name: '', login: '', role: 'waiter', password: '', phone: '', activate: true })}
+            >
+              Novo funcionário
+            </Button>
+          </>
         }
+      />
+
+      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatTile rotulo="Equipe" valor={resumo.total} icone="equipe" detalhe="contas cadastradas" />
+        <StatTile rotulo="Com acesso ativo" valor={resumo.ativos} icone="check" tom="verde" detalhe="podem entrar agora" />
+        <StatTile rotulo="Administradores" valor={resumo.admins} icone="auditoria" tom="marca" detalhe="acesso total ao sistema" />
+        <StatTile
+          rotulo="Troca de senha pendente"
+          valor={resumo.pendentesSenha}
+          icone="cadeado"
+          tom={resumo.pendentesSenha > 0 ? 'ambar' : 'neutro'}
+          detalhe="senhas temporárias ainda em uso"
+        />
+      </div>
+
+      <Card
+        icone="equipe"
+        title={`Equipe${busca ? ` — filtrada (${lista.length})` : ''}`}
+        descricao="Nunca apague um funcionário: desative o acesso para preservar o histórico e a auditoria."
+        padded={false}
+        actions={<div className="w-full sm:w-72"><SearchInput value={busca} onValueChange={setBusca} placeholder="Buscar por nome ou login…" /></div>}
       >
-        <DataTable
-          rows={list}
-          rowKey={(row) => row.id}
-          columns={[
-            {
-              key: 'name',
-              header: 'Nome',
-              render: (row) => (
-                <div>
-                  <p className="font-medium text-slate-800">
-                    {row.full_name} {row.id === me?.id && <span className="text-[11px] text-slate-500">(você)</span>}
-                  </p>
-                  <p className="text-[11px] text-slate-500">login: {row.login}</p>
+        <ul className="divide-y divide-ink-100">
+          {lista.length === 0 && (
+            <li className="p-5 text-center text-sm text-ink-500">Nenhum funcionário encontrado com esta busca.</li>
+          )}
+          {lista.map((row) => {
+            const ehVoce = row.id === me?.id
+            const iniciais = row.full_name
+              .split(' ')
+              .filter(Boolean)
+              .slice(0, 2)
+              .map((parte) => parte[0]?.toUpperCase())
+              .join('')
+            return (
+              <li key={row.id} className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex min-w-0 items-start gap-3">
+                  <span
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
+                      row.is_active ? 'bg-brand-100 text-brand-700' : 'bg-ink-200 text-ink-500'
+                    }`}
+                    aria-hidden
+                  >
+                    {iniciais || <Icon nome="usuario" className="h-4 w-4" />}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="flex flex-wrap items-center gap-2 text-[15px] font-semibold text-ink-900">
+                      {row.full_name}
+                      {ehVoce && <Badge tone="blue">você</Badge>}
+                      {!row.is_active && <Badge tone="slate">acesso desativado</Badge>}
+                      {row.must_change_password && <Badge tone="amber">troca de senha pendente</Badge>}
+                    </p>
+                    <p className="mt-0.5 text-xs text-ink-500">
+                      login: <span className="font-medium text-ink-600">{row.login}</span>
+                      {row.phone ? ` · ${formatPhone(row.phone)}` : ''}
+                    </p>
+                    <p className="text-xs text-ink-500">
+                      Último acesso: {row.last_login_at ? formatDateTime(row.last_login_at) : 'nunca acessou'}
+                    </p>
+                  </div>
                 </div>
-              ),
-            },
-            {
-              key: 'role',
-              header: 'Função',
-              render: (row) => (
-                <Select
-                  value={row.role}
-                  disabled={row.id === me?.id}
-                  onChange={(event) => changeRole(row, event.target.value as Role)}
-                  className="w-40"
-                >
-                  <option value="admin">Administrador</option>
-                  <option value="manager">Caixa</option>
-                  <option value="waiter">Garçom</option>
-                </Select>
-              ),
-            },
-            {
-              key: 'status',
-              header: 'Acesso',
-              render: (row) => (
-                <div className="flex flex-wrap gap-1">
-                  <Badge tone={row.is_active ? 'green' : 'slate'}>{row.is_active ? 'Ativo' : 'Desativado'}</Badge>
-                  {row.must_change_password && <Badge tone="amber">troca de senha pendente</Badge>}
-                </div>
-              ),
-            },
-            { key: 'phone', header: 'Telefone', render: (row) => row.phone ?? '—' },
-            {
-              key: 'last_login',
-              header: 'Último acesso',
-              render: (row) => (row.last_login_at ? formatDateTime(row.last_login_at) : 'nunca acessou'),
-            },
-            {
-              key: 'actions',
-              header: '',
-              align: 'right',
-              render: (row) => (
-                <div className="flex justify-end gap-1">
-                  <Button size="sm" variant="ghost" onClick={() => setConfirm({ kind: 'reset_password', profile: row })}>
-                    Redefinir senha
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge tone={row.role === 'admin' ? 'brand' : row.role === 'manager' ? 'blue' : 'slate'}>
+                    {ROLE_LABELS[row.role]}
+                  </Badge>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    icone="troca"
+                    disabled={ehVoce}
+                    title={ehVoce ? 'Você não pode alterar a própria função' : undefined}
+                    onClick={() => setTrocaFuncao({ profile: row, role: row.role })}
+                  >
+                    Função
                   </Button>
                   <Button
                     size="sm"
-                    variant="ghost"
-                    disabled={row.id === me?.id}
+                    variant="secondary"
+                    icone="cadeado"
+                    onClick={() => setConfirm({ kind: 'reset_password', profile: row })}
+                  >
+                    Senha
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={row.is_active ? 'ghost' : 'success'}
+                    className={row.is_active ? 'text-red-600 hover:bg-red-50' : ''}
+                    icone={row.is_active ? 'cadeado' : 'check'}
+                    disabled={ehVoce}
+                    title={ehVoce ? 'Você não pode desativar o próprio acesso' : undefined}
                     onClick={() => setConfirm({ kind: 'toggle_active', profile: row })}
                   >
                     {row.is_active ? 'Desativar' : 'Ativar'}
                   </Button>
                 </div>
-              ),
-            },
-          ]}
-        />
-        <ul className="mt-2 list-disc space-y-0.5 pl-5 text-[11px] text-slate-500">
-          <li>Funcionários nunca são apagados: o histórico de vendas e a auditoria apontam para eles.</li>
-          <li>Você não pode alterar a própria função nem desativar o próprio acesso (proteção do banco).</li>
-          <li>O último administrador ativo não pode ser rebaixado nem desativado.</li>
-          <li>A criação de usuário usa a Edge Function com service_role no servidor — o navegador nunca vê essa chave.</li>
+              </li>
+            )
+          })}
         </ul>
+
+        <div className="border-t border-ink-100 bg-ink-50/60 p-4">
+          <ul className="list-disc space-y-1 pl-5 text-xs leading-relaxed text-ink-500">
+            <li>Funcionários nunca são apagados: o histórico de vendas e a auditoria apontam para eles.</li>
+            <li>Você não pode alterar a própria função nem desativar o próprio acesso (proteção do banco).</li>
+            <li>O último administrador ativo não pode ser rebaixado nem desativado.</li>
+            <li>
+              A criação do usuário usa a Edge Function com <span className="font-medium">service_role</span> no
+              servidor — o navegador nunca vê essa chave.
+            </li>
+          </ul>
+        </div>
       </Card>
 
+      {/* Novo funcionário */}
       <Modal
         open={Boolean(form)}
         title="Novo funcionário"
+        descricao="O login substitui o e-mail: o sistema completa o domínio interno automaticamente."
         onClose={() => setForm(null)}
         size="md"
         footer={
@@ -231,42 +319,47 @@ export default function EmployeesPage() {
             <Button variant="secondary" onClick={() => setForm(null)} disabled={busy}>
               Cancelar
             </Button>
-            <Button onClick={handleCreate} loading={busy}>
+            <Button icone="check" onClick={handleCreate} loading={busy}>
               Criar funcionário
             </Button>
           </>
         }
       >
         {form && (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Nome completo *">
-              <Input value={form.full_name} onChange={(event) => setForm({ ...form, full_name: event.target.value })} />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Nome completo" obrigatorio>
+              <Input value={form.full_name} onChange={(event) => setForm({ ...form, full_name: event.target.value })} autoFocus />
             </Field>
-            <Field label="Login *" hint="Usado no acesso (sem e-mail): ex.: ana.souza">
+            <Field label="Login" obrigatorio hint="3 a 40 caracteres: letras minúsculas, números, ponto, hífen ou _.">
               <Input
                 value={form.login}
                 onChange={(event) => setForm({ ...form, login: event.target.value.toLowerCase() })}
                 placeholder="nome.sobrenome"
               />
             </Field>
-            <Field label="Função *">
+            <Field label="Função" obrigatorio hint={DESCRICAO_FUNCAO[form.role]}>
               <Select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value as Role })}>
-                <option value="waiter">Garçom — mesas e pedidos</option>
-                <option value="manager">Caixa — operação, recebimentos e fechamento</option>
-                <option value="admin">Administrador — acesso total</option>
+                <option value="waiter">Garçom</option>
+                <option value="manager">Caixa</option>
+                <option value="admin">Administrador</option>
               </Select>
             </Field>
             <Field label="Telefone">
-              <Input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} />
+              <Input
+                value={form.phone}
+                onChange={(event) => setForm({ ...form, phone: event.target.value })}
+                placeholder="(86) 99999-0000"
+                inputMode="tel"
+              />
             </Field>
-            <Field label="Senha inicial *" hint="Mínimo de 8 caracteres. Informe ao funcionário por canal seguro.">
+            <Field label="Senha inicial" obrigatorio hint="Mínimo de 8 caracteres. Entregue por canal seguro.">
               <Input
                 type="text"
                 value={form.password}
                 onChange={(event) => setForm({ ...form, password: event.target.value })}
               />
             </Field>
-            <Field label="Acesso" hint="Desativado por padrão: o funcionário só entra depois que você ativar.">
+            <Field label="Situação do acesso" hint="Desativado, o funcionário não consegue entrar até você liberar.">
               <Select
                 value={form.activate ? 'sim' : 'nao'}
                 onChange={(event) => setForm({ ...form, activate: event.target.value === 'sim' })}
@@ -275,31 +368,104 @@ export default function EmployeesPage() {
                 <option value="nao">Criar desativado</option>
               </Select>
             </Field>
+            <div className="sm:col-span-2">
+              <Callout tom="info">
+                O funcionário entra com o <strong>login</strong> (sem e-mail) e é obrigado a trocar a senha no primeiro
+                acesso.
+              </Callout>
+            </div>
           </div>
         )}
       </Modal>
 
-      <Modal open={Boolean(tempPassword)} title="Senha temporária" onClose={() => setTempPassword(null)} size="sm">
+      {/* Alteração de função */}
+      <Modal
+        open={Boolean(trocaFuncao)}
+        title={`Alterar função — ${trocaFuncao?.profile.full_name ?? ''}`}
+        descricao="A função define o que a pessoa pode fazer dentro do sistema."
+        onClose={() => setTrocaFuncao(null)}
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setTrocaFuncao(null)} disabled={busy}>
+              Cancelar
+            </Button>
+            <Button
+              icone="check"
+              onClick={salvarFuncao}
+              loading={busy}
+              disabled={!trocaFuncao || trocaFuncao.role === trocaFuncao.profile.role}
+            >
+              Salvar função
+            </Button>
+          </>
+        }
+      >
+        {trocaFuncao && (
+          <div className="space-y-4">
+            <Field label="Nova função" obrigatorio>
+              <Select
+                value={trocaFuncao.role}
+                onChange={(event) => setTrocaFuncao({ ...trocaFuncao, role: event.target.value as Role })}
+              >
+                <option value="waiter">Garçom</option>
+                <option value="manager">Caixa</option>
+                <option value="admin">Administrador</option>
+              </Select>
+            </Field>
+            <Callout tom="info">{DESCRICAO_FUNCAO[trocaFuncao.role]}</Callout>
+            <p className="text-xs text-ink-500">
+              Hoje esta pessoa é <strong>{ROLE_LABELS[trocaFuncao.profile.role]}</strong>. A mudança vale no próximo
+              carregamento das telas dela e fica registrada no banco.
+            </p>
+          </div>
+        )}
+      </Modal>
+
+      {/* Senha temporária */}
+      <Modal
+        open={Boolean(tempPassword)}
+        title="Senha temporária gerada"
+        descricao="Anote e entregue agora: a senha não fica visível depois de fechar esta janela."
+        onClose={() => setTempPassword(null)}
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setTempPassword(null)}>
+              Fechar
+            </Button>
+            <Button icone="lista" onClick={copiarSenha}>
+              Copiar senha
+            </Button>
+          </>
+        }
+      >
         {tempPassword && (
-          <div className="space-y-3 text-sm text-slate-700">
+          <div className="space-y-4 text-sm text-ink-700">
             <p>
               Nova senha de <strong>{tempPassword.login}</strong>:
             </p>
-            <p className="rounded-md border border-slate-300 bg-slate-50 px-3 py-2 font-mono text-base">
+            <p className="num rounded-control border border-ink-300 bg-ink-50 px-3 py-2.5 text-center font-mono text-lg tracking-wide">
               {tempPassword.password}
             </p>
-            <p className="text-xs text-slate-500">
-              Entregue esta senha ao funcionário por um canal seguro. Não há envio automático (e-mail/WhatsApp) nesta
-              versão.
-            </p>
+            <Callout tom="atencao" titulo="Entrega segura">
+              Não há envio automático por e-mail ou WhatsApp nesta versão. Combine um canal seguro com o funcionário e
+              oriente a troca no primeiro acesso.
+            </Callout>
           </div>
         )}
       </Modal>
 
       <ConfirmDialog
         open={Boolean(confirm)}
-        title={confirm?.kind === 'reset_password' ? 'Redefinir senha' : confirm?.profile?.is_active ? 'Desativar acesso' : 'Ativar acesso'}
-        confirmLabel={confirm?.kind === 'reset_password' ? 'Redefinir' : 'Confirmar'}
+        title={
+          confirm?.kind === 'reset_password'
+            ? 'Redefinir senha'
+            : confirm?.profile?.is_active
+              ? 'Desativar acesso'
+              : 'Ativar acesso'
+        }
+        confirmLabel={confirm?.kind === 'reset_password' ? 'Gerar senha temporária' : 'Confirmar'}
         tone={confirm?.kind === 'reset_password' ? 'primary' : confirm?.profile?.is_active ? 'danger' : 'success'}
         loading={busy}
         onCancel={() => setConfirm(null)}
@@ -311,21 +477,27 @@ export default function EmployeesPage() {
         message={
           !confirm ? null : confirm.kind === 'reset_password' ? (
             <p>
-              Uma senha temporária aleatória será gerada para <strong>{confirm.profile.full_name}</strong> e o acesso dele
-              exigirá troca de senha. A operação é registrada na auditoria.
+              Uma senha temporária aleatória será gerada para <strong>{confirm.profile.full_name}</strong> e o acesso
+              dele exigirá troca de senha no próximo login. A operação é registrada na auditoria.
             </p>
-          ) : confirm?.profile.is_active ? (
+          ) : confirm.profile.is_active ? (
             <p>
-              <strong>{confirm.profile.full_name}</strong> não conseguirá mais entrar no sistema. O histórico permanece
-              intacto.
+              <strong>{confirm.profile.full_name}</strong> não conseguirá mais entrar no sistema. O histórico de vendas
+              e auditoria permanece intacto — nada é apagado.
             </p>
           ) : (
             <p>
-              Liberar o acesso de <strong>{confirm.profile.full_name}</strong>?
+              Liberar o acesso de <strong>{confirm.profile.full_name}</strong> imediatamente?
             </p>
           )
         }
       />
     </div>
   )
+}
+
+const DESCRICAO_FUNCAO: Record<Role, string> = {
+  waiter: 'Garçom — abre mesas, lança pedidos e confirma a entrega. Não recebe pagamentos nem fecha contas.',
+  manager: 'Caixa — conduz a produção, registra recebimentos, abre e fecha o caixa e acompanha o delivery.',
+  admin: 'Administrador — acesso total, incluindo cardápio, equipe, relatórios, configurações e auditoria.',
 }

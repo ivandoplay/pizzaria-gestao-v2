@@ -237,10 +237,41 @@ export async function createTable(number: number, name?: string | null, seats?: 
   return unwrap(data, error)
 }
 
+export async function updateTable(
+  id: string,
+  patch: { name?: string | null; seats?: number | null; is_active?: boolean },
+) {
+  const { data, error } = await supabase.from('restaurant_tables').update(patch).eq('id', id).select().single()
+  return unwrap(data, error)
+}
+
 export async function fetchTables(): Promise<TableOverview[]> {
   const { data, error } = await supabase.from('table_overview').select('*').order('number')
   if (error) throw new ApiError(error.message)
   return (data ?? []) as TableOverview[]
+}
+
+/**
+ * Endereço de entrega gravado no pedido (snapshot).
+ *
+ * O snapshot fica na tabela `orders` (coluna jsonb) e não é exposto pela view
+ * `order_overview`; por isso esta consulta direta, restrita aos perfis que já
+ * podem ver pedidos de delivery (RLS de `orders`).
+ */
+export async function fetchDeliveryAddresses(
+  orderIds: string[],
+): Promise<Record<string, Record<string, string | null>>> {
+  if (orderIds.length === 0) return {}
+  const { data, error } = await supabase
+    .from('orders')
+    .select('id, delivery_address_snapshot')
+    .in('id', orderIds)
+  if (error) throw new ApiError(error.message)
+  const mapa: Record<string, Record<string, string | null>> = {}
+  for (const linha of (data ?? []) as { id: string; delivery_address_snapshot: Record<string, string | null> | null }[]) {
+    if (linha.delivery_address_snapshot) mapa[linha.id] = linha.delivery_address_snapshot
+  }
+  return mapa
 }
 
 export async function fetchOrders(filters: {

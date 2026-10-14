@@ -1,25 +1,28 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Suspense, lazy, type ReactNode } from 'react'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AppLayout } from './components/AppLayout'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { useAuth } from './context/AuthContext'
 import type { Role } from './lib/types'
 import { LoadingBlock, ErrorBlock } from './components/ui'
-
-import LoginPage from './pages/LoginPage'
-import SetupPage from './pages/SetupPage'
-import DashboardPage from './pages/DashboardPage'
-import TablesPage from './pages/TablesPage'
-import TableSessionPage from './pages/TableSessionPage'
-import CashierHomePage from './pages/CashierHomePage'
-import DeliveryPage from './pages/DeliveryPage'
-import CashControlPage from './pages/CashControlPage'
-import MenuAdminPage from './pages/MenuAdminPage'
-import EmployeesPage from './pages/EmployeesPage'
-import ReportsPage from './pages/ReportsPage'
-import HistoryPage from './pages/HistoryPage'
-import AuditPage from './pages/AuditPage'
-import SettingsPage from './pages/SettingsPage'
 import { isSupabaseConfigured } from './lib/supabase'
-import type { ReactNode } from 'react'
+
+// Cada tela é carregada sob demanda: o painel do salão abre rápido mesmo no
+// celular do garçom, e as telas administrativas só baixam quando usadas.
+const LoginPage = lazy(() => import('./pages/LoginPage'))
+const SetupPage = lazy(() => import('./pages/SetupPage'))
+const DashboardPage = lazy(() => import('./pages/DashboardPage'))
+const TablesPage = lazy(() => import('./pages/TablesPage'))
+const TableSessionPage = lazy(() => import('./pages/TableSessionPage'))
+const CashierHomePage = lazy(() => import('./pages/CashierHomePage'))
+const DeliveryPage = lazy(() => import('./pages/DeliveryPage'))
+const CashControlPage = lazy(() => import('./pages/CashControlPage'))
+const MenuAdminPage = lazy(() => import('./pages/MenuAdminPage'))
+const EmployeesPage = lazy(() => import('./pages/EmployeesPage'))
+const ReportsPage = lazy(() => import('./pages/ReportsPage'))
+const HistoryPage = lazy(() => import('./pages/HistoryPage'))
+const AuditPage = lazy(() => import('./pages/AuditPage'))
+const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 
 function Guard({ roles, children }: { roles: Role[]; children: ReactNode }) {
   const { profile, loading, blockedReason } = useAuth()
@@ -54,9 +57,27 @@ function HomeRedirect() {
 }
 
 export default function App() {
-  if (!isSupabaseConfigured) return <SetupPage />
+  // A chave pelo caminho faz a rede de segurança se reiniciar ao trocar de tela:
+  // um erro no cardápio não deixa o resto do sistema inutilizável.
+  const { pathname } = useLocation()
+
+  if (!isSupabaseConfigured) {
+    return (
+      <Suspense fallback={<LoadingBlock label="Carregando…" />}>
+        <SetupPage />
+      </Suspense>
+    )
+  }
 
   return (
+    <ErrorBoundary key={pathname}>
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-ink-100">
+          <LoadingBlock label="Carregando o sistema…" linhas={3} />
+        </div>
+      }
+    >
     <Routes>
       <Route path="/login" element={<LoginPage />} />
 
@@ -169,5 +190,7 @@ export default function App() {
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </Suspense>
+    </ErrorBoundary>
   )
 }

@@ -108,8 +108,9 @@ para o seed e a remoção, então as listas nunca ficam desencontradas).
 |---|---|---|
 | `supabase/tests/00_setup.sql` … `06_reports.sql` | 280 asserções no PostgreSQL: RLS, privilégios, permissões por perfil, cardápio, mesas/pedidos, caixa/pagamentos, delivery, relatórios e auditoria | **verde** (local **e** no Supabase real) |
 | `supabase/tests/07_concurrency.sh` | Concorrência real com duas conexões simultâneas (abertura de mesa, clique duplo de pagamento, fechamento duplo) | **verde** |
-| Vitest (`npm test`) | Regras de preço espelhadas do banco, formatação BRL/datas, tradução de erros e criação sob demanda do cliente Supabase | **28/28** |
-| `npm run build` | Build de produção | **exit 0** (~587 kB) |
+| Vitest (`npm test`) | Regras de preço espelhadas do banco, formatação BRL/datas/durações, tradução de erros e criação sob demanda do cliente Supabase | **33/33** |
+| `npm run typecheck` | TypeScript em modo estrito, sem emissão | **exit 0** |
+| `npm run build` | Build de produção com cada tela em um chunk próprio | **exit 0** (principal 479 kB / 138 kB gzip + chunks por tela) |
 
 Reproduza tudo com:
 
@@ -120,7 +121,24 @@ npm test && npm run build
 
 Detalhes e limitações em [`docs/TESTES.md`](docs/TESTES.md).
 
-## 7. Documentação
+## 7. Interface (design system)
+
+A interface usa um design system próprio em `src/components/ui.tsx` + `src/components/icons.tsx`:
+
+- **Cores:** escala `brand` (verde-vermelho quente da casa) para ação e `ink` (neutro quente) para estrutura,
+  definidas em `tailwind.config.js` — nenhuma cor solta nas telas.
+- **Ícones:** SVG inline, traço 1,75 px, sem CDN e sem fonte de ícones — funcionam no balcão, no tablet e quando
+  a internet cai (o bundle leva tudo).
+- **Componentes:** `Button`, `IconButton`, `Card`, `StatTile`, `Badge`, `StatusPill`, `Callout`, `EmptyState`,
+  `Field`/`Input`/`Select`/`Textarea`/`Checkbox`, `SearchInput`, `SegmentedControl`, `QtyStepper`, `Modal`
+  (com armadilha de foco e `aria-modal`), `ConfirmDialog`, `DataTable` (cabeçalho fixo, navegação por teclado),
+  `ToastProvider` e esqueletos de carregamento.
+- **Layout:** sidebar com grupos (Operação / Gestão / Sistema), cabeçalho com o estado do tempo real e barra
+  inferior no celular — o garçom navega com o polegar.
+- **Acessibilidade:** foco visível em tudo, `aria-*` nos diálogos e avisos, alvos de toque com 40 px ou mais e
+  respeito a `prefers-reduced-motion`.
+
+## 8. Documentação
 
 - [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) — modelo de dados, regras, fluxos financeiros, segurança.
 - [`docs/SETUP.md`](docs/SETUP.md) — Supabase, Vercel, GitHub, Edge Function, variáveis de ambiente, Realtime.
@@ -128,9 +146,11 @@ Detalhes e limitações em [`docs/TESTES.md`](docs/TESTES.md).
 - [`docs/ENTREGA.md`](docs/ENTREGA.md) — resumo da entrega: funcionalidades, pendências manuais, limitações e próximos passos.
 - [`PLANO.md`](PLANO.md) — plano de execução por etapas (com estado atual).
 
-## 8. Estado atual
+## 9. Estado atual
 
-- **Código:** publicado em `github.com/ivandoplay/pizzaria-gestao-v2` (privado).
+- **Código:** publicado em `github.com/ivandoplay/pizzaria-gestao-v2` (**repositório público**, a pedido do
+  administrador; `vercel.json` expõe apenas URL do Supabase e chave publishable, que são públicas por natureza —
+  os dados continuam protegidos por RLS).
 - **Banco:** migrações, RLS, Realtime e Edge Function **aplicados e verificados no Supabase real**
   (projeto da org *Pizzaria*, `sa-east-1`), com a suíte de testes rodando contra a nuvem e o banco
   deixado limpo (só o administrador).

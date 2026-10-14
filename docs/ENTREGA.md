@@ -88,9 +88,9 @@ trilha de auditoria somente-adição.
 | Suíte do banco (00–06), local | `bash tools/run-sql-tests.sh` | **280 asserções aprovadas**, 0 falhas |
 | Suíte do banco (00–06), **no Supabase real** | `tools/supabase-cloud-sql.sh` | **nenhuma falha** (falha em qualquer asserção aborta o arquivo) |
 | Concorrência real (07) | idem (duas conexões em paralelo) | **verde**: abertura dupla bloqueada, clique duplo → 1 pagamento, fechamento duplo → recusado |
-| Testes unitários | `npm test` (Vitest) | **28/28** |
+| Testes unitários | `npm test` (Vitest) | **33/33** (após a revisão de interface) |
 | Tipos | `npm run typecheck` | **exit 0** |
-| Build de produção | `npx vite build` | **exit 0** (587 kB, 162 kB gzip) |
+| Build de produção | `npx vite build` | **exit 0** (chunk principal 479 kB / 138 kB gzip + 1 chunk por tela) |
 
 Detalhes, valores esperados e limitações em [`TESTES.md`](TESTES.md).
 
@@ -100,7 +100,9 @@ Atualizado em **14/10/2026**, depois da execução com as credenciais reais.
 
 ### 5.1 GitHub — **executado**
 
-- Repositório privado **`ivandoplay/pizzaria-gestao-v2`**, branch `main`, commit `7791d98` (71 arquivos).
+- Repositório **`ivandoplay/pizzaria-gestao-v2`** (tornado **público** a pedido do administrador), branch `main`.
+  Nenhum segredo real no histórico: a varredura em todos os commits não encontrou token, senha ou chave
+  privilegiada — só textos de documentação citando `service_role`/`sb_secret_`.
 - Conferido antes do push: nenhum `.env`, `node_modules` ou `dist`; nenhum token/segredo no conteúdo
   versionado (só `.env.example` com marcadores).
 - O repositório antigo `ivandoplay/pizzaria-gestao` (versão Node.js + SQLite) **não foi alterado**.
@@ -167,6 +169,53 @@ Atualizado em **14/10/2026**, depois da execução com as credenciais reais.
   página e rotas do SPA, cabeçalhos de segurança, presença das variáveis no bundle, ausência de
   credencial privilegiada e login real pelo Auth.
 
+### 5.5 Revisão de interface e correções — **executado em 14/10/2026**
+
+Revisão completa do front-end a pedido do administrador ("a interface está simples demais e abaixo do padrão
+profissional"). O banco, as RPCs, as políticas RLS e as regras de negócio **não foram alterados**.
+
+**Design system novo** (substituindo o visual genérico anterior):
+
+| Antes | Depois |
+|---|---|
+| Paleta só com um vermelho e cinzas padrão do Tailwind | Escalas `brand` (ação) e `ink` (neutra quente) com tons semânticos para sucesso/atenção/erro |
+| Ícones em emoji (🍕💰📊…) | `src/components/icons.tsx`: 50 ícones SVG inline, sem CDN e sem dependência externa |
+| Sidebar escura simples, sem hierarquia | Sidebar com grupos (Operação / Gestão / Sistema), cartão do usuário, menu lateral no celular **e** barra inferior de acesso rápido |
+| Cards cinza com `shadow-sm` | Superfícies com borda suave, sombra em duas camadas, cantos de 14 px e cabeçalho com ícone |
+| Sem estados de carregamento consistentes | Esqueletos com brilho, estados vazios ilustrados por ícone e `Callout` para avisos/erros |
+| Modal sem foco gerenciado | Modal com `aria-modal`, armadilha de foco, fechamento por `Esc`/clique fora e animação curta |
+| Avisos em texto cru | `ToastProvider` com ícone, título, tempo maior para erro e botão de fechar |
+
+**Bugs reais corrigidos** (todos com causa identificada antes da correção):
+
+1. **Forma de pagamento aparecia como UUID** em três telas (recebimento, conta da mesa e histórico) — agora exibe o
+   rótulo real da forma de pagamento.
+2. **"Nova mesa" usava `ConfirmDialog` como formulário** (um diálogo de confirmação com campos dentro): virou um
+   modal próprio, com número, nome de exibição e lugares.
+3. **Fechamento de caixa aceitava campo vazio** e registrava divergência de 100%: agora exige o valor contado,
+   mostra sobra/falta em tempo real e só fecha com justificativa quando há divergência.
+4. **Cards de delivery travavam todos juntos** (um `busy` global): o estado passou a ser por pedido, então um
+   recebimento não bloqueia os outros cartões.
+5. **`window.prompt` para motivo de estorno, cancelamento e ajuste de taxa**: substituído por diálogos do sistema
+   com campo obrigatório e mínimo de 3 caracteres.
+6. **Campos de dinheiro nas configurações saltavam o cursor** (recalculavam a cada tecla): passaram a aceitar texto
+   livre e normalizar ao sair do campo.
+7. **Tipo de pagamento exibido como código** (`credit_card`): traduzido para o nome que o operador lê.
+8. **Endereço de entrega incompleto**: o entregador via só o bairro. A tela do delivery agora carrega o snapshot do
+   endereço (rua, número, complemento, referência) gravado no pedido.
+9. **`printReceipt` existia e nunca era chamado**: agora imprime comanda de produção, comanda de entrega, recibo do
+   cliente e comprovante de fechamento de caixa (via janela do navegador — não é impressora térmica).
+10. **Listas e filtros sem feedback**: filtros de período por atalho (hoje/ontem/7/30 dias), busca com ícone,
+    ordenação visual e rodapé com totais nos relatórios.
+11. **Bundle único de 587 kB**: cada tela virou um chunk carregado sob demanda (o salão abre antes das telas
+    administrativas).
+12. **Sem indicador de "há quanto tempo" atualizado**: a duração das mesas/pedidos é recalculada a cada 30 s por um
+    helper testado (`duracaoDesde`).
+
+**Onde mexer depois:** os primitivos ficam em `src/components/ui.tsx`; as cores, sombras e animações em
+`tailwind.config.js`; os ícones em `src/components/icons.tsx`. Trocar a identidade visual da pizzaria é editar
+esses três arquivos — nenhuma tela tem cor fixa.
+
 ## 6. Variáveis de ambiente necessárias (sem valores)
 
 **Aplicação (Vercel / `.env.local`)**
@@ -208,8 +257,11 @@ publicada, Realtime ativo e banco limpo (seção 5.2); código publicado no GitH
 - Sem perfil de cozinha, sem impressão térmica, sem estoque avançado, sem emissão fiscal, sem gateway
   de pagamento e sem integrações externas (WhatsApp, aplicativos de entrega) — fora do escopo definido;
   Pix e cartão são registrados manualmente com confirmação do caixa.
-- Carga e desempenho não medidos com volume alto de pedidos.
-- Chunk único de 587 kB no bundle (aviso cosmético; caminho de melhoria em `TESTES.md`, seção 4).
+- Carga e desempenho não medidos com volume alto de pedidos (o bundle já é dividido por tela).
+- A revisão visual foi validada por tipos, build e testes automatizados; a conferência de aparência em cada
+  dispositivo (celular/tablet) ainda depende de uso real no salão.
+- Impressão de comanda/recibo usa a janela de impressão do navegador (exige permitir pop-up) — não há integração
+  com impressora térmica.
 - A troca de login curto (`login@pizzaria.local`) para e-mail real exige cadastro e pequena alteração
   no `AuthContext` (decisão registrada em `DECISIONS.md`, 1.2).
 
@@ -233,7 +285,7 @@ publicada, Realtime ativo e banco limpo (seção 5.2); código publicado no GitH
 | Migrações, RLS, RPCs, views, Realtime | escritos e validados localmente |
 | Testes | executados, verdes (280 asserções SQL locais + suíte repetida na nuvem + 28 unitários + concorrência real) |
 | Build | verde |
-| GitHub | **publicado** (`ivandoplay/pizzaria-gestao-v2`, privado) |
+| GitHub | **publicado** (`ivandoplay/pizzaria-gestao-v2`, repositório público) |
 | Supabase | **configurado e verificado na nuvem** (migrações, RLS, Realtime, Edge Function, 3 perfis, fluxo ponta a ponta) |
 | Cardápio | **72 itens de exemplo** aplicados (removíveis em um comando) + 8 bairros com taxa de entrega |
 | Deploy Vercel | **pendente** — importar o repositório + 3 variáveis de ambiente |

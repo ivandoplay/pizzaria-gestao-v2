@@ -11,3 +11,6 @@ coverage
 # artefatos locais do CLI do Supabase (contêm só o ref do projeto)
 supabase/.temp
 tsconfig.tsbuildinfo
+
+# capturas do robô de interface (tools/e2e-telas.mjs)
+artifacts/

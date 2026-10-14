@@ -91,6 +91,8 @@ trilha de auditoria somente-adição.
 | Testes unitários | `npm test` (Vitest) | **35/35** (após a revisão de interface) |
 | Tipos | `npm run typecheck` | **exit 0** |
 | Build de produção | `npx vite build` | **exit 0** (chunk principal 479 kB / 138 kB gzip + 1 chunk por tela) |
+| Interface em navegador real | `node tools/e2e-telas.mjs <URL>` (Playwright, contra o **site publicado**) | **0 falhas**: login dos 3 perfis, 11 telas do administrador, percurso completo do salão, bloqueio de permissão conferido, nenhum erro de console/rede |
+| Conferência do deploy | `bash tools/smoke-deploy.sh <URL> admin '<senha>'` | **tudo certo** (rotas, cabeçalhos, variáveis no bundle, ausência de credencial privilegiada, login real) |
 
 Detalhes, valores esperados e limitações em [`TESTES.md`](TESTES.md).
 

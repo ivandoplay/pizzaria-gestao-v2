@@ -207,7 +207,9 @@ export function AppLayout() {
               onClick={() => setMenuOpen(true)}
             />
             <div className="min-w-0 flex-1">
-              <h1 className="truncate text-[15px] font-semibold text-ink-900">{atual?.rotulo ?? 'Sistema'}</h1>
+              <h1 className="truncate text-[15px] font-semibold text-ink-900">
+                {atual?.rotulo ?? (profile ? 'Acesso restrito' : 'Sistema')}
+              </h1>
               <p className="hidden truncate text-xs text-ink-500 sm:block">
                 {profile?.full_name}
                 {descricaoDoUsuario && descricaoDoUsuario !== profile?.full_name ? ` · ${descricaoDoUsuario}` : ''}

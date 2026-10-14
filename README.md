@@ -100,7 +100,7 @@ com `[DEMO]` — nunca misturar com dados reais).
 |---|---|---|
 | `supabase/tests/00_setup.sql` … `06_reports.sql` | 280 asserções no PostgreSQL: RLS, privilégios, permissões por perfil, cardápio, mesas/pedidos, caixa/pagamentos, delivery, relatórios e auditoria | **verde** (local **e** no Supabase real) |
 | `supabase/tests/07_concurrency.sh` | Concorrência real com duas conexões simultâneas (abertura de mesa, clique duplo de pagamento, fechamento duplo) | **verde** |
-| Vitest (`npm test`) | Regras de preço espelhadas do banco, formatação BRL/datas, tradução de erros | **25/25** |
+| Vitest (`npm test`) | Regras de preço espelhadas do banco, formatação BRL/datas, tradução de erros e criação sob demanda do cliente Supabase | **28/28** |
 | `npm run build` | Build de produção | **exit 0** (~587 kB) |
 
 Reproduza tudo com:

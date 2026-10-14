@@ -7,3 +7,7 @@ dist
 .DS_Store
 .vscode
 coverage
+
+# artefatos locais do CLI do Supabase (contêm só o ref do projeto)
+supabase/.temp
+tsconfig.tsbuildinfo

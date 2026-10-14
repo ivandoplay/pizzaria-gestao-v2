@@ -88,7 +88,7 @@ trilha de auditoria somente-adição.
 | Suíte do banco (00–06), local | `bash tools/run-sql-tests.sh` | **280 asserções aprovadas**, 0 falhas |
 | Suíte do banco (00–06), **no Supabase real** | `tools/supabase-cloud-sql.sh` | **nenhuma falha** (falha em qualquer asserção aborta o arquivo) |
 | Concorrência real (07) | idem (duas conexões em paralelo) | **verde**: abertura dupla bloqueada, clique duplo → 1 pagamento, fechamento duplo → recusado |
-| Testes unitários | `npm test` (Vitest) | **25/25** |
+| Testes unitários | `npm test` (Vitest) | **28/28** |
 | Tipos | `npm run typecheck` | **exit 0** |
 | Build de produção | `npx vite build` | **exit 0** (587 kB, 162 kB gzip) |
 
@@ -199,7 +199,7 @@ publicada, Realtime ativo e banco limpo (seção 5.2); código publicado no GitH
 |---|---|
 | Código (banco + servidor + interface) | completo para o escopo definido |
 | Migrações, RLS, RPCs, views, Realtime | escritos e validados localmente |
-| Testes | executados, verdes (280 asserções SQL + 25 unitários + concorrência real) |
+| Testes | executados, verdes (280 asserções SQL locais + suíte repetida na nuvem + 28 unitários + concorrência real) |
 | Build | verde |
 | GitHub | **publicado** (`ivandoplay/pizzaria-gestao-v2`, privado) |
 | Supabase | **configurado e verificado na nuvem** (migrações, RLS, Realtime, Edge Function, admin, login real) |

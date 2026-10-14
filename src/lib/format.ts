@@ -1,4 +1,4 @@
-import { TIMEZONE } from './supabase'
+import { TIMEZONE } from './env'
 
 /** Formata centavos como moeda brasileira: 12345 -> "R$ 123,45". */
 export function formatMoney(cents: number | null | undefined): string {

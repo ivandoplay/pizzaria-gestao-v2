@@ -235,6 +235,20 @@ profissional"). O banco, as RPCs, as políticas RLS e as regras de negócio **n�
 20. **Tela branca era o único sintoma de erro**: cada rota ganhou uma `ErrorBoundary` que explica o que aconteceu,
     avisa que nada foi perdido (tudo está no banco) e oferece tentar de novo, recarregar ou voltar ao início.
 
+**Blindagem contra "não consigo entrar" (14/10/2026, madrugada):**
+
+22. **Endereço errado**: `https://pizzaria-gestao.vercel.app` (sem o `-v2`) continua no ar, mas é **outro
+    sistema** ("Pizzaria — Gestão de Estoque"), sem as contas do cardápio — quem abrir um favorito antigo
+    conclui que "o login quebrou". O rodapé da tela de entrada e as configurações agora mostram
+    **endereço + carimbo de versão do build**, então dá para saber na hora qual app e qual versão estão abertos.
+23. **Sessão velha no aparelho**: entrou a opção "Problemas para entrar? Limpar dados deste aparelho"
+    (limpa a sessão salva e recarrega), disponível na tela de entrada e na tela de bloqueio. O botão Sair
+    também passou a ter prazo máximo: se o servidor não responder, o aparelho é limpo e o operador volta
+    para a entrada — nunca fica preso.
+24. **Quem já está conectado não é mais jogado para dentro às cegas**: abrir `/login` com sessão ativa mostra
+    *"Você já está conectado como X (função, login)"* com **Continuar** e **Entrar com outra conta** — é o
+    caminho explícito para trocar de usuário no mesmo aparelho (balcão, tablet compartilhado).
+
 **Como foi conferido (navegador real, contra o site publicado):**
 
 ```

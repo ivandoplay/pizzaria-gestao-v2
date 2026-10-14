@@ -1,12 +1,15 @@
 import { useState, type FormEvent } from 'react'
-import { Navigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { Button, Callout, Field, Input } from '../components/ui'
 import { Icon } from '../components/icons'
 import { translateError } from '../lib/errors'
 import { isSupabaseConfigured } from '../lib/supabase'
+import { limparSessaoLocal, sairDoAparelho } from '../lib/sessao'
+import { ROLE_LABELS } from '../lib/types'
 
 export default function LoginPage() {
+  const navigate = useNavigate()
   const { profile, loading, signIn, blockedReason } = useAuth()
   const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
@@ -14,7 +17,40 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
-  if (!loading && profile) return <Navigate to="/" replace />
+  // Já existe sessão neste aparelho: em vez de entrar direto (o que impedia
+  // trocar de usuário sem descobrir onde sair), mostramos quem está conectado.
+  if (!loading && profile) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-ink-100 px-4 py-10">
+        <div className="w-full max-w-md rounded-card border border-ink-200 bg-white p-6 shadow-float sm:p-8">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-50 text-brand-700">
+            <Icon nome="usuario" className="h-6 w-6" />
+          </span>
+          <h1 className="mt-4 text-lg font-semibold text-ink-900">Você já está conectado</h1>
+          <p className="mt-1.5 text-sm leading-relaxed text-ink-600">
+            Este aparelho está com a sessão de <strong className="text-ink-800">{profile.full_name}</strong>
+            {` (${ROLE_LABELS[profile.role]}, login ${profile.login})`}. Para entrar com outro acesso, saia desta conta.
+          </p>
+          <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+            <Button className="sm:flex-1" icone="painel" onClick={() => navigate('/', { replace: true })}>
+              Continuar como {profile.full_name.split(' ')[0]}
+            </Button>
+            <Button
+              variant="secondary"
+              className="sm:flex-1"
+              icone="sair"
+              onClick={() => void sairDoAparelho('/login')}
+            >
+              Entrar com outra conta
+            </Button>
+          </div>
+          <p className="mt-4 border-t border-ink-100 pt-3 text-[11px] text-ink-400">
+            {typeof window !== 'undefined' ? window.location.host : ''} · versão {__VERSAO_DO_APP__}
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -22,6 +58,8 @@ export default function LoginPage() {
     setSubmitting(true)
     try {
       await signIn(login, password)
+      // Entrou: vai direto para a tela inicial do perfil (o Guard decide qual).
+      navigate('/', { replace: true })
     } catch (err) {
       const raw = translateError(err)
       setError(
@@ -180,10 +218,24 @@ export default function LoginPage() {
             <p className="mt-5 border-t border-ink-100 pt-4 text-center text-xs leading-relaxed text-ink-500">
               Não existe cadastro público. As contas são criadas e liberadas pelo administrador da pizzaria.
             </p>
+
+            <button
+              type="button"
+              onClick={() => {
+                limparSessaoLocal()
+                window.location.reload()
+              }}
+              className="mt-3 w-full rounded-control px-3 py-2 text-center text-xs text-ink-400 transition hover:bg-ink-100 hover:text-ink-600"
+              title="Apaga a sessão salva neste navegador e recarrega a página"
+            >
+              Problemas para entrar? Limpar dados deste aparelho
+            </button>
           </div>
 
           <p className="mt-5 text-center text-[11px] text-ink-400">
             Em caso de acesso negado, procure o responsável pelo sistema na pizzaria.
+            <br />
+            {typeof window !== 'undefined' ? window.location.host : ''} · versão {__VERSAO_DO_APP__}
           </p>
         </div>
       </main>

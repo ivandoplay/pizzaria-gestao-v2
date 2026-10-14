@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { Session } from '@supabase/supabase-js'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import * as api from '../lib/api'
+import { sairDoAparelho } from '../lib/sessao'
 import type { Profile, Role } from '../lib/types'
 
 interface AuthState {
@@ -149,10 +150,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       can: (roles: Role[]) => (profile ? roles.includes(profile.role) : false),
       signIn,
       signOut: async () => {
-        await api.signOut()
         setProfile(null)
         setSession(null)
         sessaoAnterior.current = null
+        // Sai pela rotina com prazo: se o servidor não responder, o aparelho é
+        // limpo e o operador volta para a tela de entrada de qualquer forma.
+        await sairDoAparelho('/login')
       },
       refreshProfile: async () => loadProfile(session),
     }

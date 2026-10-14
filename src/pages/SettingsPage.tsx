@@ -239,7 +239,11 @@ export default function SettingsPage() {
           />
         </div>
 
-        <p className="mt-3 text-[11px] text-ink-500">
+        <p className="mt-3 text-[11px] text-ink-400">
+          Versão do sistema em uso: <span className="text-ink-600">{__VERSAO_DO_APP__}</span> — se algum aparelho
+          mostrar um número diferente, ele está com uma versão antiga aberta (recarregue a página).
+        </p>
+        <p className="mt-2 text-[11px] text-ink-500">
           Toda alteração de configuração é registrada na auditoria com o valor anterior e o novo. Perfil atual:{' '}
           <strong className="text-ink-700">{profile?.full_name}</strong>{' '}
           {profile && profile.login && <span className="text-ink-500">({profile.login})</span>}{' '}

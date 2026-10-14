@@ -79,6 +79,17 @@ Execução final: **280 asserções, todas aprovadas**, sem `ERROR` e sem `ASSER
 o valor mostrado é substituído pelo oficial — mas manter os dois alinhados evita confusão no balcão, e
 os testes travam esse alinhamento.
 
+## 3.1 Fluxos de entrada conferidos no navegador (14/10/2026)
+
+| Fluxo | Resultado |
+|---|---|
+| Entrar do zero com os três perfis no site publicado | **ok** (admin → `/dashboard`, caixa → `/caixa`, garçom → `/mesas`) |
+| Recarregar a página com sessão salva | **ok** (antes travava em "Carregando seu acesso…") |
+| Abrir `/login` já conectado | mostra *"Você já está conectado"* com **Continuar** e **Entrar com outra conta** |
+| Trocar de conta no mesmo aparelho | **ok** (limpa a sessão e volta ao formulário) |
+| "Limpar dados deste aparelho" | **ok** (limpa a sessão local e recarrega) |
+| Rodapé com endereço + versão do build | **ok** (serve para identificar app/versão errados) |
+
 ## 4. Build e verificação de tipos — resultado: **exit 0**
 
 | Comando | Resultado |

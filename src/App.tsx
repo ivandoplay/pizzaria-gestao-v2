@@ -6,6 +6,7 @@ import { useAuth } from './context/AuthContext'
 import type { Role } from './lib/types'
 import { Button, ErrorBlock, LoadingBlock } from './components/ui'
 import { isSupabaseConfigured } from './lib/supabase'
+import { limparSessaoLocal } from './lib/sessao'
 
 // Cada tela é carregada sob demanda: o painel do salão abre rápido mesmo no
 // celular do garçom, e as telas administrativas só baixam quando usadas.
@@ -32,9 +33,21 @@ function Guard({ roles, children }: { roles: Role[]; children: ReactNode }) {
     return (
       <div className="mx-auto max-w-lg px-4 py-10">
         <ErrorBlock message={blockedReason} onRetry={() => window.location.reload()} />
-        <Button variant="secondary" block className="mt-3" onClick={() => void signOut()}>
-          Sair e entrar com outra conta
-        </Button>
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+          <Button variant="secondary" className="sm:flex-1" icone="sair" onClick={() => void signOut()}>
+            Sair e entrar com outra conta
+          </Button>
+          <Button
+            variant="ghost"
+            className="sm:flex-1"
+            onClick={() => {
+              limparSessaoLocal()
+              window.location.reload()
+            }}
+          >
+            Limpar dados deste aparelho
+          </Button>
+        </div>
       </div>
     )
   }

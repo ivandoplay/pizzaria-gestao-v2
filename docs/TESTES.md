@@ -119,7 +119,15 @@ Teste de fumaça após a configuração, direto contra a API do Supabase:
 | Edge Function sem token | HTTP 401 |
 | Edge Function criando funcionário / logando com ele / redefinindo senha | tudo OK |
 
-## 6. O que **não** foi testado (limitações honestas)
+## 6. Conferência do site publicado
+
+`bash tools/smoke-deploy.sh https://pizzaria-gestao-v2.vercel.app [login senha]` roda contra o deploy
+e verifica: página inicial, as 5 rotas principais do SPA (rewrite), cabeçalhos de segurança, presença
+das variáveis `VITE_*` no bundle, ausência de credencial privilegiada e — se você passar login e senha —
+um **login real** pelo Auth do Supabase. Rode isso depois de cada alteração para não descobrir problema
+no meio do movimento.
+
+## 7. O que **não** foi testado (limitações honestas)
 
 1. ~~Nada contra o Supabase real~~ — **resolvido**: a suíte rodou no projeto de produção e o teste de
    fumaça (login, RLS, RPC, anônimo bloqueado, Edge Function) foi executado na nuvem (seção 5).

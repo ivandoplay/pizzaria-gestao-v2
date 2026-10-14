@@ -126,15 +126,18 @@ Atualizado em **14/10/2026**, depois da execução com as credenciais reais.
   (fuso `America/Fortaleza`, 12 mesas livres, caixa fechado). Acesso anônimo bloqueado: tabela devolve
   `[]` e RPC devolve `42501 AUTH_REQUIRED`.
 
-### 5.3 Vercel — **pendente (um passo)**
+### 5.3 Vercel — **publicado**
 
-- **Build:** verde e reprodutível (`npm install && npm run build` → `dist/`).
-- O deploy **não foi feito**: não houve token da Vercel. Duas opções:
-  1. **Pelo painel (5 cliques):** Vercel → *Add New → Project* → importe
-     `ivandoplay/pizzaria-gestao-v2` → confirme Vite / `npm run build` / `dist` → cadastre
-     `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` e `VITE_TIMEZONE` → *Deploy*.
-  2. **Por token:** crie um em vercel.com/account/tokens, me envie e **revogue depois** — eu faço o
-     deploy e cadastro as variáveis.
+- **Endereço:** <https://pizzaria-gestao-v2.vercel.app> (projeto ligado ao GitHub, deploy automático a
+  cada push no `main`).
+- **Configuração das variáveis:** declaradas em `vercel.json` → `build.env`
+  (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_TIMEZONE`). Decisão consciente: são valores
+  **públicos** — a URL do projeto e a chave *publishable* que qualquer navegador recebe ao abrir o app,
+  protegida pela RLS. Nenhuma credencial privilegiada (`service_role`/`sb_secret_`) entra no repositório
+  ou no navegador: ela existe somente dentro da Edge Function.
+- **Conferência automatizada:** `tools/smoke-deploy.sh` valida o site publicado a cada deploy —
+  página e rotas do SPA, cabeçalhos de segurança, presença das variáveis no bundle, ausência de
+  credencial privilegiada e login real pelo Auth.
 
 ## 6. Variáveis de ambiente necessárias (sem valores)
 

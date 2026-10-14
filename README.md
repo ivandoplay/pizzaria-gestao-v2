@@ -126,6 +126,9 @@ Detalhes e limitações em [`docs/TESTES.md`](docs/TESTES.md).
 - **Banco:** migrações, RLS, Realtime e Edge Function **aplicados e verificados no Supabase real**
   (projeto da org *Pizzaria*, `sa-east-1`), com a suíte de testes rodando contra a nuvem e o banco
   deixado limpo (só o administrador).
-- **Falta:** deploy na Vercel (importar o repositório + cadastrar `VITE_SUPABASE_URL`,
-  `VITE_SUPABASE_ANON_KEY` e `VITE_TIMEZONE`), trocar a senha do administrador e cadastrar o cardápio
-  real. Veja [`docs/ENTREGA.md`](docs/ENTREGA.md), seções 5 e 7.
+- **Site publicado:** <https://pizzaria-gestao-v2.vercel.app> (deploy automático a cada push no `main`).
+  As três variáveis `VITE_*` ficam em `vercel.json` → `build.env` (são valores públicos; ver `.env.example`).
+- **Conferência do site publicado:** `bash tools/smoke-deploy.sh https://pizzaria-gestao-v2.vercel.app admin 'senha'`
+  verifica rotas, cabeçalhos, presença das variáveis, ausência de credencial privilegiada e faz um login real.
+- **Falta:** trocar a senha do administrador e cadastrar o cardápio real.
+  Veja [`docs/ENTREGA.md`](docs/ENTREGA.md), seções 5 e 7.

@@ -214,6 +214,40 @@ profissional"). O banco, as RPCs, as políticas RLS e as regras de negócio **n�
 12. **Sem indicador de "há quanto tempo" atualizado**: a duração das mesas/pedidos é recalculada a cada 30 s por um
     helper testado (`duracaoDesde`).
 
+**Segunda passada da mesma revisão** (encontrados ao testar o sistema publicado em navegador real):
+
+13. **Recarregar a página travava o sistema** em "Carregando seu acesso…" (nenhuma requisição saía): o callback de
+    `onAuthStateChange` aguardava uma consulta ao banco *dentro* da inicialização do Auth, e a consulta depende do
+    próprio Auth — impasse que só terminava fechando a aba. O trabalho passou a ser reagendado fora do callback, a
+    confirmação da sessão tem prazo máximo de 12 s e a tela bloqueada oferece **Tentar de novo** e
+    **Sair e entrar com outra conta** (antes, tela em branco silenciosa).
+14. **Gráfico "Evolução das vendas" não desenhava nada** quando havia um único dia (altura em `%` dentro de coluna de
+    altura automática): passou a calcular a altura em pixels; com poucos pontos os valores aparecem no topo.
+15. **Formas de pagamento apareciam como código** (`credit_card`) também nos cartões de configuração — traduzidas.
+16. **Largura de campo ignorada**: a classe `w-full` do campo vencia o `className` da página (fuso horário ocupava
+    meia tela e os horários de funcionamento ficavam achatados). O campo virou classe de componente (`.campo`),
+    que pode ser sobreposta por utilitário — o mesmo problema poderia atingir qualquer tela.
+17. **Tabelas dentro de cartão estreito cortavam a coluna de ações**: `DataTable` ganhou `minW` e `tamanho`
+    (linhas compactas), e a coluna virou botão de ícone com título acessível.
+18. **Plural "1 pedido(s)"** espalhado pelas telas: helper testado `plural()` usado em 10 telas.
+19. **"Administrador · Administrador"** no cabeçalho e no menu → mostra o nome de exibição e o login; o tipo de
+    produto no cardápio deixou de ser uma frase longa e virou selo curto.
+20. **Tela branca era o único sintoma de erro**: cada rota ganhou uma `ErrorBoundary` que explica o que aconteceu,
+    avisa que nada foi perdido (tudo está no banco) e oferece tentar de novo, recarregar ou voltar ao início.
+
+**Como foi conferido (navegador real, contra o site publicado):**
+
+```
+npm i --no-save playwright && npx playwright install chromium && npx playwright install-deps chromium
+PZ_ADMIN_PASSWORD='…' PZ_CAIXA_PASSWORD='…' PZ_GARCOM_PASSWORD='…' \
+  node tools/e2e-telas.mjs https://pizzaria-gestao-v2.vercel.app
+```
+
+O robô entra com os três perfis, percorre as telas de cada um, confere que as telas administrativas barram caixa e
+garçom, executa o percurso do salão (abrir mesa, montar pedido, conferir a conta — **sem gravar nada no banco**),
+verifica erro de console/rede e salva capturas em `artifacts/e2e/`. Resultado: **0 falhas**. As capturas não vão para
+o repositório (`artifacts/` está no `.gitignore`).
+
 **Onde mexer depois:** os primitivos ficam em `src/components/ui.tsx`; as cores, sombras e animações em
 `tailwind.config.js`; os ícones em `src/components/icons.tsx`. Trocar a identidade visual da pizzaria é editar
 esses três arquivos — nenhuma tela tem cor fixa.

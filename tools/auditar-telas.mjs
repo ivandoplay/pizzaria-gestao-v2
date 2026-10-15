@@ -29,14 +29,14 @@ const listaTamanhos = quais === 'ambos' ? ['celular', 'computador'] : [quais]
 const PERFIS = [
   {
     nome: 'garcom',
-    usuario: 'garcom',
-    senha: process.env.PZ_GARCOM_PASSWORD ?? 'Garcom@2026',
+    usuario: process.env.PZ_GARCOM_LOGIN ?? 'garcom',
+    senha: process.env.PZ_GARCOM_PASSWORD,
     rotas: ['/mesas', '/mesas/:conta'],
   },
   {
     nome: 'caixa',
-    usuario: 'caixa',
-    senha: process.env.PZ_CAIXA_PASSWORD ?? 'Caixa@2026',
+    usuario: process.env.PZ_CAIXA_LOGIN ?? 'caixa',
+    senha: process.env.PZ_CAIXA_PASSWORD,
     rotas: ['/caixa', '/mesas', '/mesas/:conta', '/delivery', '/historico', '/caixa-controle'],
   },
   {
@@ -59,6 +59,15 @@ const PERFIS = [
     ],
   },
 ]
+
+// Senhas vêm do ambiente (nunca do repositório): sem elas o robô avisa e para,
+// em vez de tentar entrar com senha vazia e reportar falhas que não existem.
+for (const perfil of PERFIS) {
+  if (!perfil.senha) {
+    console.error(`Defina PZ_${perfil.nome.toUpperCase()}_PASSWORD para rodar o robô.`)
+    process.exit(2)
+  }
+}
 
 const problemas = []
 const avisos = []

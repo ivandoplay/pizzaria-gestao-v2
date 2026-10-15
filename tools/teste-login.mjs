@@ -23,9 +23,9 @@ import path from 'node:path'
 const BASE = (process.argv[2] ?? 'http://localhost:4173').replace(/\/$/, '')
 const SAIDA = path.resolve('artifacts/login')
 const PERFIS = [
-  { nome: 'admin', senha: process.env.PZ_ADMIN_PASSWORD, rota: '/dashboard', titulo: 'Painel do dia' },
-  { nome: 'caixa', senha: process.env.PZ_CAIXA_PASSWORD, rota: '/caixa', titulo: 'Caixa' },
-  { nome: 'garcom', senha: process.env.PZ_GARCOM_PASSWORD, rota: '/mesas', titulo: 'Mesas' },
+  { nome: process.env.PZ_ADMIN_LOGIN ?? 'admin', senha: process.env.PZ_ADMIN_PASSWORD, rota: '/dashboard', titulo: 'Painel do dia' },
+  { nome: process.env.PZ_CAIXA_LOGIN ?? 'caixa', senha: process.env.PZ_CAIXA_PASSWORD, rota: '/caixa', titulo: 'Caixa' },
+  { nome: process.env.PZ_GARCOM_LOGIN ?? 'garcom', senha: process.env.PZ_GARCOM_PASSWORD, rota: '/mesas', titulo: 'Mesas' },
 ]
 
 const falhas = []

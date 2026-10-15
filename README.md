@@ -117,6 +117,7 @@ para o seed e a remoção, então as listas nunca ficam desencontradas).
 | Vitest (`npm test`) | Regras de preço espelhadas do banco, formatação BRL/datas/durações/plural, tradução de erros, criação sob demanda do cliente Supabase e regras da troca de senha | **48/48** |
 | `npm run typecheck` | TypeScript em modo estrito, sem emissão | **exit 0** |
 | `npm run build` | Build de produção com cada tela em um chunk próprio | **exit 0** (principal 491 kB / 141 kB gzip + chunks por tela) |
+| GitHub Actions (`CI`) | A cada push no `main` e em pull request: `npm ci` → `tsc -b` → Vitest → `vite build` | **sucesso** (execução `38825141161`, 15/10/2026) |
 
 Reproduza tudo com:
 

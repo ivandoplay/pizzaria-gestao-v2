@@ -110,6 +110,7 @@ trilha de auditoria somente-adição.
 | Interface em navegador real | `node tools/e2e-telas.mjs <URL>` (Playwright, contra o **site publicado**) | **0 falhas**: login dos 3 perfis, 11 telas do administrador, percurso completo do salão, bloqueio de permissão conferido, nenhum erro de console/rede |
 | Troca obrigatória de senha | `node tools/teste-troca-senha.mjs <URL>` (Playwright, contra o **site publicado**) | **0 falhas**: senha temporária não abre o sistema (nem pela rota), validações da troca, senha antiga deixa de funcionar, evento na auditoria e conta de teste desativada |
 | Conferência do deploy | `bash tools/smoke-deploy.sh <URL> admin '<senha>'` | **tudo certo** (rotas, cabeçalhos, variáveis no bundle, ausência de credencial privilegiada, login real) |
+| Esteira automática | GitHub Actions → `CI` (`npm ci`, `tsc -b`, Vitest, `vite build`) | **sucesso** na execução `38825141161` (15/10/2026, commit `085e707`) |
 
 Detalhes, valores esperados e limitações em [`TESTES.md`](TESTES.md).
 

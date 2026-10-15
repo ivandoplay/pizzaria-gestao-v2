@@ -17,6 +17,12 @@ npm run typecheck # tsc -b
 npm run build     # build de produção
 ```
 
+Esses três últimos passos rodam sozinhos a cada push no `main` (e em cada pull
+request): é a esteira **CI** em `.github/workflows/ci.yml` — `npm ci` →
+`typecheck` → `test` → `build`. O que depende de segredo ou de serviço de
+produção (suíte do banco, robôs de navegador, `smoke-deploy.sh`) continua sendo
+rodado à mão, e o cabeçalho do arquivo diz isso com todas as letras.
+
 ### 1.1 O que `run-sql-tests.sh` faz
 
 1. `drop database if exists pizzaria_test` + `create database pizzaria_test owner postgres`

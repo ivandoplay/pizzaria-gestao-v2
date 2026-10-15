@@ -1,0 +1,52 @@
+# Esteira de verificação — roda a cada push no `main` e em cada pull request.
+#
+# O que ela cobre: o que NÃO depende de segredo — checagem de tipos, testes
+# unitários (Vitest) e build de produção. É a rede que pega o erro bobo antes de
+# o deploy automático da Vercel publicar.
+#
+# O que ela NÃO cobre (e continua sendo rodado à mão, com as senhas no ambiente):
+#   * suíte do banco (`tools/run-sql-tests.sh`) — precisa de um PostgreSQL local;
+#   * robôs de navegador contra o Supabase real (`tools/auditar-telas.mjs`,
+#     `e2e-telas.mjs`, `teste-login.mjs`, `teste-troca-senha.mjs`);
+#   * `smoke-deploy.sh`, que confere o site publicado depois do deploy.
+# Motivo: exigem segredos ou serviços de produção e não devem rodar a cada pull
+# request de terceiros.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verificar:
+    name: tipos, testes e build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v4
+
+      - name: Preparar o Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Checar tipos (tsc -b)
+        run: npm run typecheck
+
+      - name: Testes unitários (Vitest)
+        run: npm test
+
+      - name: Build de produção (Vite)
+        run: npm run build

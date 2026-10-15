@@ -330,7 +330,7 @@ export default function DeliveryPage() {
           <Input
             value={busca}
             onChange={(event) => setBusca(event.target.value)}
-            placeholder="Buscar por cliente, telefone ou número do pedido…"
+            placeholder="Buscar cliente, telefone ou nº…"
           />
         </div>
       </div>

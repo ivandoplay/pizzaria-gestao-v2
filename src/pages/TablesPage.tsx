@@ -187,7 +187,7 @@ export default function TablesPage() {
             <SearchInput
               value={busca}
               onValueChange={setBusca}
-              placeholder="Buscar por mesa, número ou responsável…"
+              placeholder="Buscar mesa ou responsável…"
               className="sm:w-80"
             />
           </div>

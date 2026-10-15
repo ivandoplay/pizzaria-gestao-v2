@@ -35,9 +35,12 @@ export function getSupabase(): SupabaseClient {
     realtime: {
       params: { eventsPerSecond: 5 },
     },
-    global: {
-      headers: { 'x-application-name': 'pizzaria-gestao' },
-    },
+    // Sem cabeçalho próprio aqui: o Supabase trata as chamadas e as Edge
+    // Functions respondem ao CORS com uma lista fechada de cabeçalhos
+    // (authorization, x-client-info, apikey, content-type). Um cabeçalho
+    // extra como `x-application-name` é recusado no preflight e o navegador
+    // bloqueia a chamada inteira — foi o que quebrava a criação de
+    // funcionário (`admin-create-employee`) direto na tela.
   })
   return cliente
 }

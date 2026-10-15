@@ -165,9 +165,12 @@ no meio do movimento.
    contra o site publicado — não há pipeline automatizado nem execução agendada.
 3. **Edge Function deployada, mas fora da suíte de banco** — `admin-create-employee` roda no projeto
    real (cria funcionário e recusa login duplicado) e é exercitada pelo robô `teste-troca-senha.mjs`;
-   ela não entra na suíte SQL porque depende de `service_role`. Um detalhe de ambiente: rodando o site
-   em `localhost` a criação de funcionário é barrada por **CORS** (a função só aceita a origem publicada),
-   então esse robô roda contra a URL publicada.
+   ela não entra na suíte SQL porque depende de `service_role`. Dois detalhes de ambiente: rodando o
+   site em `localhost` a criação de funcionário é barrada por **CORS** (a função só aceita a origem
+   publicada), então esse robô roda contra a URL publicada; e foi exatamente esse robô que expôs, em
+   15/10/2026, a criação de funcionário **quebrada no site publicado** — um cabeçalho próprio do cliente
+   (`x-application-name`) era recusado no *preflight* da função. Corrigido removendo o cabeçalho (ver
+   `DECISIONS.md` §1.7). Testes de função por `curl` não passam por CORS e por isso não pegaram.
 4. **Realtime não exercitado em nuvem** — a lógica de invalidação é local; o socket real só existe
    depois do Supabase configurado.
 5. **Carga/desempenho não medidos** — sem teste de stress com muitos pedidos simultâneos.

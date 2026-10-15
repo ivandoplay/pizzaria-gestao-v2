@@ -69,6 +69,25 @@ o sistema continua pedindo a troca — melhor pedir de novo do que liberar o ace
 **Verificação:** `supabase/tests/08_troca_senha.sql` (banco, inclui o caso do funcionário desativado, que
 recebe `AUTH_REQUIRED` em vez de se liberar) e `tools/teste-troca-senha.mjs` (navegador, de ponta a ponta).
 
+### 1.7 Nenhum cabeçalho próprio no cliente Supabase
+
+**O problema (achado só em navegador real):** o cliente Supabase era criado com
+`global.headers = { 'x-application-name': 'pizzaria-gestao' }`. Esse cabeçalho ia junto em **toda**
+requisição, inclusive na chamada da Edge Function `admin-create-employee`. A função responde ao CORS com
+uma lista fechada de cabeçalhos (`authorization, x-client-info, apikey, content-type`), então o
+*preflight* recusava o cabeçalho extra e o navegador bloqueava a chamada: **criar funcionário e redefinir
+senha falhavam em produção**, com um erro de rede que parece "Edge Function fora do ar".
+
+Por que não apareceu antes: testes de função por linha de comando (curl) **não passam por CORS** — só o
+navegador passa. Foi um robô de navegador contra o site publicado que expôs a falha.
+
+**A decisão:** o cabeçalho foi removido (ele não tinha função além de rótulo). A alternativa — abrir o
+cabeçalho na lista da função — deixaria a armadilha de pé para as próximas funções, porque o cabeçalho
+global vale para todas as chamadas.
+
+**Lição registrada:** qualquer cabeçalho customizado no cliente Supabase precisa entrar também na lista
+de CORS de cada Edge Function. O caminho barato é não ter cabeçalho customizado.
+
 ## 2. Dinheiro
 
 ### 2.1 Tudo em centavos inteiros

@@ -50,7 +50,7 @@ estiver marcada, nenhuma rota, menu ou atalho abre — o portão fica no app e a
 |---|---|
 | Front-end | React 18, TypeScript 5.6, Vite 5, TailwindCSS 3, React Router 6, TanStack Query 5, `@supabase/supabase-js` 2 |
 | Testes de UI/lógica | Vitest (25 testes) |
-| Banco | PostgreSQL (Supabase) com RLS, triggers, views e 22 funções RPC (14 operacionais + 8 de relatório) |
+| Banco | PostgreSQL (Supabase) com RLS, triggers, views e 23 funções RPC (14 operacionais + 8 de relatório + a troca obrigatória de senha) |
 | Autenticação | Supabase Auth — e-mail interno `login@pizzaria.local` gerado a partir do login digitado |
 | Tempo real | Supabase Realtime (canal `painel-sync`, debounce de 350 ms) |
 | Server-side privilegiado | Edge Function `admin-create-employee` (criar funcionário/redefinir senha) |
@@ -90,7 +90,8 @@ As migrações ficam em `supabase/migrations/` e são aplicadas **em ordem**:
 | `20260101000005_operations.sql` | `restaurant_tables`, `table_sessions`, `orders`, `order_items`, `order_item_flavors`, `order_item_modifiers`, `order_status_history`, `payments` + recálculo de totais. |
 | `20260101000006_rls.sql` | RLS em todas as tabelas, privilégios (com revogação de escrita nas tabelas que só aceitam RPC), `guard_profiles`, views de leitura (`table_overview`, `order_overview`, `cash_session_overview`, `order_item_overview`) e publicação de Realtime. |
 | `20260101000007_rpc.sql` | Regras de negócio: 14 RPCs (pedidos, contas, pagamentos, caixa, delivery, clientes). |
-| `20260101000008_reports.sql` | 8 funções de relatório/indicadores agregando no banco (22 funções no total). |
+| `20260101000008_reports.sql` | 8 funções de relatório/indicadores agregando no banco. |
+| `20260101000009_troca_senha_obrigatoria.sql` | `complete_password_change()`: baixa a própria flag de senha temporária, idempotente e auditada (23 funções no total). |
 
 Seeds:
 
@@ -115,7 +116,7 @@ para o seed e a remoção, então as listas nunca ficam desencontradas).
 | `supabase/tests/07_concurrency.sh` | Concorrência real com duas conexões simultâneas (abertura de mesa, clique duplo de pagamento, fechamento duplo) | **verde** |
 | Vitest (`npm test`) | Regras de preço espelhadas do banco, formatação BRL/datas/durações/plural, tradução de erros, criação sob demanda do cliente Supabase e regras da troca de senha | **48/48** |
 | `npm run typecheck` | TypeScript em modo estrito, sem emissão | **exit 0** |
-| `npm run build` | Build de produção com cada tela em um chunk próprio | **exit 0** (principal 479 kB / 138 kB gzip + chunks por tela) |
+| `npm run build` | Build de produção com cada tela em um chunk próprio | **exit 0** (principal 491 kB / 141 kB gzip + chunks por tela) |
 
 Reproduza tudo com:
 
@@ -171,8 +172,11 @@ Princípios aplicados (revisão de 15/10/2026, sobre os padrões de dashboard de
   administrador; `vercel.json` expõe apenas URL do Supabase e chave publishable, que são públicas por natureza —
   os dados continuam protegidos por RLS).
 - **Banco:** migrações, RLS, Realtime e Edge Function **aplicados e verificados no Supabase real**
-  (projeto da org *Pizzaria*, `sa-east-1`), com a suíte de testes rodando contra a nuvem e o banco
-  deixado limpo (só o administrador).
+  (projeto da org *Pizzaria*, `sa-east-1`) com a suíte de testes rodando contra a nuvem. Na base estão
+  os três perfis de trabalho (`admin`, `caixa`, `garcom`), o **cardápio demonstrativo** (removível por
+  `supabase/seed/remove_cardapio_EXEMPLO.sql`) e duas contas de apoio dos robôs
+  (`robo.caixa`, `robo.garcom`) mais duas contas de teste desativadas (`robo.troca.senha`, `robo.dbg`) —
+  todas desativáveis na tela de funcionários, nenhuma exclusão é feita.
 - **Site publicado:** <https://pizzaria-gestao-v2.vercel.app> (deploy automático a cada push no `main`).
   As três variáveis `VITE_*` ficam em `vercel.json` → `build.env` (são valores públicos; ver `.env.example`).
 - **Conferência do site publicado:** `bash tools/smoke-deploy.sh https://pizzaria-gestao-v2.vercel.app admin 'senha'`
@@ -181,3 +185,9 @@ Princípios aplicados (revisão de 15/10/2026, sobre os padrões de dashboard de
   `supabase/seed/remove_cardapio_EXEMPLO.sql`). As senhas temporárias de caixa e garçom são trocadas no
   primeiro acesso de cada um, na tela obrigatória.
   Veja [`docs/ENTREGA.md`](docs/ENTREGA.md), seções 5 e 7.
+
+### Licença e uso
+
+Repositório **público para consulta** — não há licença de reuso concedida: o código, o banco e a
+documentação continuam sendo do estabelecimento. Se quiser abrir o uso (MIT, Apache 2.0, uso interno
+formal…), basta escolher a licença e eu adiciono o arquivo `LICENSE` e a seção correspondente aqui.

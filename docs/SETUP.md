@@ -2,7 +2,7 @@
 
 Este é o passo a passo para preparar o ambiente (banco → administrador → Edge Function → Vercel).
 
-> **Neste projeto as seções 1 a 5 já foram executadas** — projeto na org *Pizzaria* com as 8 migrações
+> **Neste projeto as seções 1 a 5 já foram executadas** — projeto na org *Pizzaria* com as 9 migrações
 > aplicadas, administrador criado, Edge Function publicada e Realtime ativo (detalhes em
 > [`ENTREGA.md`](ENTREGA.md), seção 5). Este guia serve para conferir o que foi feito, reproduzir em
 > outro projeto ou recuperar o ambiente.
@@ -68,7 +68,7 @@ from pg_class c join pg_namespace n on n.oid = c.relnamespace
 where n.nspname = 'public' and c.relkind = 'r';
 -- esperado: 25 | 25 | 25
 
--- devem existir 22 funções (14 operacionais + 8 de relatório)
+-- devem existir 23 funções (14 operacionais + 8 de relatório + 1 de senha)
 select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public' and p.prokind = 'f';
 -- esperado: 22

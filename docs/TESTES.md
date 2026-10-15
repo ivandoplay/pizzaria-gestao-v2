@@ -23,10 +23,10 @@ npm run build     # build de produção
    (sempre do zero — rodar sem recriar gera erro de chave duplicada nas fixtures);
 2. aplica `tools/local_pg_shim.sql` (emula `auth.uid()`, `auth.role()`, roles
    `anon`/`authenticated`/`service_role`, `supabase_realtime`, extensões);
-3. aplica as 8 migrações em ordem;
+3. aplica as 9 migrações em ordem;
 4. aplica `supabase/seed/seed_structure.sql`;
 5. aplica `supabase/tests/00_setup.sql` (infra de teste + fixtures);
-6. roda `01`…`06` e, no fim, `07_concurrency.sh` (script bash com conexões paralelas de verdade).
+6. roda `01`…`06`, depois `08` e, no fim, `07_concurrency.sh` (script bash com conexões paralelas de verdade).
 
 O contador de asserções lê as mensagens `NOTICE: OK` emitidas por `tests.ok/eq_int/eq_text/eq_bool`.
 

@@ -7,6 +7,10 @@
 --   3. a operação é idempotente (chamar de novo não muda nada);
 --   4. fica registrada na auditoria;
 --   5. funcionário inativo não usa o caminho para se "liberar".
+--
+-- Roda no banco de TESTE (tools/run-sql-tests.sh), que recria tudo a partir das
+-- migrações. NÃO rode contra o projeto em produção: ele mexe na flag dos perfis
+-- reais (mesmo restaurando o estado no fim).
 -- =============================================================================
 
 do $$
@@ -18,6 +22,11 @@ declare
   v_garcom uuid := (select id from public.profiles where login = 'gisele.garcom');
   v_inativo uuid := (select id from public.profiles where login = 'inacio.inativo');
   v_antes  integer;
+  -- Estado original das flags, para devolver o banco como estava.
+  v_orig_admin   boolean := (select must_change_password from public.profiles where login = 'ana.admin');
+  v_orig_caixa   boolean := (select must_change_password from public.profiles where login = 'carlos.caixa');
+  v_orig_garcom  boolean := (select must_change_password from public.profiles where login = 'gisele.garcom');
+  v_orig_inativo boolean := (select must_change_password from public.profiles where login = 'inacio.inativo');
 begin
   -- ---------------------------------------------------------------- 1) anônimo
   perform tests.login_anon();
@@ -84,7 +93,14 @@ begin
     (select must_change_password from public.profiles where id = v_inativo),
     'a flag do funcionário desativado continua de pé (ele não se liberou sozinho)');
 
-  -- Deixa o banco de teste como encontrou (a flag volta a zero para todos).
-  update public.profiles set must_change_password = false where must_change_password;
+  -- Devolve cada flag ao valor que tinha quando o arquivo começou.
+  update public.profiles
+     set must_change_password = case id
+       when v_admin then v_orig_admin
+       when v_caixa then v_orig_caixa
+       when v_garcom then v_orig_garcom
+       when v_inativo then v_orig_inativo
+     end
+   where id in (v_admin, v_caixa, v_garcom, v_inativo);
 end
 $$;

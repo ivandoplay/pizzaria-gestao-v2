@@ -193,7 +193,7 @@ resolve.
 ### 5.4 Testes de banco em PostgreSQL local com shim
 **Decisão:** `tools/local_pg_shim.sql` emula `auth.uid()`, `auth.role()`, roles do Supabase e a
 publicação de Realtime para rodar a suíte sem depender de conta em nuvem.
-**Motivo:** permitir 280 asserções reais de RLS/RPC/concorrência nesta entrega.
+**Motivo:** permitir 288 asserções reais de RLS/RPC/concorrência nesta entrega.
 **Atenção:** o shim é **exclusivo de teste** — nunca aplicar num projeto Supabase real.
 
 ### 5.5 Sem integrações inventadas

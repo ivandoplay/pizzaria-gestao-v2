@@ -106,7 +106,7 @@ trilha de auditoria somente-adição.
 | Concorrência real (07) | idem (duas conexões em paralelo) | **verde**: abertura dupla bloqueada, clique duplo → 1 pagamento, fechamento duplo → recusado |
 | Testes unitários | `npm test` (Vitest) | **48/48** |
 | Tipos | `npm run typecheck` | **exit 0** |
-| Build de produção | `npx vite build` | **exit 0** (chunk principal 479 kB / 138 kB gzip + 1 chunk por tela) |
+| Build de produção | `npx vite build` | **exit 0** (chunk principal 491 kB / 141 kB gzip + 1 chunk por tela) |
 | Interface em navegador real | `node tools/e2e-telas.mjs <URL>` (Playwright, contra o **site publicado**) | **0 falhas**: login dos 3 perfis, 11 telas do administrador, percurso completo do salão, bloqueio de permissão conferido, nenhum erro de console/rede |
 | Troca obrigatória de senha | `node tools/teste-troca-senha.mjs <URL>` (Playwright, contra o **site publicado**) | **0 falhas**: senha temporária não abre o sistema (nem pela rota), validações da troca, senha antiga deixa de funcionar, evento na auditoria e conta de teste desativada |
 | Conferência do deploy | `bash tools/smoke-deploy.sh <URL> admin '<senha>'` | **tudo certo** (rotas, cabeçalhos, variáveis no bundle, ausência de credencial privilegiada, login real) |
@@ -131,8 +131,8 @@ Atualizado em **14/10/2026**, depois da execução com as credenciais reais.
 - Projeto: `qmrcnoigaszditwchsdz` (org *Pizzaria*, região `sa-east-1`, PostgreSQL 17.11).
 - **Backup do estado anterior** antes de qualquer alteração: as 22 tabelas / 101 linhas foram exportadas
   para `backups_supabase/` (dados em JSON + estrutura em SQL + instruções de restauração).
-- Schema `public` anterior removido (com a sua autorização) e as **8 migrações aplicadas em ordem**,
-  seguidas do `seed_structure.sql`. Catálogo conferido: **25 tabelas, 4 views, 22 funções, RLS e
+- Schema `public` anterior removido (com a sua autorização) e as **9 migrações aplicadas em ordem**,
+  seguidas do `seed_structure.sql`. Catálogo conferido: **25 tabelas, 4 views, 23 funções, RLS e
   FORCE RLS nas 25 tabelas** e 10 tabelas publicadas no Realtime.
 - **Suíte de testes executada contra o banco real** (00 → 06): **nenhuma falha**. Em seguida os dados de
   teste foram removidos, as migrações reaplicadas e o banco ficou limpo (0 pedidos, 0 clientes, 0
@@ -371,7 +371,7 @@ publicada, Realtime ativo e banco limpo (seção 5.2); código publicado no GitH
 |---|---|
 | Código (banco + servidor + interface) | completo para o escopo definido |
 | Migrações, RLS, RPCs, views, Realtime | escritos e validados localmente |
-| Testes | executados, verdes (280 asserções SQL locais + suíte repetida na nuvem + 28 unitários + concorrência real) |
+| Testes | executados, verdes (288 asserções SQL locais + concorrência real + 48 unitários + robôs de navegador contra o site publicado) |
 | Build | verde |
 | GitHub | **publicado** (`ivandoplay/pizzaria-gestao-v2`, repositório público) |
 | Supabase | **configurado e verificado na nuvem** (migrações, RLS, Realtime, Edge Function, 3 perfis, fluxo ponta a ponta) |

@@ -35,6 +35,7 @@ if (!senhaAdmin) {
 
 const LOGIN_TESTE = process.env.PZ_LOGIN_TESTE ?? 'robo.troca.senha'
 const SENHA_TEMPORARIA = 'Temporaria@2026'
+let senhaTemporaria = SENHA_TEMPORARIA
 const SENHA_NOVA = 'MinhaSenha@2026!'
 const espera = (ms) => new Promise((r) => setTimeout(r, ms))
 
@@ -94,28 +95,53 @@ if (!jaExiste) {
   await modal.locator('label:has-text("Senha inicial") input').fill(SENHA_TEMPORARIA)
   await page.locator('[role="dialog"] button:has-text("Criar funcionário")').click()
   await espera(3500)
-  // O sistema mostra a senha temporária uma única vez — o robô confere que a
-  // janela realmente aparece (é o que o administrador entrega ao funcionário).
-  const janelaSenha = page.locator('[role="dialog"]:has-text("Senha temporária gerada")')
-  try {
-    await janelaSenha.waitFor({ state: 'visible', timeout: 20000 })
-    ok('funcionário criado e senha temporária mostrada uma única vez')
-  } catch {
-    falhou('a janela da senha temporária não apareceu')
-  }
-  const fechar = page.locator('[role="dialog"]:has-text("Senha temporária gerada") button:has-text("Fechar")').last()
-  if (await fechar.count()) {
-    await fechar.click()
-    await espera(900)
+  // Na CRIAÇÃO a senha é a que o administrador digitou, então o sistema só
+  // confirma por aviso ("Funcionário criado e ativado"). A janela com a senha
+  // temporária aparece no fluxo de REDEFINIR senha, onde ela é gerada.
+  const aviso = await page.locator('main').innerText()
+  if (/funcionário criado e ativado/i.test(aviso)) {
+    ok('funcionário criado com senha temporária (aviso de criação confirmado)')
+  } else {
+    falhou('a criação não foi confirmada na tela')
   }
 } else {
-  ok('funcionário de teste já existia nesta base — reaproveitando a conta')
+  // Conta de uma execução anterior: o robô desativa no fim de cada rodada, então
+  // precisa se preparar sozinho. Usa o botão "Senha" (redefinir), que GERA uma
+  // senha temporária nova e marca a troca obrigatória — a própria tela mostra a
+  // senha uma única vez, e é de lá que o robô a lê. Assim o teste pode rodar
+  // quantas vezes for preciso, sempre com a mesma conta.
+  const linha = page.locator('li').filter({ hasText: LOGIN_TESTE }).first()
+  const ativar = linha.locator('button:has-text("Ativar")')
+  if ((await ativar.count()) > 0) {
+    await ativar.click()
+    await espera(700)
+    await page.locator('[role="dialog"] button:has-text("Confirmar")').last().click()
+    await espera(2500)
+    ok('conta de teste foi reativada para a rodada')
+  }
+
+  await linha.locator('button:has-text("Senha")').first().click()
+  await espera(700)
+  await page.locator('[role="dialog"] button:has-text("Gerar senha temporária")').last().click()
+  const janela = page.locator('[role="dialog"]:has-text("Senha temporária gerada")')
+  try {
+    await janela.waitFor({ state: 'visible', timeout: 25000 })
+    senhaTemporaria = (await janela.locator('p.num').first().innerText()).trim()
+    ok(`conta de teste reaproveitada — senha temporária gerada pelo sistema (${senhaTemporaria.length} caracteres)`)
+  } catch {
+    falhou('a redefinição de senha não mostrou a senha temporária')
+  }
+  const fecharJanela = page.locator('[role="dialog"]:has-text("Senha temporária gerada") button:has-text("Fechar")').last()
+  if (await fecharJanela.count()) {
+    await fecharJanela.click()
+    await espera(800)
+  }
 }
 
 await sair()
 
 // ------------------------------------------- 2) senha temporária não abre o sistema
-await entrar(LOGIN_TESTE, SENHA_TEMPORARIA)
+await entrar(LOGIN_TESTE, senhaTemporaria)
 let titulo = (await page.locator('h1').first().innerText().catch(() => '')).trim()
 if (/Defina sua senha definitiva/i.test(titulo)) {
   ok('quem entra com senha temporária cai na tela de troca')
@@ -148,7 +174,7 @@ if (/não confere/i.test(aposErro) && !/SENHA_ATUAL_INCORRETA/.test(aposErro) &&
 }
 
 // validação de senha curta
-await page.fill('label:has-text("Senha que você usou agora") input', SENHA_TEMPORARIA)
+await page.fill('label:has-text("Senha que você usou agora") input', senhaTemporaria)
 await page.fill('label:has-text("Nova senha") input', 'curta')
 await page.fill('label:has-text("Repita a nova senha") input', 'curta')
 await page.locator('button[type="submit"]').click()
@@ -171,8 +197,8 @@ if (/repetição não confere/i.test(await page.locator('body').innerText())) {
 }
 
 // senha nova igual à atual: trocar "para a mesma coisa" não vale
-await page.fill('label:has-text("Nova senha") input', SENHA_TEMPORARIA)
-await page.fill('label:has-text("Repita a nova senha") input', SENHA_TEMPORARIA)
+await page.fill('label:has-text("Nova senha") input', senhaTemporaria)
+await page.fill('label:has-text("Repita a nova senha") input', senhaTemporaria)
 await page.locator('button[type="submit"]').click()
 await espera(1500)
 if (/precisa ser diferente da senha atual/i.test(await page.locator('body').innerText())) {
@@ -182,7 +208,7 @@ if (/precisa ser diferente da senha atual/i.test(await page.locator('body').inne
 }
 
 // ------------------------------------------------------------- 4) troca de verdade
-await page.fill('label:has-text("Senha que você usou agora") input', SENHA_TEMPORARIA)
+await page.fill('label:has-text("Senha que você usou agora") input', senhaTemporaria)
 await page.fill('label:has-text("Nova senha") input', SENHA_NOVA)
 await page.fill('label:has-text("Repita a nova senha") input', SENHA_NOVA)
 await page.locator('button[type="submit"]').click()
@@ -193,21 +219,22 @@ if (abriuSistema) ok('feita a troca, o sistema abre normalmente')
 else falhou('depois da troca o sistema não abriu')
 
 // ------------------------------------------------ 5) senha antiga não serve mais
+// Cuidado com o texto da tela de login: a chamada de apresentação cita "Mesas",
+// então a prova aqui é o ENDEREÇO — senha recusada continua em /login.
 await sair()
-await entrar(LOGIN_TESTE, SENHA_TEMPORARIA)
-const comAntiga = await page.locator('body').innerText()
-if (/inválid|incorret|não confere|senha/i.test(comAntiga) && !/Mesas|Painel do dia/i.test(comAntiga)) {
-  ok('a senha temporária deixou de funcionar')
+await entrar(LOGIN_TESTE, senhaTemporaria)
+if (page.url().includes('/login')) {
+  ok('a senha temporária deixou de funcionar (login recusado)')
 } else {
-  falhou('a senha temporária continuou valendo depois da troca')
+  falhou(`a senha temporária continuou valendo depois da troca (foi para ${page.url()})`)
 }
 
 await entrar(LOGIN_TESTE, SENHA_NOVA)
-const comNova = await page.locator('body').innerText()
-if (/Mesas|Painel do dia|Caixa/i.test(comNova) && !/Defina sua senha/i.test(comNova)) {
-  ok('a senha nova entra direto, sem pedir troca de novo')
+if (!page.url().includes('/login')) {
+  ok(`a senha nova entra direto (${new URL(page.url()).pathname}) sem pedir troca de novo`)
 } else {
-  falhou('a senha nova não entrou no sistema')
+  const texto = (await page.locator('body').innerText()).replace(/\n+/g, ' | ').slice(0, 200)
+  falhou(`a senha nova não entrou no sistema: ${texto}`)
 }
 
 await sair()

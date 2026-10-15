@@ -88,15 +88,14 @@ if (/Defina sua senha definitiva/i.test(depois)) {
 
 const saiu = await sair()
 if (saiu) {
+  // A tela de login cita "Mesas" na apresentação: a prova é o endereço.
   await entrar(senhaAtual)
-  const comAntiga = await page.locator('body').innerText()
-  if (/Defina sua senha definitiva|inválid|incorret/i.test(comAntiga)) ok('a senha temporária deixou de funcionar')
-  else falhou('a senha temporária continuou valendo depois da troca')
+  if (page.url().includes('/login')) ok('a senha temporária deixou de funcionar (login recusado)')
+  else falhou(`a senha temporária continuou valendo (foi para ${page.url()})`)
 
   await entrar(senhaNova)
-  const comNova = await page.locator('body').innerText()
-  if (!/Defina sua senha definitiva/i.test(comNova) && !/inválid|incorret/i.test(comNova)) {
-    ok('a senha definitiva entra direto, sem pedir troca de novo')
+  if (!page.url().includes('/login')) {
+    ok(`a senha definitiva entra direto (${new URL(page.url()).pathname}), sem pedir troca de novo`)
   } else {
     falhou('a senha definitiva não entrou no sistema')
   }

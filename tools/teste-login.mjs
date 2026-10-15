@@ -185,7 +185,7 @@ async function rodar() {
     const ctx = await navegador.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2, locale: 'pt-BR' })
     const p = await ctx.newPage()
     try {
-      await entrar(p, 'garcom', process.env.PZ_GARCOM_PASSWORD ?? '')
+      await entrar(p, process.env.PZ_GARCOM_LOGIN ?? 'garcom', process.env.PZ_GARCOM_PASSWORD ?? '')
       const titulo = await p.locator('h1').first().innerText().catch(() => '')
       if (/Mesas/i.test(titulo)) ok('garçom entrou pelo celular e viu o mapa de mesas')
       else falha(`garçom no celular caiu em "${titulo}"`)

@@ -97,7 +97,9 @@ os testes travam esse alinhamento.
 | `node tools/e2e-telas.mjs <URL>` | entra com os 3 perfis, percorre as telas de cada um, confere os bloqueios de permissão, executa o percurso do salão (abrir mesa, montar pedido, conferir conta — **sem gravar nada**), detecta erro de console/rede e salva capturas em `artifacts/e2e/` | **0 falhas** (local e site publicado) |
 | `node tools/teste-login.mjs <URL>` | entrar com cada perfil, recarregar com sessão salva, abrir `/login` conectado, trocar de conta, **sessão velha/corrompida no navegador** (o caso que trava o operador) e login pelo celular | **0 falhas** |
 
-Ambos exigem `npm i --no-save playwright && npx playwright install chromium && npx playwright install-deps chromium`.
+| `bash tools/esperar-deploy.sh <URL> [commit]` | espera o site publicado estar na versão nova (lê o carimbo do rodapé) antes de rodar os testes de ponta a ponta | — depois do push |
+
+Os dois primeiros exigem `npm i --no-save playwright && npx playwright install chromium && npx playwright install-deps chromium`.
 As senhas vêm do ambiente (`PZ_ADMIN_PASSWORD`, `PZ_CAIXA_PASSWORD`, `PZ_GARCOM_PASSWORD`) — nunca do arquivo.
 
 ## 4. Build e verificação de tipos — resultado: **exit 0**

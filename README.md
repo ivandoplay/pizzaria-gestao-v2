@@ -123,9 +123,22 @@ Detalhes e limitações em [`docs/TESTES.md`](docs/TESTES.md).
 
 ## 7. Interface (design system)
 
-A interface usa um design system próprio em `src/components/ui.tsx` + `src/components/icons.tsx`:
+A interface usa um design system próprio em `src/components/ui.tsx` + `src/components/icons.tsx`.
+Para trocar cores, cantos, sombras, fonte ou movimento, veja **[`docs/IDENTIDADE.md`](docs/IDENTIDADE.md)** —
+é o manual de estilo do sistema (nenhuma tela tem cor fixa).
 
-- **Cores:** escala `brand` (verde-vermelho quente da casa) para ação e `ink` (neutro quente) para estrutura,
+Princípios aplicados (revisão de 15/10/2026, sobre os padrões de dashboard de 2026):
+
+- **Cor é acento.** `brand` (vermelho de osteria) só em ação, foco e seleção; neutros quentes `ink` sustentam
+  o resto. A única exceção é a faixa fina no alto do cartão de mesa, que o garçom lê à distância.
+- **Sombra é elevação.** Cartão = borda de 1 px + sombra quase invisível; sombra forte só no que flutua
+  (modal, aviso).
+- **Raio externo ≠ interno** (14 px no cartão, 8–10 px no que fica dentro dele).
+- **Escala curta de texto** (seis tamanhos) e espaçamento sempre em passos de 4 px.
+- **Faixa de indicadores com 4 números**; o restante virou lista de conferência dentro de um cartão.
+- **Movimento de 150–220 ms**, respeitando `prefers-reduced-motion`.
+
+- **Cores:** escala `brand` (vermelho da casa) para ação e `ink` (neutro quente) para estrutura,
   definidas em `tailwind.config.js` — nenhuma cor solta nas telas.
 - **Ícones:** SVG inline, traço 1,75 px, sem CDN e sem fonte de ícones — funcionam no balcão, no tablet e quando
   a internet cai (o bundle leva tudo).
@@ -143,6 +156,7 @@ A interface usa um design system próprio em `src/components/ui.tsx` + `src/comp
 - [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) — modelo de dados, regras, fluxos financeiros, segurança.
 - [`docs/SETUP.md`](docs/SETUP.md) — Supabase, Vercel, GitHub, Edge Function, variáveis de ambiente, Realtime.
 - [`docs/TESTES.md`](docs/TESTES.md) — como os testes rodam e o que eles provam.
+- [`docs/IDENTIDADE.md`](docs/IDENTIDADE.md) — manual de estilo: onde mudar cores, cantos, sombras, fonte e movimento.
 - [`docs/ENTREGA.md`](docs/ENTREGA.md) — resumo da entrega: funcionalidades, pendências manuais, limitações e próximos passos.
 - [`PLANO.md`](PLANO.md) — plano de execução por etapas (com estado atual).
 

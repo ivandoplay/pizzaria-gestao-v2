@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import * as api from '../lib/api'
 import { useProfiles } from '../lib/hooks'
@@ -272,29 +272,50 @@ export default function ReportsPage() {
             />
           </div>
 
-          <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <StatTile rotulo="Faturamento bruto (itens)" valor={formatMoney(data?.gross_items_cents ?? 0)} detalhe="Sem descontos e sem taxas" />
-            <StatTile rotulo="Descontos" valor={formatMoney(data?.discounts_cents ?? 0)} tom="ambar" detalhe="Somente autorizados e auditados" />
-            <StatTile rotulo="Taxas de entrega" valor={formatMoney(data?.delivery_fees_cents ?? 0)} detalhe="Cobradas no delivery" />
-            <StatTile rotulo="Ticket médio" valor={formatMoney(data?.ticket_average_cents ?? 0)} detalhe="Vendas líquidas ÷ pedidos válidos" />
-          </div>
-
-          <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <StatTile rotulo="Salão — pedidos" valor={data?.dine_in.orders_count ?? 0} detalhe={`líquido ${formatMoney(data?.dine_in.net_cents ?? 0)}`} />
-            <StatTile rotulo="Delivery — pedidos" valor={data?.delivery.orders_count ?? 0} detalhe={`líquido ${formatMoney(data?.delivery.net_cents ?? 0)}`} />
-            <StatTile
-              rotulo="Cancelados"
-              valor={formatMoney(data?.cancelled_cents ?? 0)}
-              tom="vermelho"
-              detalhe={`${plural(data?.orders_cancelled_count ?? 0, 'pedido', 'pedidos')} fora da venda válida`}
-            />
-            <StatTile
-              rotulo="Caixas com divergência"
-              valor={divergencias.length}
-              tom={divergencias.length > 0 ? 'ambar' : 'verde'}
-              detalhe={`${plural(cashSessions.data?.length ?? 0, 'turno', 'turnos')} no período`}
-            />
-          </div>
+          {/* Os indicadores secundários ficam em uma lista de conferência, não em
+              cartões: são doze números que se leem em bloco, e doze cartões
+              competiriam com os quatro principais. */}
+          <Card
+            className="mb-4"
+            title="Detalhamento do período"
+            icone="lista"
+            descricao="Indicadores de conferência — os mesmos números usados nos relatórios exportados."
+          >
+            <div className="grid gap-x-8 gap-y-0 sm:grid-cols-2 xl:grid-cols-3">
+              <Linha rotulo="Faturamento bruto (itens)" dica="Sem descontos e sem taxas">
+                {formatMoney(data?.gross_items_cents ?? 0)}
+              </Linha>
+              <Linha rotulo="Descontos" dica="Somente autorizados e auditados">
+                {formatMoney(data?.discounts_cents ?? 0)}
+              </Linha>
+              <Linha rotulo="Taxas de entrega" dica="Cobradas no delivery">
+                {formatMoney(data?.delivery_fees_cents ?? 0)}
+              </Linha>
+              <Linha rotulo="Ticket médio" dica="Vendas líquidas ÷ pedidos válidos">
+                {formatMoney(data?.ticket_average_cents ?? 0)}
+              </Linha>
+              <Linha rotulo="Salão — pedidos" dica={`líquido ${formatMoney(data?.dine_in.net_cents ?? 0)}`}>
+                {data?.dine_in.orders_count ?? 0}
+              </Linha>
+              <Linha rotulo="Delivery — pedidos" dica={`líquido ${formatMoney(data?.delivery.net_cents ?? 0)}`}>
+                {data?.delivery.orders_count ?? 0}
+              </Linha>
+              <Linha
+                rotulo="Cancelados"
+                dica={`${plural(data?.orders_cancelled_count ?? 0, 'pedido', 'pedidos')} fora da venda válida`}
+                alerta={(data?.cancelled_cents ?? 0) > 0}
+              >
+                {formatMoney(data?.cancelled_cents ?? 0)}
+              </Linha>
+              <Linha
+                rotulo="Caixas com divergência"
+                dica={`${plural(cashSessions.data?.length ?? 0, 'turno', 'turnos')} no período`}
+                alerta={divergencias.length > 0}
+              >
+                {divergencias.length}
+              </Linha>
+            </div>
+          </Card>
         </>
       )}
 
@@ -524,6 +545,31 @@ export default function ReportsPage() {
           </ul>
         </Card>
       </div>
+    </div>
+  )
+}
+
+/** Linha de indicador de conferência (rótulo, dica e valor). */
+function Linha({
+  rotulo,
+  dica,
+  alerta,
+  children,
+}: {
+  rotulo: string
+  dica?: string
+  alerta?: boolean
+  children: ReactNode
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-4 border-b border-ink-100 py-2.5 last:border-b-0 sm:[&:nth-last-child(2)]:border-b-0 xl:[&:nth-last-child(3)]:border-b-0">
+      <div className="min-w-0">
+        <p className="truncate text-pequeno text-ink-700">{rotulo}</p>
+        {dica && <p className="truncate text-[12px] text-ink-400">{dica}</p>}
+      </div>
+      <span className={`num shrink-0 text-base font-semibold ${alerta ? 'text-rose-700' : 'text-ink-900'}`}>
+        {children}
+      </span>
     </div>
   )
 }

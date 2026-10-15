@@ -1,12 +1,14 @@
 /**
  * Design system do sistema — primitivos de interface usados por todas as telas.
  *
- * Regras que valem para todo o arquivo:
- *  · cor vem de dois eixos: `brand` (ação) e `ink` (estrutura neutra quente);
- *  · qualquer texto informativo tem contraste mínimo AA sobre o fundo;
- *  · componente interativo tem estados de foco, hover, desabilitado e
- *    carregando — nada de "morto" sem resposta visual;
- *  · o mesmo componente é usado em desktop, tablet e celular.
+ * Diretrizes (revisão de 15/10/2026, com base em padrões de 2026 usados por
+ * Linear/Stripe/Vercel e nas regras que fazem um produto parecer profissional):
+ *  · superfície = borda de 1px + sombra quase invisível (sombra é elevação, não enfeite);
+ *  · escala curta de tamanhos de texto — variedade vem de peso, cor e espaço;
+ *  · raio externo ≠ raio interno (cartão 14 px, elemento interno 8 px);
+ *  · espaçamento sempre de 4 em 4 (12/16/20/24), sem valores soltos;
+ *  · cor de marca só como ACENTO: ação, foco e seleção;
+ *  · micro-interações curtas (150–220 ms) e com propósito.
  */
 
 import {
@@ -32,19 +34,18 @@ import { Icon, type NomeIcone } from './icons'
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success'
 
 const VARIANTS: Record<Variant, string> = {
-  primary:
-    'bg-brand-600 text-white shadow-sm hover:bg-brand-700 active:bg-brand-800 disabled:hover:bg-brand-600',
+  primary: 'botao-primario',
   secondary:
-    'bg-white text-ink-800 border border-ink-300 shadow-sm hover:bg-ink-50 hover:border-ink-400 active:bg-ink-100',
-  ghost: 'bg-transparent text-ink-600 hover:bg-ink-100 hover:text-ink-800 active:bg-ink-200',
-  danger: 'bg-red-600 text-white shadow-sm hover:bg-red-700 active:bg-red-800',
-  success: 'bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 active:bg-emerald-800',
+    'bg-white text-ink-700 border border-ink-300 shadow-card hover:bg-ink-50 hover:border-ink-400 active:translate-y-px',
+  ghost: 'bg-transparent text-ink-600 hover:bg-ink-100 hover:text-ink-900 active:bg-ink-200',
+  danger: 'bg-rose-600 text-white shadow-brilho hover:bg-rose-700 active:translate-y-px',
+  success: 'bg-emerald-600 text-white shadow-brilho hover:bg-emerald-700 active:translate-y-px',
 }
 
 const SIZES = {
-  sm: 'h-8 gap-1.5 px-2.5 text-[13px] rounded-lg',
-  md: 'h-10 gap-2 px-3.5 text-sm rounded-control',
-  lg: 'h-12 gap-2 px-5 text-[15px] rounded-control',
+  sm: 'h-8 gap-1.5 px-2.5 text-pequeno rounded-interno',
+  md: 'h-10 gap-2 px-3.5 text-pequeno rounded-control',
+  lg: 'h-12 gap-2 px-5 text-base rounded-control',
 }
 
 export function Button({
@@ -65,15 +66,15 @@ export function Button({
   iconeDireita?: NomeIcone
   block?: boolean
 }) {
-  const tamanhoIcone = size === 'sm' ? 'h-4 w-4' : 'h-[18px] w-[18px]'
+  const tamanhoIcone = size === 'sm' ? 'h-4 w-4' : 'h-[17px] w-[17px]'
   return (
     <button
       type={props.type ?? 'button'}
       {...props}
       disabled={props.disabled || loading}
-      className={`inline-flex select-none items-center justify-center whitespace-nowrap font-medium transition
-        duration-150 ease-smooth
-        disabled:cursor-not-allowed disabled:opacity-55 disabled:shadow-none
+      className={`inline-flex select-none items-center justify-center whitespace-nowrap font-medium transition duration-150
+        ease-smooth focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2
+        disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none
         ${VARIANTS[variant]} ${SIZES[size]} ${block ? 'w-full' : ''} ${className}`}
     >
       {loading ? (
@@ -83,13 +84,13 @@ export function Button({
       )}
       {children}
       {iconeDireita && !loading && (
-        <Icon nome={iconeDireita} className={`${tamanhoIcone} opacity-70`} />
+        <Icon nome={iconeDireita} className={`${tamanhoIcone} opacity-60`} />
       )}
     </button>
   )
 }
 
-/** Botão só com ícone — usado em barras de ação e cabeçalhos de tabela. */
+/** Botão só com ícone — usado em barras de ação e linhas de tabela. */
 export function IconButton({
   nome,
   titulo,
@@ -103,7 +104,11 @@ export function IconButton({
   size?: 'sm' | 'md' | 'lg'
   variant?: Variant
 }) {
-  const lado = { sm: 'h-8 w-8 rounded-lg', md: 'h-10 w-10 rounded-control', lg: 'h-12 w-12 rounded-control' }[size]
+  const lado = {
+    sm: 'h-8 w-8 rounded-interno',
+    md: 'h-10 w-10 rounded-control',
+    lg: 'h-12 w-12 rounded-control',
+  }[size]
   return (
     <button
       type={props.type ?? 'button'}
@@ -111,7 +116,7 @@ export function IconButton({
       title={titulo}
       aria-label={titulo}
       className={`inline-flex shrink-0 items-center justify-center transition duration-150 ease-smooth
-        disabled:cursor-not-allowed disabled:opacity-50 ${VARIANTS[variant]} ${lado} ${className}`}
+        disabled:cursor-not-allowed disabled:opacity-45 ${VARIANTS[variant]} ${lado} ${className}`}
     >
       <Icon nome={nome} className={size === 'sm' ? 'h-4 w-4' : 'h-[18px] w-[18px]'} />
     </button>
@@ -146,17 +151,17 @@ export function PageHeader({
   selo?: ReactNode
 }) {
   return (
-    <header className="mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-start sm:justify-between">
+    <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="flex min-w-0 items-start gap-3">
         {voltar}
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="truncate text-xl font-semibold tracking-tight text-ink-900 sm:text-2xl">
-              {titulo}
-            </h1>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-titulo font-semibold text-ink-900">{titulo}</h1>
             {selo}
           </div>
-          {descricao && <p className="mt-1 text-sm text-ink-500">{descricao}</p>}
+          {descricao && (
+            <p className="mt-1 max-w-3xl text-pequeno leading-relaxed text-ink-500">{descricao}</p>
+          )}
         </div>
       </div>
       {acoes && <div className="flex flex-wrap items-center gap-2">{acoes}</div>}
@@ -184,18 +189,22 @@ export function Card({
   icone?: NomeIcone
 }) {
   return (
-    <section className={`flex flex-col overflow-hidden rounded-card border border-ink-200 bg-white shadow-card ${className}`}>
+    <section
+      className={`flex flex-col overflow-hidden rounded-card border border-ink-200 bg-white shadow-card ${className}`}
+    >
       {(title || actions) && (
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-ink-100 px-4 py-3 sm:px-5">
-          <div className="flex min-w-0 items-center gap-2.5">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-ink-100 px-4 py-3.5 sm:px-5">
+          <div className="flex min-w-0 items-center gap-3">
             {icone && (
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-ink-100 text-ink-600">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-interno bg-ink-100 text-ink-600">
                 <Icon nome={icone} className="h-4 w-4" />
               </span>
             )}
             <div className="min-w-0">
-              <h2 className="text-[15px] font-semibold leading-snug text-ink-900">{title}</h2>
-              {descricao && <p className="text-xs text-ink-500">{descricao}</p>}
+              <h2 className="text-[15px] font-semibold leading-snug tracking-[-0.01em] text-ink-900">
+                {title}
+              </h2>
+              {descricao && <p className="mt-0.5 text-pequeno leading-snug text-ink-500">{descricao}</p>}
             </div>
           </div>
           {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
@@ -203,13 +212,16 @@ export function Card({
       )}
       <div className={padded ? 'flex-1 p-4 sm:p-5' : 'flex-1'}>{children}</div>
       {rodape && (
-        <footer className="border-t border-ink-100 bg-ink-50/60 px-4 py-3 sm:px-5">{rodape}</footer>
+        <footer className="border-t border-ink-100 bg-ink-50/50 px-4 py-3 sm:px-5">{rodape}</footer>
       )}
     </section>
   )
 }
 
-/** Número de destaque (painel do dia, relatórios, caixa). */
+/**
+ * Número de destaque (painel do dia, relatórios, caixa).
+ * Só o ícone recebe cor — o cartão fica branco para não competir com o dado.
+ */
 export function StatTile({
   rotulo,
   valor,
@@ -225,32 +237,27 @@ export function StatTile({
   tom?: 'neutro' | 'marca' | 'verde' | 'ambar' | 'vermelho'
   className?: string
 }) {
-  const tons = {
-    neutro: 'bg-white border-ink-200 text-ink-900',
-    marca: 'bg-brand-50/70 border-brand-100 text-ink-900',
-    verde: 'bg-emerald-50/70 border-emerald-100 text-ink-900',
-    ambar: 'bg-amber-50/70 border-amber-100 text-ink-900',
-    vermelho: 'bg-red-50/70 border-red-100 text-ink-900',
-  }
   const iconeTom = {
-    neutro: 'bg-ink-100 text-ink-600',
-    marca: 'bg-brand-100 text-brand-700',
-    verde: 'bg-emerald-100 text-emerald-700',
-    ambar: 'bg-amber-100 text-amber-700',
-    vermelho: 'bg-red-100 text-red-700',
+    neutro: 'bg-ink-100 text-ink-500',
+    marca: 'bg-brand-50 text-brand-600',
+    verde: 'bg-emerald-50 text-emerald-600',
+    ambar: 'bg-amber-50 text-amber-600',
+    vermelho: 'bg-rose-50 text-rose-600',
   }
   return (
-    <div className={`rounded-card border p-4 shadow-card transition-shadow hover:shadow-raised ${tons[tom]} ${className}`}>
-      <div className="flex items-start justify-between gap-2">
+    <div
+      className={`rounded-card border border-ink-200 bg-white p-4 shadow-card transition-colors duration-200 hover:border-ink-300 ${className}`}
+    >
+      <div className="flex items-start justify-between gap-3">
         <p className="rotulo leading-tight">{rotulo}</p>
         {icone && (
-          <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${iconeTom[tom]}`}>
-            <Icon nome={icone} className="h-[18px] w-[18px]" />
+          <span className={`-mt-0.5 flex h-7 w-7 items-center justify-center rounded-interno ${iconeTom[tom]}`}>
+            <Icon nome={icone} className="h-4 w-4" />
           </span>
         )}
       </div>
-      <p className="num mt-2 text-2xl font-semibold tracking-tight text-ink-900">{valor}</p>
-      {detalhe && <p className="mt-1 text-xs text-ink-500">{detalhe}</p>}
+      <p className="num mt-3 text-[25px] font-semibold leading-tight text-ink-900 sm:text-numero">{valor}</p>
+      {detalhe && <p className="mt-1 text-pequeno text-ink-500">{detalhe}</p>}
     </div>
   )
 }
@@ -268,15 +275,21 @@ export function Callout({
   acoes?: ReactNode
 }) {
   const tons = {
-    info: { caixa: 'border-sky-200 bg-sky-50 text-sky-900', icone: 'info' as NomeIcone },
-    atencao: { caixa: 'border-amber-200 bg-amber-50 text-amber-900', icone: 'alerta' as NomeIcone },
-    erro: { caixa: 'border-red-200 bg-red-50 text-red-900', icone: 'alerta' as NomeIcone },
-    sucesso: { caixa: 'border-emerald-200 bg-emerald-50 text-emerald-900', icone: 'check' as NomeIcone },
+    info: { caixa: 'border-sky-200/70 bg-sky-50/70 text-sky-900', icone: 'text-sky-600' },
+    atencao: { caixa: 'border-amber-200/70 bg-amber-50/70 text-amber-900', icone: 'text-amber-600' },
+    erro: { caixa: 'border-rose-200/70 bg-rose-50/70 text-rose-900', icone: 'text-rose-600' },
+    sucesso: { caixa: 'border-emerald-200/70 bg-emerald-50/70 text-emerald-900', icone: 'text-emerald-600' },
+  }
+  const icones: Record<string, NomeIcone> = {
+    info: 'info',
+    atencao: 'alerta',
+    erro: 'alerta',
+    sucesso: 'check',
   }
   return (
-    <div className={`flex items-start gap-3 rounded-card border p-3.5 text-sm ${tons[tom].caixa}`}>
-      <Icon nome={tons[tom].icone} className="mt-0.5 h-[18px] w-[18px] shrink-0" />
-      <div className="min-w-0 flex-1">
+    <div className={`flex items-start gap-3 rounded-card border px-4 py-3 text-pequeno ${tons[tom].caixa}`}>
+      <Icon nome={icones[tom]} className={`mt-0.5 h-[17px] w-[17px] shrink-0 ${tons[tom].icone}`} />
+      <div className="min-w-0 flex-1 leading-relaxed">
         {titulo && <p className="font-semibold">{titulo}</p>}
         {children && <div className={titulo ? 'mt-0.5 opacity-90' : ''}>{children}</div>}
       </div>
@@ -297,24 +310,24 @@ export function Badge({
   className?: string
 }) {
   const tones = {
-    slate: 'bg-ink-100 text-ink-700 ring-ink-200',
-    green: 'bg-emerald-50 text-emerald-800 ring-emerald-200',
-    amber: 'bg-amber-50 text-amber-900 ring-amber-200',
-    red: 'bg-red-50 text-red-800 ring-red-200',
-    blue: 'bg-sky-50 text-sky-800 ring-sky-200',
-    brand: 'bg-brand-50 text-brand-800 ring-brand-200',
+    slate: 'bg-ink-100 text-ink-600',
+    green: 'bg-emerald-50 text-emerald-700',
+    amber: 'bg-amber-50 text-amber-800',
+    red: 'bg-rose-50 text-rose-700',
+    blue: 'bg-sky-50 text-sky-700',
+    brand: 'bg-brand-50 text-brand-700',
   }
   const pontos = {
     slate: 'bg-ink-400',
     green: 'bg-emerald-500',
     amber: 'bg-amber-500',
-    red: 'bg-red-500',
+    red: 'bg-rose-500',
     blue: 'bg-sky-500',
     brand: 'bg-brand-500',
   }
   return (
     <span
-      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${tones[tone]} ${className}`}
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[12px] font-medium leading-none ${tones[tone]} ${className}`}
     >
       {ponto && <span className={`h-1.5 w-1.5 rounded-full ${pontos[tone]}`} />}
       {children}
@@ -338,7 +351,7 @@ const STATUS_INFO: Record<string, { rotulo: string; tone: 'slate' | 'green' | 'a
 export function StatusPill({ status, className = '' }: { status: string; className?: string }) {
   const info = STATUS_INFO[status] ?? { rotulo: status, tone: 'slate' as const }
   return (
-    <Badge tone={info.tone} ponto className={className}>
+    <Badge tone={info.tone} ponto className={`text-micro uppercase tracking-[0.05em] ${className}`}>
       {info.rotulo}
     </Badge>
   )
@@ -356,13 +369,15 @@ export function EmptyState({
   icone?: NomeIcone
 }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 rounded-card border border-dashed border-ink-300 bg-ink-50/60 px-6 py-12 text-center">
-      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-ink-400 shadow-card ring-1 ring-ink-200">
-        <Icon nome={icone} className="h-6 w-6" />
+    <div className="flex flex-col items-center justify-center gap-2.5 rounded-card bg-ink-50/50 px-6 py-10 text-center">
+      <span className="flex h-10 w-10 items-center justify-center rounded-control border border-ink-200 bg-white text-ink-400">
+        <Icon nome={icone} className="h-[18px] w-[18px]" />
       </span>
       <div>
-        <p className="text-sm font-semibold text-ink-700">{title}</p>
-        {description && <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-ink-500">{description}</p>}
+        <p className="text-[15px] font-semibold text-ink-800">{title}</p>
+        {description && (
+          <p className="mx-auto mt-1 max-w-md text-pequeno leading-relaxed text-ink-500">{description}</p>
+        )}
       </div>
       {action && <div className="mt-1">{action}</div>}
     </div>
@@ -381,7 +396,7 @@ export function LoadingBlock({ label = 'Carregando…', linhas = 3 }: { label?: 
       {Array.from({ length: linhas }).map((_, indice) => (
         <Skeleton key={indice} className={indice === 0 ? 'h-5 w-1/3' : 'h-4 w-full'} />
       ))}
-      <div className="flex items-center gap-2 pt-1 text-xs text-ink-400">
+      <div className="flex items-center gap-2 pt-1 text-pequeno text-ink-400">
         <Spinner className="h-3.5 w-3.5" />
         {label}
       </div>
@@ -428,15 +443,15 @@ export function Field({
   return (
     <label className={`block ${className}`}>
       {label && (
-        <span className="mb-1.5 block text-[13px] font-medium text-ink-700">
+        <span className="mb-1.5 block text-pequeno font-medium text-ink-700">
           {label}
           {obrigatorio && <span className="ml-0.5 text-brand-600">*</span>}
         </span>
       )}
       {children}
-      {hint && !error && <span className="mt-1 block text-xs text-ink-500">{hint}</span>}
+      {hint && !error && <span className="mt-1.5 block text-[12px] leading-snug text-ink-500">{hint}</span>}
       {error && (
-        <span className="mt-1 flex items-center gap-1 text-xs font-medium text-red-600">
+        <span className="mt-1.5 flex items-center gap-1 text-[12px] font-medium text-rose-600">
           <Icon nome="alerta" className="h-3.5 w-3.5" />
           {error}
         </span>
@@ -460,10 +475,10 @@ export function Select({ className = '', children, ...props }: SelectHTMLAttribu
   return (
     <select
       {...props}
-      className={`${inputClass} cursor-pointer appearance-none bg-[length:18px] bg-[right_0.65rem_center] bg-no-repeat pr-10 ${className}`}
+      className={`${inputClass} cursor-pointer appearance-none bg-[length:16px] bg-[right_0.7rem_center] bg-no-repeat pr-9 ${className}`}
       style={{
         backgroundImage:
-          "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2371716a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5.5 9L12 15.5 18.5 9'/%3E%3C/svg%3E\")",
+          "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237c766e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5.5 9L12 15.5 18.5 9'/%3E%3C/svg%3E\")",
         ...props.style,
       }}
     >
@@ -488,7 +503,10 @@ export function SearchInput({
 }) {
   return (
     <div className={`relative ${className}`}>
-      <Icon nome="busca" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
+      <Icon
+        nome="busca"
+        className="pointer-events-none absolute left-3 top-1/2 h-[17px] w-[17px] -translate-y-1/2 text-ink-400"
+      />
       <input
         type="search"
         value={value}
@@ -516,18 +534,20 @@ export function Checkbox({
 }) {
   return (
     <label
-      className={`flex cursor-pointer items-start gap-2.5 text-sm text-ink-700 ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
+      className={`flex cursor-pointer items-start gap-2.5 text-pequeno text-ink-700 ${
+        disabled ? 'cursor-not-allowed opacity-60' : ''
+      }`}
     >
       <input
         type="checkbox"
         checked={checked}
         disabled={disabled}
         onChange={(event) => onChange(event.target.checked)}
-        className="mt-0.5 h-[18px] w-[18px] shrink-0 cursor-pointer rounded border-ink-300 text-brand-600 transition focus:ring-2 focus:ring-brand-500/30 focus:ring-offset-0 disabled:cursor-not-allowed"
+        className="mt-0.5 h-[17px] w-[17px] shrink-0 cursor-pointer rounded-[5px] accent-brand-600 disabled:cursor-not-allowed"
       />
-      <span>
+      <span className="leading-snug">
         {label}
-        {hint && <span className="mt-0.5 block text-xs text-ink-500">{hint}</span>}
+        {hint && <span className="mt-0.5 block text-[12px] text-ink-500">{hint}</span>}
       </span>
     </label>
   )
@@ -546,7 +566,10 @@ export function SegmentedControl<T extends string>({
   className?: string
 }) {
   return (
-    <div className={`inline-flex rounded-control border border-ink-300 bg-ink-100 p-0.5 ${className}`} role="tablist">
+    <div
+      className={`inline-flex max-w-full overflow-x-auto rounded-control border border-ink-200 bg-ink-100/80 p-[3px] ${className}`}
+      role="tablist"
+    >
       {opcoes.map((opcao) => {
         const ativo = opcao.valor === valor
         return (
@@ -556,8 +579,10 @@ export function SegmentedControl<T extends string>({
             role="tab"
             aria-selected={ativo}
             onClick={() => onChange(opcao.valor)}
-            className={`inline-flex items-center gap-1.5 rounded-[7px] px-3 py-1.5 text-[13px] font-medium transition duration-150 ${
-              ativo ? 'bg-white text-ink-900 shadow-sm' : 'text-ink-500 hover:text-ink-700'
+            className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-[7px] px-3 py-1.5 text-pequeno font-medium transition duration-150 ease-smooth ${
+              ativo
+                ? 'bg-white text-ink-900 shadow-card ring-1 ring-ink-200/70'
+                : 'text-ink-500 hover:text-ink-800'
             }`}
           >
             {opcao.icone && <Icon nome={opcao.icone} className="h-4 w-4" />}
@@ -584,16 +609,28 @@ export function QtyStepper({
   disabled?: boolean
 }) {
   const botao =
-    'flex h-9 w-9 items-center justify-center text-ink-600 transition hover:bg-ink-100 active:bg-ink-200 disabled:cursor-not-allowed disabled:opacity-40'
+    'flex h-9 w-9 items-center justify-center text-ink-500 transition hover:bg-ink-50 hover:text-ink-800 active:bg-ink-100 disabled:cursor-not-allowed disabled:opacity-40'
   return (
-    <div className="inline-flex items-center overflow-hidden rounded-control border border-ink-300 bg-white shadow-sm">
-      <button type="button" className={botao} disabled={disabled || value <= min} onClick={() => onChange(Math.max(min, value - 1))} aria-label="Diminuir">
+    <div className="inline-flex items-center overflow-hidden rounded-control border border-ink-200 bg-white shadow-card">
+      <button
+        type="button"
+        className={botao}
+        disabled={disabled || value <= min}
+        onClick={() => onChange(Math.max(min, value - 1))}
+        aria-label="Diminuir"
+      >
         <Icon nome="menos" className="h-4 w-4" />
       </button>
-      <span className="num w-10 text-center text-sm font-semibold text-ink-900" aria-live="polite">
+      <span className="num w-10 text-center text-base font-semibold text-ink-900" aria-live="polite">
         {value}
       </span>
-      <button type="button" className={botao} disabled={disabled || value >= max} onClick={() => onChange(Math.min(max, value + 1))} aria-label="Aumentar">
+      <button
+        type="button"
+        className={botao}
+        disabled={disabled || value >= max}
+        onClick={() => onChange(Math.min(max, value + 1))}
+        aria-label="Aumentar"
+      >
         <Icon nome="mais" className="h-4 w-4" />
       </button>
     </div>
@@ -675,7 +712,7 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain bg-ink-950/55 p-0 backdrop-blur-[2px] sm:p-6"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain bg-ink-950/40 p-0 backdrop-blur-[3px] sm:p-6"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose()
       }}
@@ -685,20 +722,20 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-labelledby={idTitulo}
-        className={`sem-impressao animate-slide-up w-full ${TAMANHOS_MODAL[size]} rounded-t-2xl bg-white shadow-float sm:my-4 sm:rounded-card`}
+        className={`sem-impressao animate-slide-up w-full ${TAMANHOS_MODAL[size]} rounded-t-2xl bg-white shadow-float ring-1 ring-ink-900/5 sm:my-6 sm:rounded-card`}
       >
-        <header className="flex items-start justify-between gap-4 border-b border-ink-100 px-4 py-3.5 sm:px-5">
+        <header className="flex items-start justify-between gap-4 border-b border-ink-100 px-5 py-4">
           <div className="min-w-0">
-            <h3 id={idTitulo} className="text-[15px] font-semibold text-ink-900">
+            <h3 id={idTitulo} className="text-[15px] font-semibold tracking-[-0.01em] text-ink-900">
               {title}
             </h3>
-            {descricao && <p className="mt-0.5 text-xs text-ink-500">{descricao}</p>}
+            {descricao && <p className="mt-0.5 text-pequeno text-ink-500">{descricao}</p>}
           </div>
           <IconButton nome="fechar" titulo="Fechar" size="sm" onClick={onClose} data-fechar />
         </header>
-        <div className="scroll-thin max-h-[calc(100vh-12rem)] overflow-y-auto px-4 py-4 sm:px-5">{children}</div>
+        <div className="scroll-thin max-h-[calc(100vh-12rem)] overflow-y-auto px-5 py-4">{children}</div>
         {footer && (
-          <footer className="flex flex-wrap justify-end gap-2 border-t border-ink-100 bg-ink-50/60 px-4 py-3 sm:px-5">
+          <footer className="flex flex-wrap justify-end gap-2 border-t border-ink-100 bg-ink-50/50 px-5 py-3.5">
             {footer}
           </footer>
         )}
@@ -749,7 +786,7 @@ export function ConfirmDialog({
       }
     >
       <div className="space-y-3">
-        <div className="text-sm leading-relaxed text-ink-700">{message}</div>
+        <div className="text-pequeno leading-relaxed text-ink-700">{message}</div>
         {children}
       </div>
     </Modal>
@@ -774,9 +811,9 @@ const ToastContext = createContext<ToastApi>({
 })
 
 const TOAST_VISUAL: Record<Toast['kind'], { caixa: string; icone: NomeIcone; cor: string }> = {
-  success: { caixa: 'border-emerald-200', icone: 'check', cor: 'bg-emerald-100 text-emerald-700' },
-  error: { caixa: 'border-red-200', icone: 'alerta', cor: 'bg-red-100 text-red-700' },
-  info: { caixa: 'border-ink-200', icone: 'info', cor: 'bg-ink-100 text-ink-700' },
+  success: { caixa: 'border-emerald-200', icone: 'check', cor: 'bg-emerald-50 text-emerald-600' },
+  error: { caixa: 'border-rose-200', icone: 'alerta', cor: 'bg-rose-50 text-rose-600' },
+  info: { caixa: 'border-ink-200', icone: 'info', cor: 'bg-ink-100 text-ink-600' },
 }
 
 export function ToastProvider({ children }: { children: ReactNode }) {
@@ -808,7 +845,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={value}>
       {children}
       <div
-        className="sem-impressao pointer-events-none fixed bottom-3 left-3 right-3 z-[100] flex flex-col items-center gap-2 sm:left-auto sm:right-4 sm:w-[380px] sm:items-stretch"
+        className="sem-impressao pointer-events-none fixed bottom-3 left-3 right-3 z-[100] flex flex-col items-center gap-2 sm:bottom-5 sm:left-auto sm:right-5 sm:w-[360px] sm:items-stretch"
         aria-live="polite"
         aria-atomic="false"
       >
@@ -818,14 +855,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             role={toast.kind === 'error' ? 'alert' : 'status'}
             className={`animate-slide-in-right pointer-events-auto flex w-full items-start gap-3 rounded-card border bg-white p-3.5 shadow-float ${TOAST_VISUAL[toast.kind].caixa}`}
           >
-            <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${TOAST_VISUAL[toast.kind].cor}`}>
+            <span
+              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${TOAST_VISUAL[toast.kind].cor}`}
+            >
               <Icon nome={TOAST_VISUAL[toast.kind].icone} className="h-4 w-4" />
             </span>
-            <p className="flex-1 pt-0.5 text-sm leading-snug text-ink-800">{toast.message}</p>
+            <p className="flex-1 pt-0.5 text-pequeno leading-snug text-ink-800">{toast.message}</p>
             <button
               type="button"
               onClick={() => remover(toast.id)}
-              className="-mr-1 -mt-1 rounded-lg p-1.5 text-ink-400 transition hover:bg-ink-100 hover:text-ink-700"
+              className="-mr-1 -mt-1 rounded-interno p-1.5 text-ink-400 transition hover:bg-ink-100 hover:text-ink-700"
               aria-label="Fechar aviso"
             >
               <Icon nome="fechar" className="h-4 w-4" />
@@ -887,19 +926,19 @@ export function DataTable<T>({
     )
   }
 
-  const padding = dense || tamanho === 'compacto' ? 'px-3 py-2' : 'px-3 py-3 sm:px-4'
+  const padding = dense || tamanho === 'compacto' ? 'px-4 py-2.5' : 'px-4 py-3.5'
 
   return (
-    <div className="overflow-hidden rounded-card border border-ink-200">
+    <div className="overflow-hidden rounded-card border border-ink-200 bg-white">
       <div className="scroll-thin overflow-x-auto" style={maxHeight ? { maxHeight } : undefined}>
-        <table className={`w-full ${minW} border-collapse text-sm`}>
+        <table className={`w-full ${minW} border-collapse text-pequeno`}>
           <thead className="sticky top-0 z-10">
-            <tr className="bg-ink-50 text-left">
+            <tr className="bg-ink-50/90 backdrop-blur">
               {columns.map((column) => (
                 <th
                   key={column.key}
                   scope="col"
-                  className={`border-b border-ink-200 ${padding} text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-500 ${column.width ?? ''} ${
+                  className={`border-b border-ink-200 ${padding} text-left text-micro font-semibold uppercase text-ink-500 ${column.width ?? ''} ${
                     column.align === 'right' ? 'text-right' : column.align === 'center' ? 'text-center' : ''
                   }`}
                 >
@@ -927,7 +966,9 @@ export function DataTable<T>({
                   }
                   tabIndex={interativo ? 0 : undefined}
                   role={interativo ? 'button' : undefined}
-                  className={`bg-white transition-colors ${interativo ? 'cursor-pointer hover:bg-brand-50/40 focus-visible:bg-brand-50/60' : ''}`}
+                  className={`bg-white transition-colors duration-150 ${
+                    interativo ? 'cursor-pointer hover:bg-brand-50/40 focus-visible:bg-brand-50/60' : 'hover:bg-ink-50/60'
+                  }`}
                 >
                   {columns.map((column) => (
                     <td
@@ -946,7 +987,7 @@ export function DataTable<T>({
         </table>
       </div>
       {rodape && (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-100 bg-ink-50/60 px-4 py-2.5 text-xs text-ink-500">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-100 bg-ink-50/50 px-4 py-2.5 text-pequeno text-ink-500">
           {rodape}
         </div>
       )}
@@ -967,9 +1008,13 @@ export function InfoRow({
   className?: string
 }) {
   return (
-    <div className={`flex items-baseline justify-between gap-3 py-1 ${className}`}>
-      <span className={`text-sm ${destaque ? 'font-medium text-ink-700' : 'text-ink-500'}`}>{rotulo}</span>
-      <span className={`num ${destaque ? 'text-base font-semibold text-ink-900' : 'text-sm font-medium text-ink-800'}`}>
+    <div className={`flex items-baseline justify-between gap-3 py-1.5 ${className}`}>
+      <span className={`text-pequeno ${destaque ? 'font-medium text-ink-700' : 'text-ink-500'}`}>{rotulo}</span>
+      <span
+        className={`num ${
+          destaque ? 'text-base font-semibold text-ink-900' : 'text-pequeno font-medium text-ink-800'
+        }`}
+      >
         {valor}
       </span>
     </div>

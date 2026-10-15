@@ -77,7 +77,7 @@ export default function LoginPage() {
       {/* Painel de marca (desktop) */}
       <aside className="relative hidden w-[46%] overflow-hidden lg:flex lg:flex-col lg:justify-between lg:p-12">
         <div
-          className="absolute inset-0 bg-gradient-to-br from-brand-700 via-brand-800 to-ink-950"
+          className="absolute inset-0 bg-gradient-to-b from-brand-800 via-brand-900 to-ink-950"
           aria-hidden
         />
         <div

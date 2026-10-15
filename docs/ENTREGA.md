@@ -249,6 +249,27 @@ profissional"). O banco, as RPCs, as políticas RLS e as regras de negócio **n�
     *"Você já está conectado como X (função, login)"* com **Continuar** e **Entrar com outra conta** — é o
     caminho explícito para trocar de usuário no mesmo aparelho (balcão, tablet compartilhado).
 
+**Terceira passada — refinamento visual com pesquisa de padrões (15/10/2026):**
+
+Pedido do administrador: *"tá usável mas não tá bonito"*. Foram aplicados os padrões que dashboards de
+referência usam hoje, e não efeitos da moda:
+
+| Mudança | Motivo |
+|---|---|
+| Lateral (menu) em carvão quase preto, item ativo discreto (fundo leve + barra de acento vermelha) em vez de bloco vermelho | Cor de marca como acento; o bloco vermelho competia com os botões de ação da tela |
+| Cartões sempre brancos, com borda de 1 px; sombra reduzida a quase nada | Sombra é elevação, não decoração; borda separa melhor em qualquer tela |
+| Cartão de mesa sem fundo colorido cheio: fio de 3 px da cor da situação no topo + selo com ponto | O salão fica legível: a cor identifica a situação sem tingir tudo |
+| Faixa de indicadores reduzida a **4 números** (Painel, Caixa, Mesas, Relatórios); o resto virou lista de conferência | Números demais na faixa = nenhum número lido |
+| Escala de texto curta (6 tamanhos) e espaçamento só em passos de 4 | Consistência é o que faz parecer profissional, mais do que enfeite |
+| Raios: 14 px no cartão, 8–10 px no que fica dentro dele | Cantos iguais aninhados parecem descuido |
+| Botão principal com brilho interno no topo e "afunda" 1 px ao clicar; foco com anel de 3 px | Retorno tátil sem exagero |
+| Fundo do sistema em papel quente com halo suave; conteúdo centralizado (máx. 1440 px) | Menos "tela de administração crua" |
+| Animação curta de entrada ao trocar de tela (180 ms) | Dá orientação espacial, sem chamar atenção |
+| Avisos e selos: fundos suaves sem anel escuro ao redor | Menos caixas, mais respiro |
+
+Tudo isso saiu de tokens (`tailwind.config.js` + `src/styles.css`) — nenhuma tela recebeu cor fixa. O manual
+de estilo está em [`IDENTIDADE.md`](IDENTIDADE.md).
+
 **Como foi conferido (navegador real, contra o site publicado):**
 
 ```

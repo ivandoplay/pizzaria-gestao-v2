@@ -112,7 +112,15 @@ async function entrar(page, perfil) {
 async function conferirTela(page, perfil, [id, rota, tituloEsperado], errosDeConsole) {
   errosDeConsole.length = 0
   await page.goto(`${BASE}${rota}`, { waitUntil: 'domcontentloaded' })
-  await espera(2600)
+
+  // Espera a tela TERMINAR de carregar em vez de dormir um tempo fixo: assim o
+  // teste mede o aplicativo, não a pressa (ou o soluço) da máquina de teste.
+  await page.waitForSelector('h1', { timeout: 20_000 }).catch(() => {})
+  const semEsqueleto = await page
+    .waitForFunction(() => document.querySelectorAll('.esqueleto').length === 0, undefined, { timeout: 20_000 })
+    .then(() => true)
+    .catch(() => false)
+  await espera(600) // deixa a animação de entrada terminar antes da captura
 
   const caminho = new URL(page.url()).pathname
   if (caminho !== rota) registrar('falha', perfil.nome, id, `foi parar em ${caminho} em vez de ${rota}`)
@@ -121,8 +129,8 @@ async function conferirTela(page, perfil, [id, rota, tituloEsperado], errosDeCon
   if (/Something went wrong|Algo deu errado|Não foi possível carregar/i.test(corpo)) {
     registrar('falha', perfil.nome, id, 'a tela mostrou um bloco de erro')
   }
-  if (await page.locator('.esqueleto').count() > 0) {
-    registrar('falha', perfil.nome, id, 'ficou presa no esqueleto de carregamento')
+  if (!semEsqueleto) {
+    registrar('falha', perfil.nome, id, 'ficou mais de 20 s no esqueleto de carregamento')
   }
   const titulo = await page.locator('h1').first().innerText().catch(() => '')
   if (!titulo) registrar('falha', perfil.nome, id, 'sem título (h1) na tela')
@@ -141,7 +149,8 @@ async function conferirTela(page, perfil, [id, rota, tituloEsperado], errosDeCon
 
 async function conferirBloqueio(page, perfil, [rota, titulo]) {
   await page.goto(`${BASE}${rota}`, { waitUntil: 'domcontentloaded' })
-  await espera(2000)
+  await page.waitForFunction(() => document.querySelectorAll('.esqueleto').length === 0, undefined, { timeout: 20_000 }).catch(() => {})
+  await espera(400)
   const corpo = await page.locator('body').innerText().catch(() => '')
   const tituloNaTela = await page.locator('h1').first().innerText().catch(() => '')
   if (tituloNaTela === titulo) {
@@ -162,7 +171,9 @@ async function percursoDoSalao(page, perfil, errosDeConsole) {
   const anotar = (texto) => { problemas.push(texto); registrar('falha', perfil.nome, 'percurso', texto) }
 
   await page.goto(`${BASE}/mesas`, { waitUntil: 'domcontentloaded' })
-  await espera(2600)
+  await page.waitForSelector('h1', { timeout: 20_000 }).catch(() => {})
+  await page.waitForFunction(() => document.querySelectorAll('.esqueleto').length === 0, undefined, { timeout: 20_000 }).catch(() => {})
+  await espera(600)
 
   // 1) Diálogo de abrir mesa (o botão só abre; nada é confirmado)
   const ocupada = page.locator('article, li, div').filter({ hasText: /^Mesa \d+/ }).first()
@@ -186,6 +197,7 @@ async function percursoDoSalao(page, perfil, errosDeConsole) {
   }
   await mesa1.click()
   await espera(2600)
+  await page.waitForFunction(() => document.querySelectorAll('.esqueleto').length === 0, undefined, { timeout: 20_000 }).catch(() => {})
   if (!/atendimento|Mesa 1/i.test(await page.locator('body').innerText())) anotar('a tela do atendimento não abriu')
 
   await page.locator('button:has-text("Adicionar"), button:has-text("Novo pedido"), button:has-text("Lançar pedido")').first().click({ timeout: 8000 }).catch(() => {})

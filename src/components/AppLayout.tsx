@@ -40,10 +40,10 @@ const TITULOS_GRUPO: Record<ItemNav['grupo'], string> = {
 function Logo({ className = 'h-9 w-9' }: { className?: string }) {
   return (
     <span
-      className={`flex items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-sm ${className}`}
+      className={`flex items-center justify-center rounded-[10px] bg-gradient-to-b from-brand-500 to-brand-700 text-white shadow-brilho ${className}`}
       aria-hidden
     >
-      <Icon nome="pizza" className="h-5 w-5" />
+      <Icon nome="pizza" className="h-[18px] w-[18px]" />
     </span>
   )
 }
@@ -61,6 +61,13 @@ export function AppLayout() {
   const [saindo, setSaindo] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
+
+  const iniciais = (profile?.full_name ?? '')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((parte) => parte[0]?.toUpperCase())
+    .join('')
 
   const items = NAV.filter((item) => profile && item.roles.includes(profile.role))
   const ativo = (to: string) => location.pathname === to || location.pathname.startsWith(`${to}/`)
@@ -97,11 +104,11 @@ export function AppLayout() {
   function ConteudoSidebar() {
     return (
       <>
-        <div className="flex items-center gap-3 border-b border-white/10 px-4 py-4">
+        <div className="flex items-center gap-3 px-4 py-5">
           <Logo />
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-white">Gestão da Pizzaria</p>
-            <p className="truncate text-[11px] text-ink-400">Salão · Delivery · Caixa</p>
+            <p className="truncate text-[14px] font-semibold tracking-[-0.01em] text-white">Gestão da Pizzaria</p>
+            <p className="truncate text-[11px] text-white/40">Salão · Delivery · Caixa</p>
           </div>
           <IconButton
             nome="fechar"
@@ -119,7 +126,7 @@ export function AppLayout() {
             if (doGrupo.length === 0) return null
             return (
               <div key={grupo} className="mb-3 last:mb-0">
-                <p className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-500">
+                <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/30">
                   {TITULOS_GRUPO[grupo]}
                 </p>
                 <ul className="space-y-0.5">
@@ -130,15 +137,23 @@ export function AppLayout() {
                         <NavLink
                           to={item.to}
                           aria-current={selecionado ? 'page' : undefined}
-                          className={`group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition duration-150 ${
+                          className={`group relative flex items-center gap-2.5 rounded-[10px] px-3 py-2 text-[13.5px] transition duration-150 ease-smooth ${
                             selecionado
-                              ? 'bg-brand-600 font-medium text-white shadow-sm'
-                              : 'text-ink-300 hover:bg-white/[0.07] hover:text-white'
+                              ? 'bg-white/[0.09] font-medium text-white'
+                              : 'text-white/60 hover:bg-white/[0.05] hover:text-white'
                           }`}
                         >
+                          {selecionado && (
+                            <span
+                              className="absolute -left-2 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-brand-500"
+                              aria-hidden
+                            />
+                          )}
                           <Icon
                             nome={item.icone}
-                            className={`h-[18px] w-[18px] ${selecionado ? 'text-white' : 'text-ink-400 group-hover:text-white'}`}
+                            className={`h-[17px] w-[17px] transition ${
+                              selecionado ? 'text-brand-300' : 'text-white/40 group-hover:text-white/80'
+                            }`}
                           />
                           <span className="truncate">{item.rotulo}</span>
                         </NavLink>
@@ -151,21 +166,21 @@ export function AppLayout() {
           })}
         </nav>
 
-        <div className="border-t border-white/10 p-3">
-          <div className="flex items-center gap-2.5 rounded-lg bg-white/[0.05] px-3 py-2">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-600/20 text-brand-200">
-              <Icon nome="usuario" className="h-4 w-4" />
+        <div className="border-t border-white/[0.08] p-3">
+          <div className="flex items-center gap-2.5 rounded-[10px] bg-white/[0.04] px-3 py-2.5">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-500/15 text-[12px] font-semibold text-brand-200">
+              {iniciais}
             </span>
             <div className="min-w-0 flex-1">
               <p className="truncate text-[13px] font-medium text-white">{profile?.full_name ?? '—'}</p>
-              <p className="truncate text-[11px] text-ink-400">{descricaoDoUsuario}</p>
+              <p className="truncate text-[11px] text-white/40">{descricaoDoUsuario}</p>
             </div>
             <IconButton
               nome="sair"
               titulo="Sair do sistema"
               variant="ghost"
               size="sm"
-              className="text-ink-300 hover:bg-white/10 hover:text-white"
+              className="text-white/50 hover:bg-white/10 hover:text-white"
               onClick={() => setSairAberto(true)}
             />
           </div>
@@ -175,9 +190,9 @@ export function AppLayout() {
   }
 
   return (
-    <div className="flex min-h-screen bg-ink-100">
+    <div className="papel-da-tela flex min-h-screen">
       {/* Menu lateral fixo (desktop) */}
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col bg-ink-900 lg:flex">
+      <aside className="lateral fixed inset-y-0 left-0 z-40 hidden w-[248px] flex-col border-r border-black/20 lg:flex">
         <ConteudoSidebar />
       </aside>
 
@@ -189,16 +204,16 @@ export function AppLayout() {
             onClick={() => setMenuOpen(false)}
             aria-label="Fechar menu"
           />
-          <aside className="animate-slide-in-left absolute inset-y-0 left-0 flex w-[280px] max-w-[85vw] flex-col bg-ink-900">
+          <aside className="lateral animate-slide-in-left absolute inset-y-0 left-0 flex w-[264px] max-w-[85vw] flex-col border-r border-black/30">
             <ConteudoSidebar />
           </aside>
         </div>
       )}
 
       {/* Conteúdo */}
-      <div className="flex min-w-0 flex-1 flex-col lg:ml-64">
-        <header className="sem-impressao sticky top-0 z-30 border-b border-ink-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
-          <div className="flex items-center gap-3 px-3 py-2.5 sm:px-4 lg:px-6">
+      <div className="flex min-w-0 flex-1 flex-col lg:ml-[248px]">
+        <header className="sem-impressao sticky top-0 z-30 border-b border-ink-200/80 bg-white/80 backdrop-blur-md">
+          <div className="mx-auto flex w-full max-w-tela items-center gap-3 px-3 py-2.5 sm:px-5 lg:px-7">
             <IconButton
               nome="lista"
               titulo="Abrir menu"
@@ -207,10 +222,10 @@ export function AppLayout() {
               onClick={() => setMenuOpen(true)}
             />
             <div className="min-w-0 flex-1">
-              <h1 className="truncate text-[15px] font-semibold text-ink-900">
+              <p className="truncate text-[14px] font-semibold tracking-[-0.01em] text-ink-900">
                 {atual?.rotulo ?? (profile ? 'Acesso restrito' : 'Sistema')}
-              </h1>
-              <p className="hidden truncate text-xs text-ink-500 sm:block">
+              </p>
+              <p className="hidden truncate text-[12px] text-ink-500 sm:block">
                 {profile?.full_name}
                 {descricaoDoUsuario && descricaoDoUsuario !== profile?.full_name ? ` · ${descricaoDoUsuario}` : ''}
               </p>
@@ -254,7 +269,7 @@ export function AppLayout() {
         </header>
 
         {!online && (
-          <div className="sem-impressao flex items-start gap-2.5 border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-900 sm:text-[13px]">
+          <div className="sem-impressao flex items-start gap-2.5 border-b border-amber-200/70 bg-amber-50/80 px-4 py-2.5 text-pequeno text-amber-900 sm:px-7">
             <Icon nome="nuvem-off" className="mt-0.5 h-4 w-4 shrink-0" />
             <p>
               <strong className="font-semibold">Você está sem conexão.</strong> Nada é enviado ao servidor até a
@@ -265,7 +280,7 @@ export function AppLayout() {
         )}
 
         {online && profile && !realtimeConnected && (
-          <div className="sem-impressao flex items-start gap-2.5 border-b border-sky-200 bg-sky-50 px-4 py-2.5 text-xs text-sky-900 sm:text-[13px]">
+          <div className="sem-impressao flex items-start gap-2.5 border-b border-sky-200/70 bg-sky-50/80 px-4 py-2.5 text-pequeno text-sky-900 sm:px-7">
             <Icon nome="raio" className="mt-0.5 h-4 w-4 shrink-0" />
             <p>
               Atualização automática reconectando. As telas continuam funcionando, mas podem ficar alguns segundos
@@ -274,15 +289,17 @@ export function AppLayout() {
           </div>
         )}
 
-        <main className="min-w-0 flex-1 px-3 pb-24 pt-4 sm:px-4 lg:px-6 lg:pb-8 lg:pt-6">
-          <Outlet />
+        <main className="min-w-0 flex-1 px-3 pb-24 pt-5 sm:px-5 lg:px-7 lg:pb-10 lg:pt-7">
+          <div key={location.pathname} className="animate-fade-in mx-auto w-full max-w-tela">
+            <Outlet />
+          </div>
         </main>
       </div>
 
       {/* Barra inferior (celular): acesso rápido às telas do dia a dia */}
       {itensMobile.length > 1 && (
         <nav
-          className="barra-inferior sem-impressao fixed inset-x-0 bottom-0 z-30 border-t border-ink-200 bg-white/95 backdrop-blur lg:hidden"
+          className="barra-inferior sem-impressao fixed inset-x-0 bottom-0 z-30 border-t border-ink-200/80 bg-white/90 backdrop-blur-md lg:hidden"
           aria-label="Acesso rápido"
         >
           <ul className="flex">
@@ -296,6 +313,7 @@ export function AppLayout() {
                     className={`flex flex-col items-center gap-1 py-2 text-[11px] font-medium transition ${
                       selecionado ? 'text-brand-700' : 'text-ink-500'
                     }`}
+                    title={item.rotulo}
                   >
                     <Icon nome={item.icone} className={`h-5 w-5 ${selecionado ? 'text-brand-600' : ''}`} />
                     {item.rotulo.split(' ')[0]}

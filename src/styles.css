@@ -16,25 +16,24 @@
 
   html {
     -webkit-text-size-adjust: 100%;
-    scroll-behavior: smooth;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   body {
-    @apply bg-ink-100 text-ink-900 antialiased;
-    font-feature-settings: 'cv11', 'ss01';
-    text-rendering: optimizeLegibility;
+    @apply bg-papel font-sans text-base text-ink-800 antialiased;
+    font-optical-sizing: auto;
   }
 
-  /* Foco visível em todo o sistema (teclado e leitores de tela). */
+  /* Foco visível em tudo, discreto e consistente (nunca removido). */
   :focus-visible {
-    @apply outline-none ring-2 ring-brand-500/60 ring-offset-2 ring-offset-white;
+    @apply outline-none ring-2 ring-brand-500/50 ring-offset-2 ring-offset-papel;
   }
 
   ::selection {
     @apply bg-brand-100 text-brand-900;
   }
 
-  /* Números sempre alinhados — essencial para dinheiro em tabelas e totais. */
+  /* Números alinhados — essencial para dinheiro em listas e totais. */
   .num,
   td.num,
   input[type='number'] {
@@ -47,7 +46,7 @@
   select,
   textarea,
   button {
-    @apply text-[15px] sm:text-sm;
+    font-family: inherit;
   }
 
   /* Nada de "auto-completar" amarelo estragando o visual. */
@@ -58,10 +57,13 @@
     -webkit-box-shadow: 0 0 0 1000px white inset;
   }
 
-  h1,
+  h1 {
+    @apply text-titulo font-semibold tracking-[-0.02em] text-ink-900;
+  }
+
   h2,
   h3 {
-    @apply tracking-tight;
+    @apply text-base font-semibold tracking-[-0.01em] text-ink-900;
   }
 }
 
@@ -69,18 +71,39 @@
    COMPONENTES UTILITÁRIOS
    ========================================================================== */
 @layer components {
-  /* Rótulo de seção: pequeno, caixa alta, discreto. */
+  /* Rótulo de seção: pequeno, caixa alta, com tracking para respirar. */
   .rotulo {
-    @apply text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-400;
-    /* Não quebrar palavra no meio (acontecia em cartão estreito no celular). */
+    @apply text-micro font-semibold uppercase text-ink-500;
     overflow-wrap: normal;
     word-break: keep-all;
     hyphens: none;
   }
 
-  /* Cartão base usado em todo o sistema. */
+  /* Superfície base: borda de 1px + sombra quase imperceptível. */
   .superficie {
     @apply rounded-card border border-ink-200 bg-white shadow-card;
+  }
+
+  /* Divisor de 1px usado no lugar de bordas de caixa. */
+  .divisor {
+    @apply border-t border-ink-100;
+  }
+
+  /* Campo de formulário padrão.
+     Fica em `components` (e não em utilitários) de propósito: assim a página
+     consegue sobrepor largura, espaçamento e cor só passando `className="w-32"`,
+     sem a largura padrão `w-full` vencer por ordem de CSS. */
+  .campo {
+    @apply w-full rounded-control border border-ink-300 bg-white px-3 py-2.5 text-base text-ink-900 transition
+      placeholder:text-ink-400 hover:border-ink-400
+      focus:border-brand-500 focus:outline-none focus:ring-[3px] focus:ring-brand-500/10
+      disabled:cursor-not-allowed disabled:bg-ink-50 disabled:text-ink-500 sm:text-[14px];
+  }
+
+  /* Botão primário: cor cheia, brilho interno no topo e resposta ao toque. */
+  .botao-primario {
+    @apply bg-brand-600 text-white shadow-brilho transition
+      hover:bg-brand-700 active:translate-y-px active:bg-brand-800;
   }
 
   /* Brilho que percorre esqueletos de carregamento. */
@@ -90,8 +113,8 @@
   .esqueleto::after {
     content: '';
     @apply absolute inset-0 -translate-x-full;
-    background-image: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.75), transparent);
-    animation: shimmer 1.4s infinite;
+    background-image: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.8), transparent);
+    animation: shimmer 1.5s infinite;
   }
 
   /* Rolagem discreta nas listas longas. */
@@ -113,17 +136,6 @@
     @apply bg-ink-400;
   }
 
-  /* Campo de formulário padrão.
-     Fica em `components` (e não em utilitários) de propósito: assim a página
-     consegue sobrepor largura, espaçamento e cor só passando `className="w-32"`,
-     sem a largura padrão `w-full` vencer por ordem de CSS. */
-  .campo {
-    @apply w-full rounded-control border border-ink-300 bg-white px-3 py-2.5 text-[15px] text-ink-900 shadow-sm transition
-      placeholder:text-ink-400 hover:border-ink-400
-      focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10
-      disabled:cursor-not-allowed disabled:bg-ink-100 disabled:text-ink-500 sm:text-sm;
-  }
-
   /* Barra inferior do celular respeitando a área segura do aparelho. */
   .barra-inferior {
     padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -132,6 +144,21 @@
   /* Trilha de foco usada em grades navegáveis por teclado. */
   .grade-navegavel:focus-visible {
     @apply ring-2 ring-brand-500 ring-offset-2;
+  }
+
+  /* Fundo da lateral: carvão quente com um fio de luz vermelha no topo. */
+  .lateral {
+    background-color: theme(colors.ink.950);
+    background-image:
+      radial-gradient(120% 60% at 0% 0%, rgba(196, 58, 32, 0.16), transparent 60%),
+      linear-gradient(180deg, #1a1816 0%, #121110 100%);
+  }
+
+  /* Papel da tela: branco quente com um halo suave no topo. */
+  .papel-da-tela {
+    background-color: theme(colors.papel);
+    background-image: radial-gradient(80% 50% at 50% -10%, rgba(196, 58, 32, 0.05), transparent 70%);
+    background-repeat: no-repeat;
   }
 }
 

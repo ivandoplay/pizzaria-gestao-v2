@@ -259,15 +259,14 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <StatTile rotulo="Bruto (itens)" valor={formatMoney(data?.gross_items_cents ?? 0)} detalhe="Subtotal antes de descontos" />
-          <StatTile rotulo="Descontos" valor={formatMoney(data?.discounts_cents ?? 0)} tom="ambar" detalhe="Autorizados e auditados" />
-          <StatTile rotulo="Taxas de entrega" valor={formatMoney(data?.delivery_fees_cents ?? 0)} detalhe="Cobradas no delivery" />
-          <StatTile
-            rotulo="Cancelados"
+        <div className="mt-3 grid gap-2 rounded-card border border-ink-200 bg-white px-4 py-2.5 shadow-card sm:grid-cols-2 lg:grid-cols-4">
+          <LinhaDeDetalhe rotulo="Bruto (itens)" valor={formatMoney(data?.gross_items_cents ?? 0)} />
+          <LinhaDeDetalhe rotulo="Descontos" valor={formatMoney(data?.discounts_cents ?? 0)} />
+          <LinhaDeDetalhe rotulo="Taxas de entrega" valor={formatMoney(data?.delivery_fees_cents ?? 0)} />
+          <LinhaDeDetalhe
+            rotulo={`Cancelados (${plural(data?.orders_cancelled_count ?? 0, 'pedido', 'pedidos')})`}
             valor={formatMoney(data?.cancelled_cents ?? 0)}
-            tom="vermelho"
-            detalhe={`${plural(data?.orders_cancelled_count ?? 0, 'pedido', 'pedidos')} fora da venda válida`}
+            alerta={(data?.cancelled_cents ?? 0) > 0}
           />
         </div>
       </section>
@@ -492,5 +491,19 @@ function Linha({ rotulo, valor }: { rotulo: string; valor: number }) {
       <span className="text-ink-600">{rotulo}</span>
       <span className="num font-medium text-ink-900">{valor}</span>
     </li>
+  )
+}
+
+/**
+ * Linha de detalhamento do período (bruto, descontos, taxas, cancelados).
+ * Fica fora da faixa de indicadores de propósito: os números que o dono olha
+ * todo dia são quatro — o resto é conferência.
+ */
+function LinhaDeDetalhe({ rotulo, valor, alerta }: { rotulo: string; valor: string; alerta?: boolean }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 border-ink-100 py-1.5 sm:border-l sm:pl-4 sm:first:border-l-0 sm:first:pl-0">
+      <span className="text-pequeno text-ink-500">{rotulo}</span>
+      <span className={`num text-pequeno font-semibold ${alerta ? 'text-rose-700' : 'text-ink-800'}`}>{valor}</span>
+    </div>
   )
 }

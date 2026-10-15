@@ -90,6 +90,16 @@ os testes travam esse alinhamento.
 | "Limpar dados deste aparelho" | **ok** (limpa a sessão local e recarrega) |
 | Rodapé com endereço + versão do build | **ok** (serve para identificar app/versão errados) |
 
+## 3.2 Robôs de interface (Playwright)
+
+| Ferramenta | O que faz | Resultado |
+|---|---|---|
+| `node tools/e2e-telas.mjs <URL>` | entra com os 3 perfis, percorre as telas de cada um, confere os bloqueios de permissão, executa o percurso do salão (abrir mesa, montar pedido, conferir conta — **sem gravar nada**), detecta erro de console/rede e salva capturas em `artifacts/e2e/` | **0 falhas** (local e site publicado) |
+| `node tools/teste-login.mjs <URL>` | entrar com cada perfil, recarregar com sessão salva, abrir `/login` conectado, trocar de conta, **sessão velha/corrompida no navegador** (o caso que trava o operador) e login pelo celular | **0 falhas** |
+
+Ambos exigem `npm i --no-save playwright && npx playwright install chromium && npx playwright install-deps chromium`.
+As senhas vêm do ambiente (`PZ_ADMIN_PASSWORD`, `PZ_CAIXA_PASSWORD`, `PZ_GARCOM_PASSWORD`) — nunca do arquivo.
+
 ## 4. Build e verificação de tipos — resultado: **exit 0**
 
 | Comando | Resultado |

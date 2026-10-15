@@ -28,45 +28,12 @@ import { translateError } from '../lib/errors'
 import { TABLE_STATUS_LABELS, type TableOverview, type TableStatus } from '../lib/types'
 
 /** Aparência de cada situação da mesa — a cor comunica o estado antes do texto. */
-const VISUAL: Record<
-  TableStatus,
-  { borda: string; fundo: string; faixa: string; ponto: string; rotulo: string }
-> = {
-  available: {
-    borda: 'border-ink-200 hover:border-emerald-400',
-    fundo: 'bg-white hover:bg-emerald-50/40',
-    faixa: 'bg-emerald-500',
-    ponto: 'bg-emerald-500',
-    rotulo: 'text-emerald-700',
-  },
-  occupied: {
-    borda: 'border-amber-200 hover:border-amber-400',
-    fundo: 'bg-amber-50/50 hover:bg-amber-50',
-    faixa: 'bg-amber-500',
-    ponto: 'bg-amber-500',
-    rotulo: 'text-amber-700',
-  },
-  awaiting_close: {
-    borda: 'border-sky-200 hover:border-sky-400',
-    fundo: 'bg-sky-50/50 hover:bg-sky-50',
-    faixa: 'bg-sky-500',
-    ponto: 'bg-sky-500',
-    rotulo: 'text-sky-700',
-  },
-  attention: {
-    borda: 'border-red-300 hover:border-red-500',
-    fundo: 'bg-red-50/60 hover:bg-red-50',
-    faixa: 'bg-red-500',
-    ponto: 'bg-red-500',
-    rotulo: 'text-red-700',
-  },
-  inactive: {
-    borda: 'border-ink-200',
-    fundo: 'bg-ink-50 opacity-70',
-    faixa: 'bg-ink-300',
-    ponto: 'bg-ink-400',
-    rotulo: 'text-ink-500',
-  },
+const VISUAL: Record<TableStatus, { faixa: string; ponto: string; rotulo: string }> = {
+  available: { faixa: 'bg-emerald-500/70', ponto: 'bg-emerald-500', rotulo: 'text-emerald-700' },
+  occupied: { faixa: 'bg-amber-500/80', ponto: 'bg-amber-500', rotulo: 'text-amber-700' },
+  awaiting_close: { faixa: 'bg-sky-500/80', ponto: 'bg-sky-500', rotulo: 'text-sky-700' },
+  attention: { faixa: 'bg-rose-500', ponto: 'bg-rose-500', rotulo: 'text-rose-700' },
+  inactive: { faixa: 'bg-ink-300', ponto: 'bg-ink-400', rotulo: 'text-ink-500' },
 }
 
 type Filtro = 'todas' | 'available' | 'ocupadas'
@@ -252,36 +219,38 @@ export default function TablesPage() {
                   <button
                     key={mesa.id}
                     onClick={() => (livre ? setAbrirEm(mesa) : setSelecionada(mesa))}
-                    className={`grade-navegavel group relative flex flex-col overflow-hidden rounded-card border text-left shadow-card transition
-                      duration-150 ease-smooth hover:-translate-y-0.5 hover:shadow-raised ${visual.borda} ${visual.fundo}`}
+                    className={`grade-navegavel group relative flex flex-col overflow-hidden rounded-card border border-ink-200 bg-white text-left shadow-card transition
+                      duration-200 ease-smooth hover:-translate-y-0.5 hover:border-ink-300 hover:shadow-raised ${
+                        mesa.status === 'inactive' ? 'opacity-70' : ''
+                      }`}
                   >
-                    <span className={`h-1 w-full ${visual.faixa}`} />
-                    <div className="flex items-start justify-between gap-2 p-3.5 pb-2">
+                    <span className={`h-[3px] w-full ${visual.faixa}`} />
+                    <div className="flex items-start justify-between gap-2 px-4 pt-3.5 pb-2">
                       <div className="min-w-0">
-                        <p className="truncate text-[17px] font-semibold text-ink-900">
+                        <p className="truncate text-[16px] font-semibold tracking-[-0.01em] text-ink-900">
                           {mesa.name ?? `Mesa ${mesa.number}`}
                         </p>
-                        <p className="text-xs text-ink-500">
+                        <p className="text-[12px] text-ink-500">
                           {mesa.seats ? `${mesa.seats} lugares` : 'Sem lugares definidos'}
                         </p>
                       </div>
-                      <span className={`flex items-center gap-1.5 whitespace-nowrap text-[11px] font-semibold ${visual.rotulo}`}>
+                      <span className={`flex items-center gap-1.5 whitespace-nowrap text-micro font-semibold uppercase tracking-[0.05em] ${visual.rotulo}`}>
                         <span className={`h-1.5 w-1.5 rounded-full ${visual.ponto}`} />
                         {TABLE_STATUS_LABELS[mesa.status]}
                       </span>
                     </div>
 
-                    <div className="flex flex-1 flex-col gap-1.5 px-3.5 pb-3.5">
+                    <div className="flex flex-1 flex-col gap-1.5 px-4 pb-4">
                       {livre ? (
-                        <p className="flex items-center gap-1.5 text-[13px] font-medium text-emerald-700">
+                        <p className="flex items-center gap-1.5 text-pequeno font-medium text-emerald-700">
                           <Icon nome="mais" className="h-4 w-4" />
                           Iniciar atendimento
                         </p>
                       ) : mesa.status === 'inactive' ? (
-                        <p className="text-[13px] text-ink-500">Mesa desativada — fora de uso.</p>
+                        <p className="text-pequeno text-ink-500">Mesa desativada — fora de uso.</p>
                       ) : (
                         <>
-                          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-600">
+                          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-ink-600">
                             <span className="inline-flex items-center gap-1">
                               <Icon nome="relogio" className="h-3.5 w-3.5 text-ink-400" />
                               {duracaoDesde(mesa.opened_at, agora)}
@@ -292,7 +261,7 @@ export default function TablesPage() {
                               {minutos >= 90 && <span className="ml-1 font-medium text-amber-700">(atenção)</span>}
                             </span>
                           </p>
-                          <p className="text-xs text-ink-600">
+                          <p className="text-[12px] text-ink-600">
                             {mesa.open_orders_count} pedido{mesa.open_orders_count === 1 ? '' : 's'} ·{' '}
                             {mesa.open_items_count} item{mesa.open_items_count === 1 ? '' : 's'}
                             {mesa.guest_count ? ` · ${mesa.guest_count} pessoa${mesa.guest_count === 1 ? '' : 's'}` : ''}

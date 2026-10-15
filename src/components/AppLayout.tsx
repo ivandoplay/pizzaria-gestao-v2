@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext'
 import { useOnlineStatus, useRealtimeSync } from '../lib/hooks'
 import { ROLE_LABELS, type Role } from '../lib/types'
 import { Icon, type NomeIcone } from './icons'
-import { Badge, ConfirmDialog, IconButton } from './ui'
+import { Badge, ConfirmDialog, IconButton, Modal, useToast } from './ui'
+import { CommandPalette, type Comando } from './CommandPalette'
 
 interface ItemNav {
   to: string
@@ -58,6 +60,10 @@ export function AppLayout() {
   const realtimeConnected = useRealtimeSync(Boolean(profile))
   const [menuOpen, setMenuOpen] = useState(false)
   const [sairAberto, setSairAberto] = useState(false)
+  const [paletaAberta, setPaletaAberta] = useState(false)
+  const [atalhosAbertos, setAtalhosAbertos] = useState(false)
+  const queryClient = useQueryClient()
+  const toast = useToast()
   const [saindo, setSaindo] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
@@ -78,6 +84,47 @@ export function AppLayout() {
     setMenuOpen(false)
   }, [location.pathname])
 
+  /**
+   * Atalhos globais — feitos para quem opera no COMPUTADOR (caixa/admin):
+   *   ⌘K / Ctrl+K  abre a paleta de comandos;
+   *   ?            mostra a lista de atalhos.
+   * Nunca disparam enquanto o operador está digitando num campo.
+   */
+  useEffect(() => {
+    function aoTeclar(evento: KeyboardEvent) {
+      const alvo = evento.target as HTMLElement | null
+      const digitando =
+        alvo instanceof HTMLInputElement ||
+        alvo instanceof HTMLTextAreaElement ||
+        alvo instanceof HTMLSelectElement ||
+        alvo?.isContentEditable === true
+
+      // Ctrl+K abre/fecha a paleta — mas nunca por cima de outra janela aberta,
+      // para não trocar o contexto de quem está no meio de um atendimento.
+      if ((evento.metaKey || evento.ctrlKey) && evento.key.toLowerCase() === 'k') {
+        evento.preventDefault()
+        if (paletaAberta) {
+          setPaletaAberta(false)
+          return
+        }
+        if (document.querySelector('[role="dialog"]')) return
+        setPaletaAberta(true)
+        return
+      }
+
+      if (digitando) return
+      if (document.querySelector('[role="dialog"]')) return
+
+      // "?" abre a lista de atalhos.
+      if (evento.key === '?') {
+        evento.preventDefault()
+        setAtalhosAbertos(true)
+      }
+    }
+    window.addEventListener('keydown', aoTeclar)
+    return () => window.removeEventListener('keydown', aoTeclar)
+  }, [paletaAberta])
+
   useEffect(() => {
     if (!menuOpen) return
     const overflow = document.body.style.overflow
@@ -97,6 +144,56 @@ export function AppLayout() {
       setSairAberto(false)
     }
   }
+
+  const comandos = useMemo<Comando[]>(() => {
+    const navegacao: Comando[] = items.map((item) => ({
+      id: `ir-${item.to}`,
+      rotulo: `Ir para ${item.rotulo}`,
+      grupo: 'Navegar',
+      icone: item.icone,
+      executar: () => navigate(item.to),
+    }))
+    const acoes: Comando[] = [
+      {
+        id: 'atalhos',
+        rotulo: 'Atalhos de teclado',
+        grupo: 'Ajuda',
+        icone: 'info',
+        atalho: '?',
+        termos: 'teclas atalhos ajuda comandos',
+        executar: () => setAtalhosAbertos(true),
+      },
+      {
+        id: 'atualizar',
+        rotulo: 'Atualizar os dados das telas',
+        grupo: 'Ações',
+        icone: 'atualizar',
+        termos: 'recarregar sincronizar',
+        executar: () => {
+          void queryClient.invalidateQueries()
+          toast.success('Pedindo dados atualizados ao servidor…')
+        },
+      },
+    ]
+    if (items.some((item) => item.to === '/caixa')) {
+      acoes.push({
+        id: 'painel-caixa',
+        rotulo: 'Ir para a operação do caixa',
+        grupo: 'Ações',
+        icone: 'cofre',
+        termos: 'turno gaveta abrir fechar',
+        executar: () => navigate('/caixa'),
+      })
+    }
+    acoes.push({
+      id: 'sair',
+      rotulo: 'Sair do sistema',
+      grupo: 'Sistema',
+      icone: 'sair',
+      executar: () => setSairAberto(true),
+    })
+    return [...navegacao, ...acoes]
+  }, [items, navigate, queryClient, toast])
 
   const grupos: ItemNav['grupo'][] = ['operacao', 'gestao', 'sistema']
   const itensMobile = items.filter((item) => item.mobile).slice(0, 4)
@@ -232,6 +329,26 @@ export function AppLayout() {
             </div>
 
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPaletaAberta(true)}
+                className="hidden items-center gap-2 rounded-control border border-ink-200 bg-white px-3 py-1.5 text-pequeno text-ink-400 shadow-card transition hover:border-ink-300 hover:text-ink-600 lg:flex"
+                title="Buscar telas e ações (Ctrl+K)"
+              >
+                <Icon nome="busca" className="h-4 w-4" />
+                Buscar ou ir para…
+                <kbd className="rounded-[5px] border border-ink-200 bg-ink-50 px-1.5 py-0.5 text-[11px] font-medium text-ink-500">
+                  Ctrl K
+                </kbd>
+              </button>
+              <IconButton
+                nome="busca"
+                titulo="Buscar telas e ações"
+                variant="secondary"
+                size="sm"
+                className="!h-8 !w-8 lg:hidden"
+                onClick={() => setPaletaAberta(true)}
+              />
               {!online ? (
                 <Badge tone="red" ponto>
                   <span className="hidden sm:inline">Sem conexão</span>
@@ -324,6 +441,38 @@ export function AppLayout() {
           </ul>
         </nav>
       )}
+
+      <CommandPalette aberta={paletaAberta} onFechar={() => setPaletaAberta(false)} comandos={comandos} />
+
+      <Modal
+        open={atalhosAbertos}
+        title="Atalhos de teclado"
+        descricao="Feitos para quem opera o sistema no computador (caixa e administração)."
+        onClose={() => setAtalhosAbertos(false)}
+        size="sm"
+      >
+        <ul className="divide-y divide-ink-100">
+          {[
+            { teclas: 'Ctrl K', o: 'Abrir a busca de telas e ações' },
+            { teclas: '?', o: 'Ver esta lista de atalhos' },
+            { teclas: 'Esc', o: 'Fechar a janela aberta' },
+            { teclas: '↑ ↓', o: 'Navegar na busca' },
+            { teclas: 'Enter', o: 'Abrir o item escolhido / confirmar' },
+            { teclas: 'Tab', o: 'Passar de um campo para o outro' },
+          ].map((linha) => (
+            <li key={linha.teclas} className="flex items-center justify-between gap-4 py-2.5">
+              <span className="text-pequeno text-ink-700">{linha.o}</span>
+              <kbd className="shrink-0 rounded-[6px] border border-ink-200 bg-ink-50 px-2 py-1 text-[11px] font-semibold text-ink-600">
+                {linha.teclas}
+              </kbd>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-3 text-[11px] leading-relaxed text-ink-500">
+          No celular, o sistema é todo por toque: os botões principais ficam na parte de baixo da tela, ao alcance do
+          polegar.
+        </p>
+      </Modal>
 
       <ConfirmDialog
         open={sairAberto}

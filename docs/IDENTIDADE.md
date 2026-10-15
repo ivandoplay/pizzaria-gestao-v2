@@ -84,7 +84,25 @@ Baixe a fonte para `public/fonts/` e declare `@font-face` em `src/styles.css` �
 sistema continua funcionando **sem internet** (requisito do balcão). Fonte hospedada em
 CDN externo não é usada de propósito.
 
-## 6. Checklist antes de publicar uma mudança visual
+## 6. Por dispositivo: computador do caixa × celular do garçom
+
+A mesma identidade, dois ajustes de **área de toque e densidade** (decisão completa em
+`docs/DECISIONS.md` §6):
+
+| Item | Computador (≥1024px) | Celular (<640px) |
+|---|---|---|
+| Altura de botão (`Button`, `md`) | 40px | 44px |
+| Botão pequeno / ícone | 32px | 36px |
+| Seletor de quantidade | 36px por botão | 44px por botão |
+| Linhas de tabela (`DataTable`) | 10px de respiro vertical | 14px |
+| Cartão de produto no pedido | 2–3 colunas | 2 colunas, mínimo 88px de altura |
+| Item de tamanho único e sem escolha | clique abre a montagem | **um toque** adiciona (selo `+`) |
+
+Regras que valem nos dois: nada de função dependente de `hover`; ação destrutiva nunca colada no
+polegar; a barra de envio do pedido fica fixa acima da barra de navegação; e a tela **não pode**
+ter rolagem lateral (checado por `tools/checar-rolagem.mjs`).
+
+## 7. Checklist antes de publicar uma mudança visual
 
 ```bash
 npm run typecheck      # tipos

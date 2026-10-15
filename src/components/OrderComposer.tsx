@@ -50,6 +50,7 @@ export function OrderComposer({ menu, halfRule, items, onChange, disabled }: Pro
   const [categoryId, setCategoryId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [selecionado, setSelecionado] = useState<Product | null>(null)
+  const [aviso, setAviso] = useState<string | null>(null)
 
   const activeCategories = menu.categories.filter((category) => category.is_active)
   const nomeCategoria = (id: string) => activeCategories.find((category) => category.id === id)?.name ?? null
@@ -81,6 +82,61 @@ export function OrderComposer({ menu, halfRule, items, onChange, disabled }: Pro
 
   const subtotal = cartSubtotalPreview(items)
 
+  /**
+   * Item "de um toque": tem um único tamanho/preço e nenhum grupo de escolha
+   * obrigatório. Nesses casos o garçom adiciona direto da grade, sem abrir a
+   * janela de montagem — é o que mais pesa no meio do salão cheio.
+   */
+  function varianteUnica(productId: string) {
+    const doProduto = menu.variants.filter((variante) => variante.product_id === productId && variante.is_available)
+    return doProduto.length === 1 ? doProduto[0] : null
+  }
+
+  function podeAdicionarDireto(product: Product) {
+    if (product.kind === 'pizza') return false
+    if (!varianteUnica(product.id)) return false
+    const gruposDoProduto = menu.links
+      .filter((link) => link.product_id === product.id)
+      .map((link) => link.group_id)
+    // Só é direto quando nenhum grupo exige escolha.
+    return gruposDoProduto.every(
+      (groupId) => (menu.groups.find((grupo) => grupo.id === groupId)?.min_select ?? 0) === 0,
+    )
+  }
+
+  function adicionarDireto(product: Product) {
+    const variante = varianteUnica(product.id)
+    if (!variante) return
+    const tamanho = menu.sizes.find((size) => size.id === variante.size_id) ?? null
+    const novo: CartItem = {
+      key: newClientUuid(),
+      product_id: product.id,
+      variant_id: variante.id,
+      quantity: 1,
+      notes: '',
+      flavor_product_ids: [],
+      modifier_option_ids: [],
+      preview: {
+        product_name: product.name,
+        size_name: tamanho ? `${tamanho.name}${tamanho.slices ? ` · ${tamanho.slices} fatias` : ''}` : '',
+        flavors: [product.name],
+        modifiers: [],
+        unit_price_cents: computeItemPreview({
+          kind: product.kind,
+          variantId: variante.id,
+          flavorProductIds: [],
+          optionIds: [],
+          halfRule,
+          variants: menu.variants,
+          options: menu.options,
+        }).unit_cents,
+      },
+    }
+    onChange([...items, novo])
+    setAviso(`“${product.name}” adicionado à lista`)
+    window.setTimeout(() => setAviso(null), 2500)
+  }
+
   function alterarQuantidade(key: string, quantidade: number) {
     onChange(items.map((item) => (item.key === key ? { ...item, quantity: quantidade } : item)))
   }
@@ -88,14 +144,14 @@ export function OrderComposer({ menu, halfRule, items, onChange, disabled }: Pro
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
       {/* Catálogo */}
-      <div className="space-y-3">
+      <div className="min-w-0 space-y-3">
         <SearchInput value={search} onValueChange={setSearch} placeholder="Buscar item do cardápio…" />
 
         <div className="scroll-thin -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
           <button
             type="button"
             onClick={() => setCategoryId(null)}
-            className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+            className={`shrink-0 rounded-full border px-3.5 py-2 text-xs font-medium transition sm:px-3 sm:py-1.5 ${
               categoryId === null
                 ? 'border-brand-600 bg-brand-600 text-white'
                 : 'border-ink-300 bg-white text-ink-600 hover:border-ink-400'
@@ -108,7 +164,7 @@ export function OrderComposer({ menu, halfRule, items, onChange, disabled }: Pro
               key={category.id}
               type="button"
               onClick={() => setCategoryId(category.id)}
-              className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+              className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-medium transition sm:px-3 sm:py-1.5 ${
                 categoryId === category.id
                   ? 'border-brand-600 bg-brand-600 text-white'
                   : 'border-ink-300 bg-white text-ink-600 hover:border-ink-400'
@@ -127,16 +183,34 @@ export function OrderComposer({ menu, halfRule, items, onChange, disabled }: Pro
             description="Ajuste a busca ou escolha outra categoria. Itens indisponíveis não aparecem no lançamento."
           />
         ) : (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-3">
+          <>
+            {aviso && (
+              <p
+                role="status"
+                className="animate-fade-in mb-2 flex items-center gap-2 rounded-control bg-emerald-50 px-3 py-2 text-pequeno font-medium text-emerald-800"
+              >
+                <Icon nome="check" className="h-4 w-4" />
+                {aviso}
+              </p>
+            )}
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-3">
             {productsOfCategory.map((product) => (
               <button
                 key={product.id}
                 type="button"
                 disabled={disabled}
-                onClick={() => setSelecionado(product)}
-                className="grade-navegavel flex h-full flex-col justify-between gap-2 rounded-card border border-ink-200 bg-white p-3 text-left shadow-card transition duration-150 ease-smooth hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-raised disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={() => (podeAdicionarDireto(product) ? adicionarDireto(product) : setSelecionado(product))}
+                className="grade-navegavel relative flex h-full min-h-[88px] flex-col justify-between gap-2 rounded-card border border-ink-200 bg-white p-3 text-left shadow-card transition duration-150 ease-smooth hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-raised active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <span className="flex items-start gap-2">
+                {podeAdicionarDireto(product) && !disabled && (
+                  <span
+                    className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-brand-50 text-brand-700"
+                    aria-hidden
+                  >
+                    <Icon nome="mais" className="h-4 w-4" />
+                  </span>
+                )}
+                <span className="flex items-start gap-2 pr-8">
                   <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-ink-100 text-ink-500">
                     <Icon nome={iconeDaCategoria(nomeCategoria(product.category_id))} className="h-3.5 w-3.5" />
                   </span>
@@ -155,12 +229,17 @@ export function OrderComposer({ menu, halfRule, items, onChange, disabled }: Pro
                 </span>
               </button>
             ))}
-          </div>
+            </div>
+            <p className="mt-3 text-[11px] leading-relaxed text-ink-500">
+              Itens com <strong className="font-semibold text-ink-600">+</strong> entram na lista com um toque (tamanho
+              único e sem escolha obrigatória). Os demais abrem a montagem — pizza, tamanhos e adicionais.
+            </p>
+          </>
         )}
       </div>
 
       {/* Lista do pedido */}
-      <div className="h-fit rounded-card border border-ink-200 bg-white shadow-card lg:sticky lg:top-24">
+      <div className="h-fit min-w-0 rounded-card border border-ink-200 bg-white shadow-card lg:sticky lg:top-24">
         <header className="flex items-center justify-between gap-2 border-b border-ink-100 px-3.5 py-2.5">
           <div className="flex items-center gap-2">
             <Icon nome="sacola" className="h-4 w-4 text-ink-500" />

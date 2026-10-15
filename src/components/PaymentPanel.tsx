@@ -139,6 +139,25 @@ export function PaymentModal({
     }
   }
 
+  /**
+   * Teclado do caixa: com a janela de recebimento aberta, Enter registra o
+   * valor que já está no campo. Quem opera no computador não precisa largar o
+   * teclado para usar o mouse em cada conta.
+   */
+  useEffect(() => {
+    function aoTeclar(evento: KeyboardEvent) {
+      if (evento.key !== 'Enter' || evento.defaultPrevented) return
+      if (busy || !podeRegistrar || estorno) return
+      const alvo = evento.target as HTMLElement | null
+      // Botões e áreas de texto seguem o comportamento normal.
+      if (alvo && (alvo.tagName === 'BUTTON' || alvo.tagName === 'TEXTAREA' || alvo.isContentEditable)) return
+      evento.preventDefault()
+      void handleSubmit()
+    }
+    document.addEventListener('keydown', aoTeclar)
+    return () => document.removeEventListener('keydown', aoTeclar)
+  })
+
   async function confirmarEstorno() {
     if (!estorno) return
     setBusy(true)

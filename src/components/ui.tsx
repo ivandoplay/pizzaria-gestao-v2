@@ -43,8 +43,8 @@ const VARIANTS: Record<Variant, string> = {
 }
 
 const SIZES = {
-  sm: 'h-8 gap-1.5 px-2.5 text-pequeno rounded-interno',
-  md: 'h-10 gap-2 px-3.5 text-pequeno rounded-control',
+  sm: 'h-9 gap-1.5 px-2.5 text-pequeno rounded-interno sm:h-8',
+  md: 'h-11 gap-2 px-3.5 text-pequeno rounded-control sm:h-10',
   lg: 'h-12 gap-2 px-5 text-base rounded-control',
 }
 
@@ -105,8 +105,8 @@ export function IconButton({
   variant?: Variant
 }) {
   const lado = {
-    sm: 'h-8 w-8 rounded-interno',
-    md: 'h-10 w-10 rounded-control',
+    sm: 'h-9 w-9 rounded-interno sm:h-8 sm:w-8',
+    md: 'h-11 w-11 rounded-control sm:h-10 sm:w-10',
     lg: 'h-12 w-12 rounded-control',
   }[size]
   return (
@@ -609,7 +609,7 @@ export function QtyStepper({
   disabled?: boolean
 }) {
   const botao =
-    'flex h-9 w-9 items-center justify-center text-ink-500 transition hover:bg-ink-50 hover:text-ink-800 active:bg-ink-100 disabled:cursor-not-allowed disabled:opacity-40'
+    'flex h-11 w-11 items-center justify-center text-ink-500 transition hover:bg-ink-50 hover:text-ink-800 active:bg-ink-100 disabled:cursor-not-allowed disabled:opacity-40 sm:h-9 sm:w-9'
   return (
     <div className="inline-flex items-center overflow-hidden rounded-control border border-ink-200 bg-white shadow-card">
       <button
@@ -926,7 +926,7 @@ export function DataTable<T>({
     )
   }
 
-  const padding = dense || tamanho === 'compacto' ? 'px-4 py-2.5' : 'px-4 py-3.5'
+  const padding = dense || tamanho === 'compacto' ? 'px-4 py-2.5' : 'px-4 py-3.5 lg:py-2.5'
 
   return (
     <div className="overflow-hidden rounded-card border border-ink-200 bg-white">

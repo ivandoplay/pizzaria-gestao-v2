@@ -336,6 +336,7 @@ export default function TableSessionPage() {
           icone="historico"
           actions={<Badge tone="slate">{sessionOrders.length}</Badge>}
           padded={false}
+          className="min-w-0"
         >
           <div className="p-3 sm:p-4">
             {orders.isLoading ? (
@@ -470,7 +471,7 @@ export default function TableSessionPage() {
         </Card>
 
         {/* Novo pedido */}
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           {activeSession && profile ? (
             <>
               <Card title="Novo pedido" descricao="Monte os itens e envie para a produção." icone="pizza" padded={false}>

@@ -46,6 +46,15 @@ o que ainda depende de configuração manual e quais são as limitações.
   aceitar salão/delivery, horários e formas de pagamento.
 - Auditoria append-only com autor, data/hora, valor e motivo por operação.
 
+### Por dispositivo (15/10/2026)
+- **Computador (caixa e administração):** paleta de comandos `Ctrl+K` que busca telas e ações do
+  perfil, painel de atalhos (`?`), tabelas mais densas a partir de 1024px e `Enter` para confirmar
+  o recebimento na janela de pagamento. Atalhos ficam inertes com campo de texto focado ou janela
+  aberta.
+- **Celular (garçom):** item de tamanho único e sem escolha obrigatória entra na lista com **um
+  toque**; alvos de toque de 44px; barra de envio fixa acima da navegação (zona do polegar); e a
+  conta da mesa não tem mais rolagem lateral (era 862px de conteúdo numa tela de 390px).
+
 ## 2. Migrações e tabelas
 
 8 migrações versionadas em `supabase/migrations/` (**25 tabelas**), aplicadas em ordem:

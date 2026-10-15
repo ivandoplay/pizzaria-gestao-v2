@@ -162,3 +162,50 @@ confirmação consciente do caixa, e o delivery é lançado na mão.
 **Decisão:** banco guarda UTC; exibição e agrupamentos usam `business_settings.timezone`
 (padrão `America/Fortaleza`).
 **Motivo:** relatório fechado à meia-noite não pode cortar o dia no fuso errado.
+
+## 6. Duas experiências na mesma base: computador para o caixa, celular para o garçom
+
+**Contexto real da pizzaria:** o caixa trabalha sentado, com teclado e mouse, e vive dentro de
+listas e de contas para receber. O garçom trabalha em pé, com o celular na mão, andando entre as
+mesas. Otimizar os dois com a mesma tela obriga os dois a perder tempo.
+
+### 6.1 Computador: menu enxuto + teclado (desktop de verdade)
+
+**Decisão:** acrescentar uma camada de produtividade para quem opera no computador, sem tirar nada
+de quem não usa:
+* **paleta de comandos** (`Ctrl+K`, feita no projeto, sem biblioteca nova) que busca telas e ações
+  do perfil logado, com navegação por setas, `Enter` para abrir e `Esc` para fechar;
+* **painel de atalhos** aberto por `?` e pela própria paleta;
+* gatilho visível no cabeçalho ("Buscar ou ir para… Ctrl K") — atalho escondido ninguém usa;
+* **tabelas mais densas** a partir de 1024px (mesma informação, menos rolagem de mouse);
+* **Enter confirma** o recebimento na janela de pagamento.
+
+**Guardas:** os atalhos são ignorados quando há campo de texto focado ou qualquer janela aberta —
+nunca trocam o contexto de quem está no meio de um atendimento.
+
+**Motivo:** a paleta complementa o menu lateral (que continua lá, para quem não usa teclado) e é o
+padrão que os operadores de PDV já conhecem.
+
+### 6.2 Celular: toque, polegar e um toque por item
+
+**Decisão:**
+* item de **tamanho único e sem escolha obrigatória entra na lista com um toque** (selo `+` no
+  cartão e confirmação curta na tela); pizza, tamanhos e adicionais continuam abrindo a montagem;
+* alvos de toque maiores no celular: botões `44px` de altura no telefone e `40px` a partir de
+  `sm`, `IconButton` e seletor de quantidade idem (áreas menores só no computador);
+* categorias em pílulas mais altas; cartões de produto com altura mínima de 88px;
+* barra de envio permanece fixa na parte de baixo, acima da barra de navegação (zona do polegar);
+* **corrigida a rolagem lateral** da conta da mesa: em 390px de tela a página media 862px de
+  largura e a tela inteira arrastava para o lado (ver `tools/checar-rolagem.mjs`).
+
+**Motivo:** no salão cheio o gargalo é o número de toques e a chance de errar o alvo. Nada de
+função depender de `hover` (que não existe no dedo).
+
+### 6.3 Base de referência (pesquisa, 15/10/2026)
+
+Padrões usados como referência: guias de UI para restaurante e de alvo de toque (≥48px com 8px de
+folga, zona do polegar no terço inferior, `@media (any-pointer: coarse)`), guias de navegação
+inferior (3–5 itens, ícone + rótulo), paleta de comandos (ARIA combobox, `>` para comandos, `?`
+para ajuda — mesmo desenho do GitHub) e um POS de restaurante em React usado como referência de
+atalhos de teclado protegidos contra campos de texto e janelas abertas. Nenhuma dependência nova
+foi adicionada por causa disso.

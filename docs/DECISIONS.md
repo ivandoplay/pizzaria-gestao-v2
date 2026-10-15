@@ -177,8 +177,13 @@ de quem não usa:
   do perfil logado, com navegação por setas, `Enter` para abrir e `Esc` para fechar;
 * **painel de atalhos** aberto por `?` e pela própria paleta;
 * gatilho visível no cabeçalho ("Buscar ou ir para… Ctrl K") — atalho escondido ninguém usa;
+* `/` pula direto para o campo de busca da tela aberta (histórico, auditoria, cardápio…);
 * **tabelas mais densas** a partir de 1024px (mesma informação, menos rolagem de mouse);
-* **Enter confirma** o recebimento na janela de pagamento.
+* **Enter confirma** a ação principal de qualquer janela: em toda janela do sistema, `Enter` num
+  campo de texto aciona o botão principal do rodapé (cadastro de produto, funcionário, abertura de
+  caixa, novo delivery, recebimento). Nunca dispara de dentro de área de texto (onde Enter quebra
+  linha) e **nunca** quando o botão principal é destrutivo — fechar conta, cancelar pedido,
+  desativar funcionário e estornar ficam de fora, de propósito.
 
 **Guardas:** os atalhos são ignorados quando há campo de texto focado ou qualquer janela aberta —
 nunca trocam o contexto de quem está no meio de um atendimento.

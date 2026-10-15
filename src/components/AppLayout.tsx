@@ -119,6 +119,17 @@ export function AppLayout() {
       if (evento.key === '?') {
         evento.preventDefault()
         setAtalhosAbertos(true)
+        return
+      }
+
+      // "/" pula direto para o campo de busca da tela aberta (histórico,
+      // auditoria, cardápio…). É o atalho que os operadores esperam em lista.
+      if (evento.key === '/') {
+        const campo = document.querySelector<HTMLInputElement>('main input[type="search"]')
+        if (campo) {
+          evento.preventDefault()
+          campo.focus()
+        }
       }
     }
     window.addEventListener('keydown', aoTeclar)
@@ -455,6 +466,7 @@ export function AppLayout() {
           {[
             { teclas: 'Ctrl K', o: 'Abrir a busca de telas e ações' },
             { teclas: '?', o: 'Ver esta lista de atalhos' },
+            { teclas: '/', o: 'Ir para o campo de busca da tela' },
             { teclas: 'Esc', o: 'Fechar a janela aberta' },
             { teclas: '↑ ↓', o: 'Navegar na busca' },
             { teclas: 'Enter', o: 'Abrir o item escolhido / confirmar' },

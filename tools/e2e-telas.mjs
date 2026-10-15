@@ -229,11 +229,73 @@ async function percursoDoSalao(page, perfil, errosDeConsole) {
   if (problemas.length === 0) console.log('  OK    percurso funcional do salão (abrir mesa, montar pedido, conferir conta)')
 }
 
+/**
+ * Teclado do computador: `Enter` dentro de um campo confirma a ação principal
+ * da janela — e NUNCA confirma uma ação destrutiva (fechar conta, cancelar,
+ * desativar, estornar). A prova usa só caminhos de validação: nada é gravado.
+ */
+async function conferirEnterConfirma(page, anotar) {
+  const problemas = []
+  await page.goto(`${BASE}/funcionarios`, { waitUntil: 'domcontentloaded' })
+  await page.waitForFunction(() => document.querySelectorAll('.esqueleto').length === 0, undefined, { timeout: 25_000 }).catch(() => {})
+  await espera(900)
+
+  // 1) Enter no formulário de novo funcionário: dispara o botão principal.
+  await page.locator('button:has-text("Novo funcionário")').first().click()
+  await espera(700)
+  const dialogo = page.locator('[role="dialog"]').first()
+  if ((await dialogo.count()) === 0) {
+    problemas.push('a janela de novo funcionário não abriu')
+  } else {
+    await dialogo.locator('input').first().fill('Robo de Teste')
+    await page.keyboard.press('Enter')
+    await espera(600)
+    const corpo = await page.locator('body').innerText()
+    if (!/login deve ter/i.test(corpo)) {
+      problemas.push('Enter no formulário não acionou o botão principal (nenhuma mensagem de validação apareceu)')
+    }
+    if (/Robo de Teste/.test(await page.locator('main').innerText())) {
+      problemas.push('o rascunho do formulário foi gravado sem validação')
+    }
+    await page.keyboard.press('Escape')
+    await espera(500)
+  }
+
+  // 2) Confirmação destrutiva: Enter NÃO pode confirmar.
+  // O primeiro "Desativar" é o do próprio admin (bloqueado de propósito para
+  // não se desativar); o teste usa o primeiro que está habilitado.
+  const desativar = page.locator('button:has-text("Desativar"):enabled').first()
+  if ((await desativar.count()) > 0) {
+    await desativar.click()
+    await espera(700)
+    const perigo = page.locator('[role="dialog"]').first()
+    if ((await perigo.count()) > 0) {
+      await page.keyboard.press('Enter')
+      await espera(900)
+      const depois = await page.locator('main').innerText()
+      if (/Acesso de .* desativado|Acesso de .* liberado/i.test(depois)) {
+        problemas.push('Enter confirmou uma ação destrutiva (desativar/ativar acesso) — deveria apenas cancelar')
+      }
+      if ((await page.locator('[role="dialog"]').count()) > 0) await page.keyboard.press('Escape')
+      await espera(400)
+    } else {
+      problemas.push('o diálogo de desativar funcionário não abriu')
+    }
+  }
+
+  for (const problema of problemas) anotar(`Enter confirma: ${problema}`)
+  if (problemas.length === 0) console.log('  OK    Enter confirma o cadastro e não confirma ação destrutiva')
+}
+
 async function rodar() {
   await mkdir(SAIDA, { recursive: true })
   const navegador = await chromium.launch()
 
-  for (const perfil of PERFIS) {
+  // PERFIL=garcom roda só um perfil (útil para depurar sem esperar a suíte toda).
+  const soUm = (process.env.PERFIL ?? '').trim()
+  const perfis = soUm ? PERFIS.filter((perfil) => perfil.nome === soUm || perfil.login === soUm) : PERFIS
+
+  for (const perfil of perfis) {
     if (!perfil.senha) {
       console.log(`\n== ${perfil.nome}: sem senha no ambiente (PZ_${perfil.nome.toUpperCase()}_PASSWORD) — pulando`)
       continue
@@ -272,6 +334,13 @@ async function rodar() {
       }
       for (const proibida of perfil.proibidas) {
         await conferirBloqueio(page, perfil, proibida)
+      }
+
+      if (perfil.nome === 'administrador') {
+        errosDeConsole.length = 0
+        const anotarFluxo = (texto) => registrar('falha', perfil.nome, 'fluxo', texto)
+        await conferirEnterConfirma(page, anotarFluxo)
+        for (const erro of errosDeConsole) anotarFluxo(`erro no console no teste de Enter: ${erro}`)
       }
 
       if (perfil.nome !== 'administrador') {

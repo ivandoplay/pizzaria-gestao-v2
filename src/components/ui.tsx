@@ -43,7 +43,7 @@ const VARIANTS: Record<Variant, string> = {
 }
 
 const SIZES = {
-  sm: 'h-9 gap-1.5 px-2.5 text-pequeno rounded-interno sm:h-8',
+  sm: 'h-11 gap-1.5 px-2.5 text-pequeno rounded-interno sm:h-8',
   md: 'h-11 gap-2 px-3.5 text-pequeno rounded-control sm:h-10',
   lg: 'h-12 gap-2 px-5 text-base rounded-control',
 }
@@ -105,7 +105,7 @@ export function IconButton({
   variant?: Variant
 }) {
   const lado = {
-    sm: 'h-9 w-9 rounded-interno sm:h-8 sm:w-8',
+    sm: 'h-11 w-11 rounded-interno sm:h-8 sm:w-8',
     md: 'h-11 w-11 rounded-control sm:h-10 sm:w-10',
     lg: 'h-12 w-12 rounded-control',
   }[size]
@@ -287,13 +287,17 @@ export function Callout({
     sucesso: 'check',
   }
   return (
-    <div className={`flex items-start gap-3 rounded-card border px-4 py-3 text-pequeno ${tons[tom].caixa}`}>
+    <div className={`flex flex-wrap items-start gap-x-3 gap-y-2.5 rounded-card border px-4 py-3 text-pequeno ${tons[tom].caixa}`}>
       <Icon nome={icones[tom]} className={`mt-0.5 h-[17px] w-[17px] shrink-0 ${tons[tom].icone}`} />
       <div className="min-w-0 flex-1 leading-relaxed">
         {titulo && <p className="font-semibold">{titulo}</p>}
         {children && <div className={titulo ? 'mt-0.5 opacity-90' : ''}>{children}</div>}
       </div>
-      {acoes && <div className="flex shrink-0 items-center gap-2">{acoes}</div>}
+      {acoes && (
+        <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto [&>button]:w-full sm:[&>button]:w-auto">
+          {acoes}
+        </div>
+      )}
     </div>
   )
 }
@@ -534,7 +538,7 @@ export function Checkbox({
 }) {
   return (
     <label
-      className={`flex cursor-pointer items-start gap-2.5 text-pequeno text-ink-700 ${
+      className={`flex min-h-[44px] cursor-pointer items-center gap-2.5 text-pequeno text-ink-700 sm:min-h-0 sm:items-start ${
         disabled ? 'cursor-not-allowed opacity-60' : ''
       }`}
     >
@@ -567,7 +571,7 @@ export function SegmentedControl<T extends string>({
 }) {
   return (
     <div
-      className={`inline-flex max-w-full overflow-x-auto rounded-control border border-ink-200 bg-ink-100/80 p-[3px] ${className}`}
+      className={`inline-flex max-w-full flex-wrap rounded-control border border-ink-200 bg-ink-100/80 p-[3px] ${className}`}
       role="tablist"
     >
       {opcoes.map((opcao) => {
@@ -579,7 +583,7 @@ export function SegmentedControl<T extends string>({
             role="tab"
             aria-selected={ativo}
             onClick={() => onChange(opcao.valor)}
-            className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-[7px] px-3 py-1.5 text-pequeno font-medium transition duration-150 ease-smooth ${
+            className={`inline-flex min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-[9px] px-3.5 py-2 text-pequeno font-medium transition duration-150 ease-smooth sm:min-h-0 sm:rounded-[7px] sm:px-3 sm:py-1.5 ${
               ativo
                 ? 'bg-white text-ink-900 shadow-card ring-1 ring-ink-200/70'
                 : 'text-ink-500 hover:text-ink-800'
@@ -650,6 +654,7 @@ export function Modal({
   footer,
   size = 'md',
   descricao,
+  enterConfirma = true,
 }: {
   open: boolean
   title: string
@@ -658,6 +663,8 @@ export function Modal({
   footer?: ReactNode
   size?: 'sm' | 'md' | 'lg' | 'xl'
   descricao?: string
+  /** Enter num campo confirma a ação principal da janela (teclado do computador). */
+  enterConfirma?: boolean
 }) {
   const idTitulo = useId()
   const painel = useRef<HTMLDivElement>(null)
@@ -674,6 +681,22 @@ export function Modal({
         onClose()
         return
       }
+      // Enter confirma: quem digita no computador não larga o teclado para
+      // clicar. Só dispara de dentro de um campo de texto simples — e nunca
+      // quando o botão principal é destrutivo (vermelho) nem em textarea,
+      // onde Enter serve para quebrar linha.
+      if (event.key === 'Enter' && enterConfirma && !event.defaultPrevented) {
+        const alvo = event.target as HTMLElement | null
+        if (alvo && alvo.tagName === 'INPUT') {
+          const botoes = painel.current?.querySelectorAll<HTMLButtonElement>('footer button')
+          const principal = botoes?.[botoes.length - 1]
+          if (principal && !principal.disabled && !/bg-rose/.test(principal.className)) {
+            event.preventDefault()
+            principal.click()
+          }
+        }
+      }
+
       // Prende o foco dentro do modal enquanto ele está aberto.
       if (event.key !== 'Tab' || !painel.current) return
       const focaveis = painel.current.querySelectorAll<HTMLElement>(
@@ -706,7 +729,7 @@ export function Modal({
       window.clearTimeout(timer)
       anterior?.focus?.()
     }
-  }, [open, onClose])
+  }, [open, onClose, enterConfirma])
 
   if (!open) return null
 
@@ -774,6 +797,7 @@ export function ConfirmDialog({
       title={title}
       onClose={onCancel}
       size="sm"
+      enterConfirma={false}
       footer={
         <>
           <Button variant="secondary" onClick={onCancel} disabled={loading}>

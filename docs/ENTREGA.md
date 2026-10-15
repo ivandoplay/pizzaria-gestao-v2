@@ -54,6 +54,10 @@ o que ainda depende de configuração manual e quais são as limitações.
 - **Celular (garçom):** item de tamanho único e sem escolha obrigatória entra na lista com **um
   toque**; alvos de toque de 44px; barra de envio fixa acima da navegação (zona do polegar); e a
   conta da mesa não tem mais rolagem lateral (era 862px de conteúdo numa tela de 390px).
+- **Varredura de todas as telas:** as 28 leituras de tela (todas as rotas dos 3 perfis, no celular e
+  no computador) passam sem rolagem lateral, sem erro de console e sem alvo de toque abaixo de
+  44px no celular — conferido por `tools/auditar-telas.mjs`, que também guarda uma captura de cada
+  tela em `artifacts/auditoria/`.
 
 ## 2. Migrações e tabelas
 

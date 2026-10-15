@@ -89,18 +89,23 @@ CDN externo não é usada de propósito.
 A mesma identidade, dois ajustes de **área de toque e densidade** (decisão completa em
 `docs/DECISIONS.md` §6):
 
-| Item | Computador (≥1024px) | Celular (<640px) |
+| Item | Computador | Celular |
 |---|---|---|
 | Altura de botão (`Button`, `md`) | 40px | 44px |
-| Botão pequeno / ícone | 32px | 36px |
+| Botão pequeno e botão de ícone (`sm`) | 32px | 44px |
 | Seletor de quantidade | 36px por botão | 44px por botão |
+| Filtros/abas (`SegmentedControl`) | 32px, uma linha | 44px, **quebra linha** em vez de cortar a última opção |
+| Pílulas de categoria do pedido | 34px | 44px |
+| Caixa de seleção (rótulo clicável) | altura do texto | 44px |
 | Linhas de tabela (`DataTable`) | 10px de respiro vertical | 14px |
 | Cartão de produto no pedido | 2–3 colunas | 2 colunas, mínimo 88px de altura |
 | Item de tamanho único e sem escolha | clique abre a montagem | **um toque** adiciona (selo `+`) |
+| Aviso com botão (`Callout` + ação) | botão à direita | botão **embaixo**, largura cheia |
 
 Regras que valem nos dois: nada de função dependente de `hover`; ação destrutiva nunca colada no
 polegar; a barra de envio do pedido fica fixa acima da barra de navegação; e a tela **não pode**
-ter rolagem lateral (checado por `tools/checar-rolagem.mjs`).
+ter rolagem lateral nem alvo de dedo abaixo de 44px no celular — as duas coisas são medidas, tela
+por tela, por `tools/checar-rolagem.mjs` e `tools/auditar-telas.mjs`.
 
 ## 7. Checklist antes de publicar uma mudança visual
 

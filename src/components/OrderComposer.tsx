@@ -151,7 +151,7 @@ export function OrderComposer({ menu, halfRule, items, onChange, disabled }: Pro
           <button
             type="button"
             onClick={() => setCategoryId(null)}
-            className={`shrink-0 rounded-full border px-3.5 py-2 text-xs font-medium transition sm:px-3 sm:py-1.5 ${
+            className={`min-h-[44px] shrink-0 rounded-full border px-4 py-2.5 text-xs font-medium transition sm:min-h-0 sm:px-3 sm:py-1.5 ${
               categoryId === null
                 ? 'border-brand-600 bg-brand-600 text-white'
                 : 'border-ink-300 bg-white text-ink-600 hover:border-ink-400'
@@ -164,7 +164,7 @@ export function OrderComposer({ menu, halfRule, items, onChange, disabled }: Pro
               key={category.id}
               type="button"
               onClick={() => setCategoryId(category.id)}
-              className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-medium transition sm:px-3 sm:py-1.5 ${
+              className={`flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-full border px-4 py-2.5 text-xs font-medium transition sm:min-h-0 sm:px-3 sm:py-1.5 ${
                 categoryId === category.id
                   ? 'border-brand-600 bg-brand-600 text-white'
                   : 'border-ink-300 bg-white text-ink-600 hover:border-ink-400'

@@ -94,9 +94,10 @@ os testes travam esse alinhamento.
 
 | Ferramenta | O que faz | Resultado |
 |---|---|---|
-| `node tools/e2e-telas.mjs <URL>` | entra com os 3 perfis, percorre as telas de cada um, confere os bloqueios de permissão, executa o percurso do salão (abrir mesa, montar pedido, conferir conta — **sem gravar nada**), detecta erro de console/rede e salva capturas em `artifacts/e2e/` | **0 falhas** (local e site publicado) |
+| `node tools/e2e-telas.mjs <URL>` | entra com os 3 perfis, percorre as telas de cada um, confere os bloqueios de permissão, executa o percurso do salão (abrir mesa, montar pedido, conferir conta — **sem gravar nada**), confere que `Enter` confirma o cadastro e **não** confirma ação destrutiva, detecta erro de console/rede e salva capturas em `artifacts/e2e/`. `PERFIL=admin` roda só um perfil | **0 falhas** (local e site publicado) |
 | `node tools/teste-login.mjs <URL>` | entrar com cada perfil, recarregar com sessão salva, abrir `/login` conectado, trocar de conta, **sessão velha/corrompida no navegador** (o caso que trava o operador) e login pelo celular | **0 falhas** |
 
+| `node tools/auditar-telas.mjs <URL>` | varre **todas as rotas de todos os perfis** no celular (390px) e no computador (1440px): rolagem lateral, alvos de toque abaixo de 44px, erro de console, tela sem título, esqueleto preso, e salva captura de cada tela em `artifacts/auditoria/` | **0 falhas, 0 avisos** (28 leituras de tela: 15 do celular e 13 do computador) |
 | `node tools/checar-rolagem.mjs <URL>` | mede `scrollWidth` × `clientWidth` em 390px nas telas do garçom e do caixa (inclusive dentro da conta da mesa): pega a rolagem lateral que faz a tela inteira arrastar no dedo | **0 falhas** (local e site publicado) |
 | `bash tools/esperar-deploy.sh <URL> [commit]` | espera o site publicado estar na versão nova (lê o carimbo do rodapé) antes de rodar os testes de ponta a ponta | — depois do push |
 

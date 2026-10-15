@@ -8,7 +8,7 @@ que emula o ambiente Supabase. Nada aqui é estimativa.
 ## 1. Como rodar
 
 ```bash
-# ── Banco (recria o banco, aplica migrações + seed + suíte 00..07) ──
+# ── Banco (recria o banco, aplica migrações + seed + suíte 00..08) ──
 bash tools/run-sql-tests.sh
 
 # ── Aplicação ──
@@ -35,9 +35,9 @@ O contador de asserções lê as mensagens `NOTICE: OK` emitidas por `tests.ok/e
 
 ---
 
-## 2. Suíte do banco (00–07) — resultado: **VERDE**
+## 2. Suíte do banco (00–08) — resultado: **VERDE**
 
-Execução final: **280 asserções, todas aprovadas**, sem `ERROR` e sem `ASSERT FALHOU`.
+Execução final: **288 asserções, todas aprovadas**, sem `ERROR` e sem `ASSERT FALHOU`.
 
 | Arquivo | O que testa | Asserções notáveis |
 |---|---|---|
@@ -48,6 +48,7 @@ Execução final: **280 asserções, todas aprovadas**, sem `ERROR` e sem `ASSER
 | `04_cash_payments.sql` | caixa, pagamentos, contas | pix 3000 em conta de 5300 → saldo 2300; dinheiro 2300 com 5000 entregues → **troco 2700**; gaveta esperada **12300** (fundo 10000 + 2300 líquidos); desconto 10 % = 530; desconto de valor 300; fechamento 5000; sangria 5000; divergência de −1000 exige justificativa; desconto acima de 10 % → `DISCOUNT_LIMIT_EXCEEDED`; teto de 20 % |
 | `05_delivery.sql` | clientes, endereços, taxas, fluxo do delivery | taxa por zona 800 → totais 2200 e 6100; bairro sem zona usa taxa padrão 500 → 1200; **dedupe** por telefone ("(86) 98888-7777" ≡ "86 98888.7777"); troco no delivery (2000 para 1200 → 800); `ADDRESS_REQUIRED`, `CUSTOMER_PHONE_INVALID`, `PAYMENT_REFUND_REQUIRED`, `ORDER_CANCELLED`, `BALANCE_PENDING`, `REASON_REQUIRED`, `FORBIDDEN`; taxa ajustada pelo admin (1000 → total 1700); fechamento forçado com motivo; garçom não enxerga delivery |
 | `06_reports.sql` | relatórios, painéis e auditoria | cada indicador comparado com **consulta independente às tabelas** (líquido, recebido, pendente, cancelado, ticket médio, salão+delivery, top produtos, formas de pagamento, sessões de caixa, painel operacional); filtros por modalidade/funcionário; busca do histórico por telefone, parcial e nome; 13 eventos de auditoria presentes; auditoria sem senha/token; somente-adição |
+| `08_troca_senha.sql` | troca obrigatória de senha (migração `0009`) | visitante sem sessão **não** baixa flag (`permission denied`); o funcionário baixa **a própria** flag; a flag de outro perfil não é tocada; chamar de novo **não** gera evento repetido de auditoria; evento `profile.password_changed` gravado com autor e alvo; funcionário **desativado** recebe `AUTH_REQUIRED` e continua com a flag de pé |
 | `07_concurrency.sh` | corrida real entre duas conexões | 2ª abertura na mesma mesa → `TABLE_ALREADY_OPEN` (e nenhuma sessão órfã); mesmo `client_uuid` de pagamento em paralelo → **1 pagamento de 1400, troco 600 uma única vez**; 2º fechamento em paralelo → `SESSION_NOT_OPEN`; conta fechada **e auditada uma vez**; mesa volta a `available`; nenhum atendimento sobrando |
 
 ### 2.1 Detalhes de método
@@ -64,7 +65,7 @@ Execução final: **280 asserções, todas aprovadas**, sem `ERROR` e sem `ASSER
 
 ---
 
-## 3. Testes da aplicação — resultado: **35/35**
+## 3. Testes da aplicação — resultado: **48/48**
 
 `npm test` (Vitest, sem ambiente de navegador):
 
@@ -74,6 +75,7 @@ Execução final: **280 asserções, todas aprovadas**, sem `ERROR` e sem `ASSER
 | `src/lib/format.test.ts` | 16 | BRL com NBSP, `parseMoneyToCents` (vírgula/ponto), datas com fuso `America/Fortaleza`, `duracaoDesde` (tempo de mesa/pedido), `plural` (1 pedido / 2 pedidos), `newClientUuid`, CSV |
 | `src/lib/errors.test.ts` | 5 | tradução de códigos do banco, códigos desconhecidos, mensagens do Supabase |
 | `src/lib/supabase.test.ts` | 3 | importar o módulo não cria cliente (regressão do WebSocket em Node), `CONFIGURACAO_PENDENTE` sem env e fuso padrão |
+| `src/lib/senha.test.ts` | 13 | troca de senha: senha atual obrigatória, mínimo de 8 caracteres, senha só de espaços, nova igual à atual, repetição diferente, nível de força (fraca/razoável/forte) e lista de senhas óbvias |
 
 `pricing.ts` merece destaque: é a **prévia** do navegador espelhando o cálculo do banco. Se ela divergir,
 o valor mostrado é substituído pelo oficial — mas manter os dois alinhados evita confusão no balcão, e
@@ -100,6 +102,7 @@ os testes travam esse alinhamento.
 | `node tools/auditar-telas.mjs <URL>` | varre **todas as rotas de todos os perfis** no celular (390px) e no computador (1440px): rolagem lateral, alvos de toque abaixo de 44px, erro de console, tela sem título, esqueleto preso, e salva captura de cada tela em `artifacts/auditoria/` | **0 falhas, 0 avisos** (28 leituras de tela: 15 do celular e 13 do computador) |
 | `node tools/checar-rolagem.mjs <URL>` | mede `scrollWidth` × `clientWidth` em 390px nas telas do garçom e do caixa (inclusive dentro da conta da mesa): pega a rolagem lateral que faz a tela inteira arrastar no dedo | **0 falhas** (local e site publicado) |
 | `bash tools/esperar-deploy.sh <URL> [commit]` | espera o site publicado estar na versão nova (lê o carimbo do rodapé) antes de rodar os testes de ponta a ponta | — depois do push |
+| `node tools/teste-troca-senha.mjs <URL>` | prova a **troca obrigatória de senha** de ponta a ponta com um funcionário de teste: cria a conta (senha temporária), confere que a senha temporária **não abre** o sistema (nem digitando `/dashboard` na mão), que senha atual errada / senha curta / repetição diferente / senha igual à anterior são recusadas, conclui a troca, confere que a senha antiga morre e a nova entra, vê o evento na auditoria e **desativa** a conta de teste no fim (nada é apagado). Rode contra a URL **publicada**: a criação de funcionário passa por Edge Function que só aceita a origem do site | **0 falhas** |
 
 Os dois primeiros exigem `npm i --no-save playwright && npx playwright install chromium && npx playwright install-deps chromium`.
 As senhas vêm do ambiente (`PZ_ADMIN_PASSWORD`, `PZ_CAIXA_PASSWORD`, `PZ_GARCOM_PASSWORD`) — nunca do arquivo.
@@ -157,10 +160,14 @@ no meio do movimento.
    fumaça (login, RLS, RPC, anônimo bloqueado, Edge Function) foi executado na nuvem (seção 5).
    Continua não testado: RLS de `storage` (o sistema ainda não usa Storage) e o Realtime em uso real
    por dois navegadores ao mesmo tempo.
-2. **Sem teste automatizado de navegador (E2E).** As telas foram verificadas por build/typecheck e pela
-   lógica testada; não há Playwright/Cypress nesta entrega. É o próximo passo natural de qualidade.
-3. **Edge Function não deployada** — o código está pronto, mas criar funcionário sem projeto Supabase
-   não é executável aqui. Ela está fora da suíte por depender de `service_role`.
+2. **Robôs de navegador existem, mas não há CI.** As telas são varridas por Playwright
+   (`auditar-telas`, `checar-rolagem`, `e2e-telas`, `teste-login`, `teste-troca-senha`) rodando **à mão**
+   contra o site publicado — não há pipeline automatizado nem execução agendada.
+3. **Edge Function deployada, mas fora da suíte de banco** — `admin-create-employee` roda no projeto
+   real (cria funcionário e recusa login duplicado) e é exercitada pelo robô `teste-troca-senha.mjs`;
+   ela não entra na suíte SQL porque depende de `service_role`. Um detalhe de ambiente: rodando o site
+   em `localhost` a criação de funcionário é barrada por **CORS** (a função só aceita a origem publicada),
+   então esse robô roda contra a URL publicada.
 4. **Realtime não exercitado em nuvem** — a lógica de invalidação é local; o socket real só existe
    depois do Supabase configurado.
 5. **Carga/desempenho não medidos** — sem teste de stress com muitos pedidos simultâneos.

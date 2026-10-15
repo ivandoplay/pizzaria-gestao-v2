@@ -41,7 +41,9 @@ o que ainda depende de configuração manual e quais são as limitações.
 ### Administração
 - Dashboard com dados reais, relatórios (financeiro, série temporal, top produtos, por funcionário,
   por forma de pagamento, sessões de caixa, painel operacional), histórico com filtros e paginação.
-- Funcionários: criar, ativar/desativar, trocar função, redefinir senha (via Edge Function).
+- Funcionários: criar, ativar/desativar, trocar função, redefinir senha (via Edge Function) e **troca
+  obrigatória de senha no primeiro acesso**: quem recebeu senha temporária só vê a tela de definir a senha
+  definitiva até concluir a troca (a baixa da flag fica registrada na auditoria).
 - Configurações: identidade da casa, fuso, regra do meio a meio, descontos, taxas, pedido mínimo,
   aceitar salão/delivery, horários e formas de pagamento.
 - Auditoria append-only com autor, data/hora, valor e motivo por operação.
@@ -61,7 +63,7 @@ o que ainda depende de configuração manual e quais são as limitações.
 
 ## 2. Migrações e tabelas
 
-8 migrações versionadas em `supabase/migrations/` (**25 tabelas**), aplicadas em ordem:
+9 migrações versionadas em `supabase/migrations/` (**25 tabelas**), aplicadas em ordem:
 
 | Migração | Conteúdo |
 |---|---|
@@ -72,7 +74,8 @@ o que ainda depende de configuração manual e quais são as limitações.
 | `0005_operations` | `restaurant_tables`, `table_sessions`, `orders`, `order_items`, `order_item_flavors`, `order_item_modifiers`, `order_status_history`, `payments`, `recalc_order_totals` |
 | `0006_rls` | RLS + grants em todas as tabelas, **revogação de escrita nas tabelas RPC-only**, `guard_profiles`, 4 views (`security_invoker`), publicação de Realtime |
 | `0007_rpc` | 14 RPCs operacionais |
-| `0008_reports` | 8 funções de relatório/indicadores (22 funções no total) |
+| `0008_reports` | 8 funções de relatório/indicadores |
+| `0009_troca_senha_obrigatoria` | `public.complete_password_change()` — baixa a própria flag de senha temporária, idempotente, com auditoria (23 funções no total) |
 
 Convenções do banco: dinheiro em **centavos inteiros**; índices únicos parciais garantindo uma sessão
 aberta por mesa e um turno aberto; `client_uuid unique` para idempotência; snapshots históricos;
@@ -98,13 +101,14 @@ trilha de auditoria somente-adição.
 
 | Verificação | Comando | Resultado |
 |---|---|---|
-| Suíte do banco (00–06), local | `bash tools/run-sql-tests.sh` | **280 asserções aprovadas**, 0 falhas |
-| Suíte do banco (00–06), **no Supabase real** | `tools/supabase-cloud-sql.sh` | **nenhuma falha** (falha em qualquer asserção aborta o arquivo) |
+| Suíte do banco (00–08), local | `bash tools/run-sql-tests.sh` | **288 asserções aprovadas**, 0 falhas |
+| Suíte do banco (00–08), **no Supabase real** | `tools/supabase-cloud-sql.sh` | **nenhuma falha** (falha em qualquer asserção aborta o arquivo) |
 | Concorrência real (07) | idem (duas conexões em paralelo) | **verde**: abertura dupla bloqueada, clique duplo → 1 pagamento, fechamento duplo → recusado |
-| Testes unitários | `npm test` (Vitest) | **35/35** (após a revisão de interface) |
+| Testes unitários | `npm test` (Vitest) | **48/48** |
 | Tipos | `npm run typecheck` | **exit 0** |
 | Build de produção | `npx vite build` | **exit 0** (chunk principal 479 kB / 138 kB gzip + 1 chunk por tela) |
 | Interface em navegador real | `node tools/e2e-telas.mjs <URL>` (Playwright, contra o **site publicado**) | **0 falhas**: login dos 3 perfis, 11 telas do administrador, percurso completo do salão, bloqueio de permissão conferido, nenhum erro de console/rede |
+| Troca obrigatória de senha | `node tools/teste-troca-senha.mjs <URL>` (Playwright, contra o **site publicado**) | **0 falhas**: senha temporária não abre o sistema (nem pela rota), validações da troca, senha antiga deixa de funcionar, evento na auditoria e conta de teste desativada |
 | Conferência do deploy | `bash tools/smoke-deploy.sh <URL> admin '<senha>'` | **tudo certo** (rotas, cabeçalhos, variáveis no bundle, ausência de credencial privilegiada, login real) |
 
 Detalhes, valores esperados e limitações em [`TESTES.md`](TESTES.md).

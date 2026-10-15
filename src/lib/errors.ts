@@ -75,6 +75,18 @@ const MESSAGES: { code: string; message: string }[] = [
   { code: 'SELF_ROLE_CHANGE', message: 'Não é permitido alterar a própria função.' },
   { code: 'INVALID_FEE', message: 'Taxa inválida.' },
   { code: 'INVALID_BUCKET', message: 'Agrupamento de período inválido.' },
+  {
+    code: 'SENHA_ATUAL_INCORRETA',
+    message: 'A senha que você usou agora não confere. Confira a senha temporária que o administrador entregou.',
+  },
+  {
+    code: 'SENHA_NOVA_FRACA',
+    message: 'O sistema de acesso recusou a nova senha por ser fraca ou igual à anterior. Tente uma senha mais forte.',
+  },
+  {
+    code: 'FALHA_AO_TROCAR_SENHA',
+    message: 'Não foi possível gravar a nova senha agora. Tente de novo em instantes.',
+  },
 ]
 
 export function translateError(error: unknown): string {

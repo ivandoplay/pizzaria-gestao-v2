@@ -44,6 +44,31 @@ variável de ambiente do Supabase.
 
 ---
 
+### 1.6 Troca obrigatória de senha no primeiro acesso
+
+**O problema:** a coluna `profiles.must_change_password` existia, era marcada ao criar funcionário e
+aparecia como aviso na tela de equipe — mas **nada obrigava** a troca. O operador seguia trabalhando com
+a senha temporária que o administrador conhecia, e a policy `profiles_update_admin` só permitia ao próprio
+administrador limpar a flag (ninguém mais conseguia baixá-la).
+
+**A decisão:** a flag é do banco, mas a **imposição** é do app, em três partes:
+
+1. `public.complete_password_change()` (migração `0009`) — `security definer`, **sem parâmetros**, só
+   mexe no perfil da sessão, idempotente e auditada (`profile.password_changed`). Sem parâmetros porque
+   assim não existe como apontar para outro perfil.
+2. `TrocarSenhaPage` + portão `TrocaObrigatoria` no `App.tsx` — com a flag marcada, o layout inteiro
+   (menu, rotas, atalhos) não é montado: só existe a tela de troca. Bloquear só a rota inicial deixaria
+   o operador entrar digitando `/dashboard` na barra de endereços.
+3. O fluxo exige a **senha atual** antes de gravar a nova: se alguém só achasse o aparelho aberto, não
+   conseguiria trocar a senha sem saber a antiga. A senha nova vai direto para o Auth do Supabase
+   (`updateUser`); ela nunca passa pelo banco.
+
+**Ordem importa:** primeiro o Auth grava a senha, depois o banco baixa a flag. Se a segunda parte falhar,
+o sistema continua pedindo a troca — melhor pedir de novo do que liberar o acesso com a senha antiga.
+
+**Verificação:** `supabase/tests/08_troca_senha.sql` (banco, inclui o caso do funcionário desativado, que
+recebe `AUTH_REQUIRED` em vez de se liberar) e `tools/teste-troca-senha.mjs` (navegador, de ponta a ponta).
+
 ## 2. Dinheiro
 
 ### 2.1 Tudo em centavos inteiros

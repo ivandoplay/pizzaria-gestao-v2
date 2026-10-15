@@ -42,7 +42,7 @@ echo "== Preparando usuários/perfis de teste =="
 run "00_setup" supabase/tests/00_setup.sql
 
 echo "== Executando a suíte =="
-for f in supabase/tests/0[1-6]_*.sql; do
+for f in supabase/tests/0[1-9]_*.sql; do
   run "$(basename "$f")" "$f"
 done
 

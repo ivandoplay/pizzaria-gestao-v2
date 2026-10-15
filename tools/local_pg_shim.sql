@@ -47,12 +47,13 @@ returns uuid
 language sql
 stable
 as $$
-  select nullif(
-    coalesce(
-      current_setting('request.jwt.claims', true)::jsonb ->> 'sub',
-      current_setting('request.jwt.claim.sub', true)
-    ),
-    ''
+  -- Cópia fiel da definição do Supabase: o claim vazio ('') passa pelo nullif
+  -- ANTES da conversão para jsonb. Sem isso, uma sessão sem claim (ou com claim
+  -- vazio, como faz tests.logout()) quebrava com "invalid input syntax for type json"
+  -- num ponto onde o Supabase real simplesmente devolveria NULL.
+  select coalesce(
+    nullif(current_setting('request.jwt.claim.sub', true), ''),
+    (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')
   )::uuid
 $$;
 

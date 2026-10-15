@@ -64,6 +64,37 @@ export async function signOut() {
   await supabase.auth.signOut()
 }
 
+/**
+ * Troca obrigatória de senha (primeiro acesso com senha temporária).
+ *
+ * São três passos e a ordem importa:
+ *   1. entrar de novo com a senha ATUAL — sem isso, quem achasse o aparelho
+ *      aberto trocaria a senha sem saber a antiga;
+ *   2. gravar a senha nova no Auth (a senha nunca passa pelo banco);
+ *   3. avisar o banco para baixar a flag `must_change_password` (RPC que só
+ *      mexe no próprio perfil e registra o evento na auditoria).
+ *
+ * Se o passo 2 falhar, a flag continua de pé: o operador tenta de novo.
+ */
+export async function definirSenhaDefinitiva(email: string, senhaAtual: string, novaSenha: string): Promise<void> {
+  // Os códigos crus do Auth viram códigos do sistema, para que lib/errors
+  // mostre uma frase em português em vez do texto em inglês do Supabase.
+  const { error: erroDeLogin } = await supabase.auth.signInWithPassword({ email, password: senhaAtual })
+  if (erroDeLogin) throw new ApiError('SENHA_ATUAL_INCORRETA', erroDeLogin.code)
+
+  const { error: erroDeTroca } = await supabase.auth.updateUser({ password: novaSenha })
+  if (erroDeTroca) {
+    const codigo = erroDeTroca.code
+    const fraca = codigo === 'weak_password' || codigo === 'same_password' || /weak|same password/i.test(erroDeTroca.message)
+    throw new ApiError(fraca ? 'SENHA_NOVA_FRACA' : 'FALHA_AO_TROCAR_SENHA', codigo)
+  }
+
+  // Passo final e obrigatório: o banco baixa a flag `must_change_password`.
+  // Se ele falhar, o sistema continua pedindo a troca (nada fica pela metade).
+  const { error } = await supabase.rpc('complete_password_change')
+  if (error) throw new ApiError('FALHA_AO_TROCAR_SENHA', error.code)
+}
+
 export async function fetchMyProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('profiles')

@@ -21,6 +21,11 @@ Idioma da interface: **português do Brasil**. Moeda: **BRL**. Fuso: **America/F
 O perfil é validado **no banco** a cada chamada (`app_private.require_role`), não no navegador.
 Esconder botão não é controle de acesso.
 
+Conta criada ou com senha redefinida pelo administrador entra com **senha temporária** e, no primeiro
+acesso, vê **uma única tela**: definir a senha definitiva. Enquanto `profiles.must_change_password`
+estiver marcada, nenhuma rota, menu ou atalho abre — o portão fica no app e a baixa da flag é feita por
+`public.complete_password_change()` (que só age sobre o próprio perfil e registra o evento na auditoria).
+
 ## 2. O que o sistema faz
 
 - **Salão/mesas** — mapa de mesas com situação ao vivo; abertura de atendimento com idempotência
@@ -106,16 +111,16 @@ para o seed e a remoção, então as listas nunca ficam desencontradas).
 
 | Suíte | O que cobre | Resultado |
 |---|---|---|
-| `supabase/tests/00_setup.sql` … `06_reports.sql` | 280 asserções no PostgreSQL: RLS, privilégios, permissões por perfil, cardápio, mesas/pedidos, caixa/pagamentos, delivery, relatórios e auditoria | **verde** (local **e** no Supabase real) |
+| `supabase/tests/00_setup.sql` … `08_troca_senha.sql` | 288 asserções no PostgreSQL: RLS, privilégios, permissões por perfil, cardápio, mesas/pedidos, caixa/pagamentos, delivery, relatórios, auditoria e troca obrigatória de senha | **verde** (local **e** no Supabase real) |
 | `supabase/tests/07_concurrency.sh` | Concorrência real com duas conexões simultâneas (abertura de mesa, clique duplo de pagamento, fechamento duplo) | **verde** |
-| Vitest (`npm test`) | Regras de preço espelhadas do banco, formatação BRL/datas/durações/plural, tradução de erros e criação sob demanda do cliente Supabase | **35/35** |
+| Vitest (`npm test`) | Regras de preço espelhadas do banco, formatação BRL/datas/durações/plural, tradução de erros, criação sob demanda do cliente Supabase e regras da troca de senha | **48/48** |
 | `npm run typecheck` | TypeScript em modo estrito, sem emissão | **exit 0** |
 | `npm run build` | Build de produção com cada tela em um chunk próprio | **exit 0** (principal 479 kB / 138 kB gzip + chunks por tela) |
 
 Reproduza tudo com:
 
 ```bash
-bash tools/run-sql-tests.sh   # recria o banco, aplica migrações + seeds e roda 00–07
+bash tools/run-sql-tests.sh   # recria o banco, aplica migrações + seeds e roda 00–08
 npm test && npm run build
 ```
 
@@ -172,5 +177,7 @@ Princípios aplicados (revisão de 15/10/2026, sobre os padrões de dashboard de
   As três variáveis `VITE_*` ficam em `vercel.json` → `build.env` (são valores públicos; ver `.env.example`).
 - **Conferência do site publicado:** `bash tools/smoke-deploy.sh https://pizzaria-gestao-v2.vercel.app admin 'senha'`
   verifica rotas, cabeçalhos, presença das variáveis, ausência de credencial privilegiada e faz um login real.
-- **Falta:** trocar a senha do administrador e cadastrar o cardápio real.
+- **Falta:** cadastrar o cardápio real (o demonstrativo está na base e pode ser removido com
+  `supabase/seed/remove_cardapio_EXEMPLO.sql`). As senhas temporárias de caixa e garçom são trocadas no
+  primeiro acesso de cada um, na tela obrigatória.
   Veja [`docs/ENTREGA.md`](docs/ENTREGA.md), seções 5 e 7.

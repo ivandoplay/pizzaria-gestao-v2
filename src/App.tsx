@@ -12,6 +12,7 @@ import { limparSessaoLocal } from './lib/sessao'
 // celular do garçom, e as telas administrativas só baixam quando usadas.
 const LoginPage = lazy(() => import('./pages/LoginPage'))
 const SetupPage = lazy(() => import('./pages/SetupPage'))
+const TrocarSenhaPage = lazy(() => import('./pages/TrocarSenhaPage'))
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
 const TablesPage = lazy(() => import('./pages/TablesPage'))
 const TableSessionPage = lazy(() => import('./pages/TableSessionPage'))
@@ -62,6 +63,20 @@ function Guard({ roles, children }: { roles: Role[]; children: ReactNode }) {
   return <>{children}</>
 }
 
+/**
+ * Portão da troca obrigatória de senha.
+ *
+ * Quem entrou com senha temporária (criado pelo administrador ou com senha
+ * redefinida) vê SÓ a tela de troca: o menu, as rotas e os atalhos nem são
+ * montados. Sem isto, a flag `must_change_password` seria apenas um aviso
+ * decorativo — o operador seguiria trabalhando com a senha que o admin conhece.
+ */
+function TrocaObrigatoria({ children }: { children: ReactNode }) {
+  const { profile } = useAuth()
+  if (profile?.must_change_password) return <TrocarSenhaPage />
+  return <>{children}</>
+}
+
 function HomeRedirect() {
   const { profile, loading, blockedReason } = useAuth()
   if (loading) return <LoadingBlock />
@@ -100,7 +115,9 @@ export default function App() {
       <Route
         element={
           <Guard roles={[]}>
-            <AppLayout />
+            <TrocaObrigatoria>
+              <AppLayout />
+            </TrocaObrigatoria>
           </Guard>
         }
       >

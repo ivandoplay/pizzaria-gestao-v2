@@ -37,6 +37,7 @@ const ACOES_CONHECIDAS: { valor: string; rotulo: string }[] = [
   { valor: 'cash_session.open', rotulo: 'Caixa aberto' },
   { valor: 'cash_session.close', rotulo: 'Caixa fechado' },
   { valor: 'customer.upsert', rotulo: 'Cliente cadastrado/atualizado' },
+  { valor: 'profile.password_changed', rotulo: 'Senha definitiva definida (troca obrigatória)' },
 ]
 
 const SENSITIVE_KEYS = /password|senha|token|secret|segredo|authorization|api[_-]?key|service[_-]?role|credential/i

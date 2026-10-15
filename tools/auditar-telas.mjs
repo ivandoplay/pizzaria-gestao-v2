@@ -197,6 +197,11 @@ for (const tamanho of listaTamanhos) {
       }
 
       const arquivo = `${saida}/${perfil.nome}-${tamanho}-${destino.replace(/\//g, '_').replace(/^_/, '') || 'raiz'}.png`
+      // A captura só sai com a tela assentada: se um bloco ainda está carregando
+      // (esqueleto), o PNG guardado mostraria um retângulo cinza no lugar do
+      // conteúdo e quem confere a imagem pensa que a tela está quebrada.
+      await page.waitForFunction(() => !document.querySelector('.esqueleto'), undefined, { timeout: 10_000 }).catch(() => {})
+      await espera(400)
       await page.screenshot({ path: arquivo })
       console.log(
         `  OK    ${destino} · título "${medida.titulo}" · ${medida.quantosInterativos} controles · ${

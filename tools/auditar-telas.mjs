@@ -31,13 +31,13 @@ const PERFIS = [
     nome: 'garcom',
     usuario: process.env.PZ_GARCOM_LOGIN ?? 'garcom',
     senha: process.env.PZ_GARCOM_PASSWORD,
-    rotas: ['/mesas', '/mesas/:conta'],
+    rotas: ['/mesas', '/mesas/:conta', '/pedidos-prontos'],
   },
   {
     nome: 'caixa',
     usuario: process.env.PZ_CAIXA_LOGIN ?? 'caixa',
     senha: process.env.PZ_CAIXA_PASSWORD,
-    rotas: ['/caixa', '/mesas', '/mesas/:conta', '/delivery', '/historico', '/caixa-controle'],
+    rotas: ['/caixa', '/mesas', '/mesas/:conta', '/pedidos-prontos', '/delivery', '/historico', '/caixa-controle'],
   },
   {
     nome: 'admin',
@@ -48,6 +48,7 @@ const PERFIS = [
       '/caixa',
       '/mesas',
       '/mesas/:conta',
+      '/pedidos-prontos',
       '/delivery',
       '/historico',
       '/relatorios',

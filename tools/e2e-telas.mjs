@@ -38,6 +38,7 @@ const PERFIS = [
     telas: [
       ['painel', '/dashboard', 'Painel'],
       ['mesas', '/mesas', 'Mesas'],
+      ['prontos', '/pedidos-prontos', 'Pedidos prontos'],
       ['caixa', '/caixa', 'Caixa'],
       ['delivery', '/delivery', 'Delivery'],
       ['cardapio', '/cardapio', 'Cardápio'],
@@ -58,6 +59,7 @@ const PERFIS = [
     telas: [
       ['caixa', '/caixa', 'Caixa'],
       ['mesas', '/mesas', 'Mesas'],
+      ['prontos', '/pedidos-prontos', 'Pedidos prontos'],
       ['delivery', '/delivery', 'Delivery'],
       ['historico', '/historico', 'Histórico'],
       ['caixa-controle', '/caixa-controle', 'Caixa'],
@@ -71,6 +73,7 @@ const PERFIS = [
     destino: '/mesas',
     telas: [
       ['mesas', '/mesas', 'Mesas'],
+      ['prontos', '/pedidos-prontos', 'Pedidos prontos'],
     ],
     proibidas: [['/relatorios', 'Relatórios'], ['/caixa', 'Caixa'], ['/cardapio', 'Cardápio']],
   },

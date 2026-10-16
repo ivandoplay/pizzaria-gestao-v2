@@ -110,6 +110,8 @@ trilha de auditoria somente-adição.
 | Build de produção | `npx vite build` | **exit 0** (chunk principal 491 kB / 141 kB gzip + 1 chunk por tela) |
 | Interface em navegador real | `node tools/e2e-telas.mjs <URL>` (Playwright, contra o **site publicado**) | **0 falhas**: login dos 3 perfis, 11 telas do administrador, percurso completo do salão, bloqueio de permissão conferido, nenhum erro de console/rede |
 | Troca obrigatória de senha | `node tools/teste-troca-senha.mjs <URL>` (Playwright, contra o **site publicado**) | **0 falhas**: senha temporária não abre o sistema (nem pela rota), validações da troca, senha antiga deixa de funcionar, evento na auditoria e conta de teste desativada |
+| Fila de pedidos prontos | `node tools/e2e-fila.mjs <URL>` (Playwright, contra o **site publicado**) | **0 falhas**: mesa aberta pelo garçom, pedido lançado com observação, produção avançada pelo caixa até “Pronto”, cartão conferido na fila (mesa, número, item, observação, selo e tempo de espera), entrega confirmada, histórico com “Entregue à mesa” e pedido fora da fila depois |
+| Auditoria de telas | `node tools/auditar-telas.mjs <URL>` (Playwright, 3 perfis × celular e computador, 46 leituras de tela) | **0 falhas, 0 avisos** — nenhuma rolagem lateral e nenhum alvo de toque abaixo de 44px no celular |
 | Conferência do deploy | `bash tools/smoke-deploy.sh <URL> admin '<senha>'` | **tudo certo** (rotas, cabeçalhos, variáveis no bundle, ausência de credencial privilegiada, login real) |
 | Esteira automática | GitHub Actions → `CI` (`npm ci`, `tsc -b`, Vitest, `vite build`) | **sucesso** na execução `38825141161` (15/10/2026, commit `085e707`) |
 

@@ -17,13 +17,13 @@ const PERFIS = [
     nome: 'garcom',
     usuario: process.env.PZ_GARCOM_LOGIN ?? 'garcom',
     senha: process.env.PZ_GARCOM_PASSWORD,
-    telas: ['/mesas', '/historico'],
+    telas: ['/mesas', '/pedidos-prontos', '/historico'],
   },
   {
     nome: 'caixa',
     usuario: process.env.PZ_CAIXA_LOGIN ?? 'caixa',
     senha: process.env.PZ_CAIXA_PASSWORD,
-    telas: ['/mesas', '/caixa', '/controle-caixa', '/historico'],
+    telas: ['/mesas', '/pedidos-prontos', '/caixa', '/caixa-controle', '/historico'],
   },
 ]
 

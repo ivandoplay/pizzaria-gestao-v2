@@ -287,3 +287,19 @@ que nenhuma entrega passe sem a sessão conferida — nesse caso a ordem dos loc
 eventual é resolvido abortando uma das transações, com erro claro para o operador.
 **Efeito colateral testado:** a recusa de um pedido de delivery continua sendo `INVALID_TRANSITION`, não
 `SESSION_NOT_OPEN` (a suíte `09` trava isso).
+
+### 7.4 Sem contador de prontos na navegação
+**Decisão:** o item “Prontos” do menu não mostra número de pendentes. A contagem aparece na própria tela
+(“N pedidos prontos · mais antigo há X”).
+**Motivo:** um contador no menu obrigaria **toda** navegação do garçom a carregar a fila de pedidos junto
+— uma consulta a mais em cada tela, no celular, só para desenhar um número. A fila já se atualiza por
+Realtime e por releitura de minuto em minuto, então quem precisa do número abre a tela e o vê no topo.
+
+### 7.5 A tela de troca obrigatória mantém a URL
+**Decisão:** quando a conta está com troca de senha pendente, o sistema mostra **apenas** a tela de troca
+no lugar do conteúdo — sem navegar para outra rota. Quem for automatizar telas deve olhar o **conteúdo**
+da página, não o endereço.
+**Motivo:** o guard não pode depender de rota digitada à mão (`/dashboard` também cai na troca, e isso é
+proposital). Em 16/10/2026 isso enganou um robô de auditoria: ele "passou" por todas as telas medindo a
+mesma tela de troca. Hoje `auditar-telas.mjs` e `checar-rolagem.mjs` falham de propósito quando detectam
+a tela de troca.

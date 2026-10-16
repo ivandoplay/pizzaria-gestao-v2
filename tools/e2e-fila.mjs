@@ -22,6 +22,7 @@
  *   PZ_CAIXA_PASSWORD=... PZ_GARCOM_PASSWORD=... \
  *     node tools/e2e-fila.mjs https://pizzaria-gestao-v2.vercel.app
  */
+import { mkdirSync } from 'node:fs'
 import { chromium } from 'playwright'
 
 const base = process.argv[2] ?? 'http://localhost:4196'
@@ -320,6 +321,17 @@ if (achou) {
 
   const contagem = (textoFila.match(/\d+ pedidos? prontos?/) ?? [])[0]
   if (contagem) ok(`contagem no topo: "${contagem}"`)
+
+  // Captura da tela COM pedido na fila: no celular (o garçom entrega pelo
+  // telefone) e no computador. Fica em artifacts/fila/ para mostrar o resultado.
+  mkdirSync('artifacts/fila', { recursive: true })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await espera(900)
+  await page.screenshot({ path: 'artifacts/fila/fila-no-celular.png' })
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await espera(900)
+  await page.screenshot({ path: 'artifacts/fila/fila-no-computador.png' })
+  ok('capturas da fila salvas em artifacts/fila/')
 }
 
 // --------------------------------------------------- 4) CONFIRMAR ENTREGA

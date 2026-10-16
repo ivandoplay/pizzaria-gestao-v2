@@ -221,9 +221,12 @@ export default function ReadyOrdersPage() {
         <>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-pequeno text-ink-500">
             <span className="font-semibold text-ink-800">
+              {/* plural() já devolve o número junto ("1 pedido pronto"), então
+                  não pode ser usado com o número na frente — foi o que apareceu
+                  como "1 1 pedido pronto" na captura do celular. */}
               {fila.length === 0
                 ? 'Nenhum pedido aguardando entrega'
-                : `${fila.length} ${plural(fila.length, 'pedido pronto', 'pedidos prontos')}`}
+                : plural(fila.length, 'pedido pronto', 'pedidos prontos')}
             </span>
             <span>
               {maisAntigo ? `mais antigo: ${duracaoDesde(maisAntigo.ready_at, agora)}` : 'sem horário de pronto registrado'}

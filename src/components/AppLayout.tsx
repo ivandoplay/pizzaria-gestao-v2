@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { useOnlineStatus, useRealtimeSync } from '../lib/hooks'
 import { ROLE_LABELS, type Role } from '../lib/types'
 import { Icon, type NomeIcone } from './icons'
+import { EmblemaEmPlaca } from './Logo'
 import { Badge, ConfirmDialog, IconButton, Modal, useToast } from './ui'
 import { CommandPalette, type Comando } from './CommandPalette'
 
@@ -42,15 +43,12 @@ const TITULOS_GRUPO: Record<ItemNav['grupo'], string> = {
 }
 
 /** Marca do sistema — desenhada em SVG para não depender de imagem externa. */
+/**
+ * Marca da casa na lateral. Emblema sobre placa clara: o vermelho do anel do
+ * emblema sumiria no fundo escuro do menu.
+ */
 function Logo({ className = 'h-9 w-9' }: { className?: string }) {
-  return (
-    <span
-      className={`flex items-center justify-center rounded-[10px] bg-gradient-to-b from-brand-500 to-brand-700 text-white shadow-brilho ${className}`}
-      aria-hidden
-    >
-      <Icon nome="pizza" className="h-[18px] w-[18px]" />
-    </span>
-  )
+  return <EmblemaEmPlaca className={className} raio="rounded-[10px]" />
 }
 
 export function AppLayout() {

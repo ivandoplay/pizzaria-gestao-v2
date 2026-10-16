@@ -2,11 +2,71 @@ import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { Button, Callout, Field, Input } from '../components/ui'
-import { Icon } from '../components/icons'
+import { Icon, type NomeIcone } from '../components/icons'
+import { EmblemaEmPlaca } from '../components/Logo'
 import { translateError } from '../lib/errors'
 import { isSupabaseConfigured } from '../lib/supabase'
 import { limparSessaoLocal, sairDoAparelho } from '../lib/sessao'
 import { ROLE_LABELS } from '../lib/types'
+
+/**
+ * O que o sistema faz — dito em quatro linhas curtas.
+ *
+ * Fica no painel de marca do computador. No celular o mesmo painel vira uma
+ * faixa fina no topo: quem entra pelo celular é o garçom, que precisa do
+ * formulário na mão, não de propaganda.
+ */
+const RECURSOS: { icone: NomeIcone; texto: string }[] = [
+  { icone: 'mesas', texto: 'Mapa do salão atualizado ao vivo' },
+  { icone: 'entrega', texto: 'Delivery acompanhado pedido a pedido' },
+  { icone: 'dinheiro', texto: 'Caixa com sangria, despesa e conferência' },
+  { icone: 'auditoria', texto: 'Toda operação registrada para auditoria' },
+]
+
+/** Fases do serviço — o que a casa controla no dia a dia. */
+const FASES = ['Salão', 'Delivery', 'Caixa']
+
+/**
+ * Fundo do painel de marca: degradê quente, textura de grão finíssima (SVG em
+ * data-URI, sem requisição de rede) e dois halos de luz. Tudo decorativo.
+ */
+function FundoDaMarca() {
+  return (
+    <>
+      <div
+        className="absolute inset-0 bg-gradient-to-b from-brand-800 via-brand-900 to-ink-950"
+        aria-hidden
+      />
+      <div
+        className="absolute inset-0 opacity-[0.035]"
+        aria-hidden
+        style={{
+          backgroundImage:
+            "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'%3E%3Ccircle cx='2' cy='2' r='1' fill='%23ffffff'/%3E%3C/svg%3E\")",
+        }}
+      />
+      <div className="absolute -left-20 top-16 h-64 w-64 rounded-full bg-brand-500/25 blur-3xl" aria-hidden />
+      <div className="absolute -right-16 bottom-0 h-72 w-72 rounded-full bg-brand-700/35 blur-3xl" aria-hidden />
+    </>
+  )
+}
+
+/** Emblema + nome da casa. Usado no painel do computador e na faixa do celular. */
+function Marca({ centralizado = false }: { centralizado?: boolean }) {
+  return (
+    <div className={`flex items-center gap-3.5 ${centralizado ? 'flex-col gap-2.5 text-center' : ''}`}>
+      <EmblemaEmPlaca className="h-[52px] w-[52px]" raio="rounded-[16px]" />
+      <div className={centralizado ? '' : 'min-w-0'}>
+        <p className="text-[17px] font-semibold leading-tight tracking-[-0.015em] text-white">
+          Gestão da Pizzaria
+        </p>
+        <p className="mt-0.5 text-[12px] font-medium tracking-[0.01em] text-white/65">
+          {FASES.join(' · ')}
+        </p>
+      </div>
+    </div>
+  )
+}
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -17,37 +77,78 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
+  const rodape = (
+    <p className="mt-5 text-center text-[11px] leading-relaxed text-ink-400">
+      Em caso de acesso negado, procure o responsável pelo sistema na pizzaria.
+      <br />
+      {typeof window !== 'undefined' ? window.location.host : ''} · versão {__VERSAO_DO_APP__}
+    </p>
+  )
+
   // Já existe sessão neste aparelho: em vez de entrar direto (o que impedia
   // trocar de usuário sem descobrir onde sair), mostramos quem está conectado.
   if (!loading && profile) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-ink-100 px-4 py-10">
-        <div className="w-full max-w-md rounded-card border border-ink-200 bg-white p-6 shadow-float sm:p-8">
-          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-50 text-brand-700">
-            <Icon nome="usuario" className="h-6 w-6" />
-          </span>
-          <h1 className="mt-4 text-lg font-semibold text-ink-900">Você já está conectado</h1>
-          <p className="mt-1.5 text-sm leading-relaxed text-ink-600">
-            Este aparelho está com a sessão de <strong className="text-ink-800">{profile.full_name}</strong>
-            {` (${ROLE_LABELS[profile.role]}, login ${profile.login})`}. Para entrar com outro acesso, saia desta conta.
-          </p>
-          <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-            <Button className="sm:flex-1" icone="painel" onClick={() => navigate('/', { replace: true })}>
-              Continuar como {profile.full_name.split(' ')[0]}
-            </Button>
-            <Button
-              variant="secondary"
-              className="sm:flex-1"
-              icone="sair"
-              onClick={() => void sairDoAparelho('/login')}
-            >
-              Entrar com outra conta
-            </Button>
+      <div className="min-h-screen bg-papel lg:flex">
+        <aside className="relative hidden overflow-hidden lg:flex lg:w-[52%] lg:flex-col lg:justify-between lg:p-12">
+          <FundoDaMarca />
+          <div className="relative">
+            <Marca />
           </div>
-          <p className="mt-4 border-t border-ink-100 pt-3 text-[11px] text-ink-400">
-            {typeof window !== 'undefined' ? window.location.host : ''} · versão {__VERSAO_DO_APP__}
-          </p>
-        </div>
+          <div className="relative max-w-md text-white">
+            <h2 className="text-[30px] font-semibold leading-tight tracking-[-0.02em]">
+              Sessão aberta neste aparelho.
+            </h2>
+            <p className="mt-3 text-sm leading-relaxed text-white/75">
+              Você pode continuar de onde parou ou entrar com outro acesso — útil no balcão, onde o mesmo
+              computador passa por várias mãos no meio do turno.
+            </p>
+          </div>
+          <p className="relative text-xs text-white/55">Sessão protegida pelas permissões do seu perfil.</p>
+        </aside>
+
+        <header className="relative overflow-hidden rounded-b-[28px] px-5 pb-14 pt-8 lg:hidden">
+          <FundoDaMarca />
+          <div className="relative">
+            <Marca centralizado />
+          </div>
+        </header>
+
+        <main className="relative z-10 flex flex-1 items-start justify-center px-4 pb-10 lg:items-center lg:px-6">
+          <div className="-mt-8 w-full max-w-[420px] lg:mt-0">
+            <div className="rounded-card border border-ink-200 bg-white p-6 shadow-raised sm:p-7">
+              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-50 text-brand-700">
+                <Icon nome="usuario" className="h-5 w-5" />
+              </span>
+              <h1 className="mt-4 text-[21px] font-semibold leading-snug tracking-[-0.015em] text-ink-900">
+                Você já está conectado
+              </h1>
+              <p className="mt-1.5 text-sm leading-relaxed text-ink-600">
+                Este aparelho está com a sessão de{' '}
+                <strong className="font-semibold text-ink-800">{profile.full_name}</strong>
+                {` (${ROLE_LABELS[profile.role]}, login ${profile.login})`}. Para entrar com outro acesso,
+                saia desta conta.
+              </p>
+              <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+                <Button className="sm:flex-1" icone="painel" onClick={() => navigate('/', { replace: true })}>
+                  Continuar como {profile.full_name.split(' ')[0]}
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="sm:flex-1"
+                  icone="sair"
+                  onClick={() => void sairDoAparelho('/login')}
+                >
+                  Entrar com outra conta
+                </Button>
+              </div>
+              <p className="mt-5 border-t border-ink-100 pt-3 text-[11px] text-ink-400">
+                {typeof window !== 'undefined' ? window.location.host : ''} · versão {__VERSAO_DO_APP__}
+              </p>
+            </div>
+            {rodape}
+          </div>
+        </main>
       </div>
     )
   }
@@ -73,51 +174,31 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-ink-900 lg:flex-row">
-      {/* Painel de marca (desktop) */}
-      <aside className="relative hidden w-[46%] overflow-hidden lg:flex lg:flex-col lg:justify-between lg:p-12">
-        <div
-          className="absolute inset-0 bg-gradient-to-b from-brand-800 via-brand-900 to-ink-950"
-          aria-hidden
-        />
-        <div
-          className="absolute inset-0 opacity-[0.18]"
-          aria-hidden
-          style={{
-            backgroundImage:
-              "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56' viewBox='0 0 56 56'%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='1.1'%3E%3Ccircle cx='28' cy='28' r='13'/%3E%3Ccircle cx='8' cy='8' r='3'/%3E%3Ccircle cx='48' cy='8' r='3'/%3E%3Ccircle cx='8' cy='48' r='3'/%3E%3Ccircle cx='48' cy='48' r='3'/%3E%3C/g%3E%3C/svg%3E\")",
-          }}
-        />
+    <div className="min-h-screen bg-papel lg:flex">
+      {/* Painel de marca — computador */}
+      <aside className="relative hidden overflow-hidden lg:flex lg:w-[52%] lg:flex-col lg:justify-between lg:p-12 xl:w-[55%] xl:p-16">
+        <FundoDaMarca />
 
-        <div className="relative flex items-center gap-3 text-white">
-          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15 backdrop-blur">
-            <Icon nome="pizza" className="h-6 w-6" />
-          </span>
-          <div>
-            <p className="text-base font-semibold tracking-tight">Gestão da Pizzaria</p>
-            <p className="text-xs text-white/70">Salão · Delivery · Caixa</p>
-          </div>
+        <div className="relative">
+          <Marca />
         </div>
 
-        <div className="relative max-w-md text-white">
-          <h2 className="text-3xl font-semibold leading-tight tracking-tight">
-            Do salão ao caixa, tudo no mesmo lugar.
+        <div className="relative max-w-lg text-white">
+          <h2 className="text-[32px] font-semibold leading-[1.15] tracking-[-0.02em] xl:text-[36px]">
+            Do salão ao caixa,
+            <br />
+            tudo no mesmo lugar.
           </h2>
-          <p className="mt-3 text-sm leading-relaxed text-white/80">
+          <p className="mt-4 text-[15px] leading-relaxed text-white/75">
             Mesas, pedidos, delivery e fechamento de conta em tempo real — com histórico auditável de cada
             operação.
           </p>
 
-          <ul className="mt-8 space-y-3 text-sm text-white/90">
-            {[
-              { icone: 'mesas' as const, texto: 'Mapa do salão atualizado ao vivo' },
-              { icone: 'entrega' as const, texto: 'Delivery acompanhado pedido a pedido' },
-              { icone: 'dinheiro' as const, texto: 'Caixa com sangria, despesa e conferência' },
-              { icone: 'auditoria' as const, texto: 'Toda operação registrada para auditoria' },
-            ].map((item) => (
-              <li key={item.texto} className="flex items-center gap-3">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10">
-                  <Icon nome={item.icone} className="h-4 w-4" />
+          <ul className="mt-9 space-y-3.5">
+            {RECURSOS.map((item) => (
+              <li key={item.texto} className="flex items-center gap-3 text-[14px] text-white/90">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-white/10 ring-1 ring-white/10">
+                  <Icon nome={item.icone} className="h-[18px] w-[18px]" />
                 </span>
                 {item.texto}
               </li>
@@ -125,27 +206,34 @@ export default function LoginPage() {
           </ul>
         </div>
 
-        <p className="relative text-xs text-white/50">
+        <p className="relative text-[12px] leading-relaxed text-white/45">
           Acesse apenas com as credenciais fornecidas pelo administrador da pizzaria.
         </p>
       </aside>
 
-      {/* Formulário */}
-      <main className="flex flex-1 items-center justify-center bg-ink-100 px-4 py-10 sm:px-6">
-        <div className="w-full max-w-sm">
-          <div className="mb-6 text-center lg:hidden">
-            <span className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-raised">
-              <Icon nome="pizza" className="h-7 w-7" />
-            </span>
-            <h1 className="text-lg font-semibold tracking-tight text-ink-900">Gestão da Pizzaria</h1>
-            <p className="text-xs text-ink-500">Entre com o seu acesso de trabalho</p>
-          </div>
+      {/* Faixa de marca — celular e tablet */}
+      <header className="relative overflow-hidden rounded-b-[28px] px-5 pb-16 pt-9 lg:hidden">
+        <FundoDaMarca />
+        <div className="relative">
+          <Marca centralizado />
+        </div>
+      </header>
 
+      {/* Formulário */}
+      <main className="relative z-10 flex flex-1 items-start justify-center px-4 pb-10 lg:items-center lg:px-6">
+        <div className="-mt-10 w-full max-w-[420px] lg:mt-0">
           <div className="rounded-card border border-ink-200 bg-white p-6 shadow-raised sm:p-7">
-            <div className="mb-5 hidden lg:block">
-              <h1 className="text-xl font-semibold tracking-tight text-ink-900">Entrar no sistema</h1>
-              <p className="mt-1 text-sm text-ink-500">Use o login e a senha cadastrados pela administração.</p>
+            <div className="hidden lg:block">
+              <h1 className="text-[23px] font-semibold tracking-[-0.015em] text-ink-900">
+                Entrar no sistema
+              </h1>
+              <p className="mt-1.5 text-sm leading-relaxed text-ink-500">
+                Use o login e a senha cadastrados pela administração.
+              </p>
             </div>
+            <p className="mb-5 text-[13px] font-medium text-ink-500 lg:hidden">
+              Entre com o seu acesso de trabalho
+            </p>
 
             {!isSupabaseConfigured && (
               <div className="mb-4">
@@ -210,14 +298,24 @@ export default function LoginPage() {
 
               {error && <Callout tom="erro">{error}</Callout>}
 
-              <Button type="submit" size="lg" block loading={submitting} icone={submitting ? undefined : 'cadeado'}>
+              <Button
+                type="submit"
+                size="lg"
+                block
+                loading={submitting}
+                icone={submitting ? undefined : 'cadeado'}
+              >
                 {submitting ? 'Entrando…' : 'Entrar'}
               </Button>
             </form>
 
-            <p className="mt-5 border-t border-ink-100 pt-4 text-center text-xs leading-relaxed text-ink-500">
-              Não existe cadastro público. As contas são criadas e liberadas pelo administrador da pizzaria.
-            </p>
+            <div className="mt-5 flex gap-2.5 border-t border-ink-100 pt-4">
+              <Icon nome="info" className="mt-0.5 h-4 w-4 shrink-0 text-ink-400" />
+              <p className="text-[12px] leading-relaxed text-ink-500">
+                Não existe cadastro público. As contas são criadas e liberadas pelo administrador da
+                pizzaria.
+              </p>
+            </div>
 
             <button
               type="button"
@@ -225,18 +323,15 @@ export default function LoginPage() {
                 limparSessaoLocal()
                 window.location.reload()
               }}
-              className="mt-3 w-full rounded-control px-3 py-2 text-center text-xs text-ink-400 transition hover:bg-ink-100 hover:text-ink-600"
+              className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-control px-3 py-2 text-center text-[12px] text-ink-400 transition hover:bg-ink-100 hover:text-ink-600"
               title="Apaga a sessão salva neste navegador e recarrega a página"
             >
+              <Icon nome="atualizar" className="h-3.5 w-3.5" />
               Problemas para entrar? Limpar dados deste aparelho
             </button>
           </div>
 
-          <p className="mt-5 text-center text-[11px] text-ink-400">
-            Em caso de acesso negado, procure o responsável pelo sistema na pizzaria.
-            <br />
-            {typeof window !== 'undefined' ? window.location.host : ''} · versão {__VERSAO_DO_APP__}
-          </p>
+          {rodape}
         </div>
       </main>
     </div>

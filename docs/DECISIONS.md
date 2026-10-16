@@ -193,7 +193,7 @@ resolve.
 ### 5.4 Testes de banco em PostgreSQL local com shim
 **Decisão:** `tools/local_pg_shim.sql` emula `auth.uid()`, `auth.role()`, roles do Supabase e a
 publicação de Realtime para rodar a suíte sem depender de conta em nuvem.
-**Motivo:** permitir 288 asserções reais de RLS/RPC/concorrência nesta entrega.
+**Motivo:** permitir 311 asserções reais de RLS/RPC/concorrência nesta entrega.
 **Atenção:** o shim é **exclusivo de teste** — nunca aplicar num projeto Supabase real.
 
 ### 5.5 Sem integrações inventadas
@@ -258,3 +258,32 @@ inferior (3–5 itens, ícone + rótulo), paleta de comandos (ARIA combobox, `>`
 para ajuda — mesmo desenho do GitHub) e um POS de restaurante em React usado como referência de
 atalhos de teclado protegidos contra campos de texto e janelas abertas. Nenhuma dependência nova
 foi adicionada por causa disso.
+
+## 7. Fila de pedidos prontos (16/10/2026)
+
+### 7.1 A fila é uma leitura, não um subsistema
+**Decisão:** a tela `/pedidos-prontos` não tem tabela, status, autenticação nem canal de Realtime
+próprios. Ela lê `order_overview` (`status = ready`, `service_mode = dine_in`, conta aberta) e entrega
+pela RPC `advance_order_status(id, 'delivered_to_table')` — a mesma usada em todo o sistema.
+**Motivo:** dois fluxos paralelos para o mesmo pedido criam divergência; o banco continua sendo a única
+fonte de verdade e o histórico/auditoria seguem intactos.
+
+### 7.2 Espera medida por `ready_at`, nunca por `created_at`
+**Decisão:** `orders.ready_at` (gravado pelo banco desde a `0005`) passa a ser exposto na view e é o
+único critério de ordenação e de tempo de espera. Pedido sem esse horário confiável mostra
+"Horário indisponível" e vai para o fim da fila.
+**Motivo:** o tempo desde a criação não é tempo de espera na mesa; usar `created_at` como se fosse
+seria inventar um número operacional. O tempo é calculado por **diferença entre instantes**, o que não
+depende do fuso do aparelho.
+
+### 7.3 Conta e sessão conferidas dentro da transação, com a ordem de locks do fechamento
+**Decisão:** em `advance_order_status`, no caminho `delivered_to_table`, o banco confere se o atendimento
+da mesa continua `open` e se a conta não foi fechada (`SESSION_NOT_OPEN` / `ORDER_ACCOUNT_CLOSED`). A
+sessão é lida **sem lock** só para decidir o caminho e é travada (`for update`) **antes** do pedido —
+a mesma ordem de `close_table_account` (sessão → pedidos), o que evita impasse.
+**Motivo:** a tela pode estar alguns segundos atrasada; quem decide continua sendo o PostgreSQL. A
+validação também roda no caminho raro em que o pedido ainda não estava pronto na primeira leitura, para
+que nenhuma entrega passe sem a sessão conferida — nesse caso a ordem dos locks se inverte e um impasse
+eventual é resolvido abortando uma das transações, com erro claro para o operador.
+**Efeito colateral testado:** a recusa de um pedido de delivery continua sendo `INVALID_TRANSITION`, não
+`SESSION_NOT_OPEN` (a suíte `09` trava isso).

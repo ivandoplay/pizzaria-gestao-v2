@@ -311,8 +311,19 @@ export async function fetchOrders(filters: {
   sessionId?: string
   openOnly?: boolean
   limit?: number
+  /**
+   * Ordenação da consulta. O padrão é o mais recente primeiro (histórico).
+   * A fila de prontos usa 'prontos_mais_antigos', que ordena por ready_at
+   * crescente — quem espera há mais tempo aparece primeiro, e no PostgreSQL
+   * o ASC deixa os nulos (sem horário confiável) no fim.
+   */
+  ordem?: 'recentes' | 'prontos_mais_antigos'
 }): Promise<OrderOverview[]> {
-  let query = supabase.from('order_overview').select('*').order('created_at', { ascending: false })
+  let query = supabase.from('order_overview').select('*')
+  query =
+    filters.ordem === 'prontos_mais_antigos'
+      ? query.order('ready_at', { ascending: true })
+      : query.order('created_at', { ascending: false })
   if (filters.statuses?.length) query = query.in('status', filters.statuses)
   if (filters.serviceMode) query = query.eq('service_mode', filters.serviceMode)
   if (filters.sessionId) query = query.eq('table_session_id', filters.sessionId)

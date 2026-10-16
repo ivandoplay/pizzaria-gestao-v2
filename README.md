@@ -16,7 +16,7 @@ Idioma da interface: **português do Brasil**. Moeda: **BRL**. Fuso: **America/F
 |---|---|---|
 | Administrador | `admin` | Tudo: cardápio, funcionários, configurações, relatórios, auditoria, fechamento forçado, descontos sem limite. |
 | Caixa (gerente) | `manager` | Operação do dia: mesas, pedidos, delivery, recebimentos, fechamento de contas, turno de caixa, histórico, painel operacional. |
-| Garçom | `waiter` | Abre mesa, lança pedido, acompanha status, marca pedido pronto como **entregue na mesa**. Não recebe, não desconta, não cancela. |
+| Garçom | `waiter` | Abre mesa, lança pedido, acompanha status e usa a tela **Pedidos prontos** para marcar o pedido pronto como **entregue na mesa**. Não recebe, não desconta, não cancela. |
 
 O perfil é validado **no banco** a cada chamada (`app_private.require_role`), não no navegador.
 Esconder botão não é controle de acesso.
@@ -92,6 +92,7 @@ As migrações ficam em `supabase/migrations/` e são aplicadas **em ordem**:
 | `20260101000007_rpc.sql` | Regras de negócio: 14 RPCs (pedidos, contas, pagamentos, caixa, delivery, clientes). |
 | `20260101000008_reports.sql` | 8 funções de relatório/indicadores agregando no banco. |
 | `20260101000009_troca_senha_obrigatoria.sql` | `complete_password_change()`: baixa a própria flag de senha temporária, idempotente e auditada (23 funções no total). |
+| `20260101000010_fila_pedidos_prontos.sql` | Fila de pedidos prontos: a view `order_overview` passa a expor **`ready_at`** (horário em que o pedido ficou pronto) e **`session_status`**; `advance_order_status` confere **sessão da mesa e conta encerrada dentro da transação** no caminho `delivered_to_table`. Nenhuma função nova: continuam 23. |
 
 Seeds:
 
@@ -112,7 +113,7 @@ para o seed e a remoção, então as listas nunca ficam desencontradas).
 
 | Suíte | O que cobre | Resultado |
 |---|---|---|
-| `supabase/tests/00_setup.sql` … `08_troca_senha.sql` | 288 asserções no PostgreSQL: RLS, privilégios, permissões por perfil, cardápio, mesas/pedidos, caixa/pagamentos, delivery, relatórios, auditoria e troca obrigatória de senha | **verde** (local **e** no Supabase real) |
+| `supabase/tests/00_setup.sql` … `09_fila_prontos.sql` | 311 asserções no PostgreSQL: RLS, privilégios, permissões por perfil, cardápio, mesas/pedidos, caixa/pagamentos, delivery, relatórios, auditoria, troca obrigatória de senha e fila de prontos | **verde** (local) |
 | `supabase/tests/07_concurrency.sh` | Concorrência real com duas conexões simultâneas (abertura de mesa, clique duplo de pagamento, fechamento duplo) | **verde** |
 | Vitest (`npm test`) | Regras de preço espelhadas do banco, formatação BRL/datas/durações/plural, tradução de erros, criação sob demanda do cliente Supabase e regras da troca de senha | **48/48** |
 | `npm run typecheck` | TypeScript em modo estrito, sem emissão | **exit 0** |
@@ -122,7 +123,7 @@ para o seed e a remoção, então as listas nunca ficam desencontradas).
 Reproduza tudo com:
 
 ```bash
-bash tools/run-sql-tests.sh   # recria o banco, aplica migrações + seeds e roda 00–08
+bash tools/run-sql-tests.sh   # recria o banco, aplica migrações + seeds e roda 00–09
 npm test && npm run build
 ```
 

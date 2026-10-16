@@ -29,10 +29,10 @@ rodado à mão, e o cabeçalho do arquivo diz isso com todas as letras.
    (sempre do zero — rodar sem recriar gera erro de chave duplicada nas fixtures);
 2. aplica `tools/local_pg_shim.sql` (emula `auth.uid()`, `auth.role()`, roles
    `anon`/`authenticated`/`service_role`, `supabase_realtime`, extensões);
-3. aplica as 9 migrações em ordem;
+3. aplica as 10 migrações em ordem;
 4. aplica `supabase/seed/seed_structure.sql`;
 5. aplica `supabase/tests/00_setup.sql` (infra de teste + fixtures);
-6. roda `01`…`06`, depois `08` e, no fim, `07_concurrency.sh` (script bash com conexões paralelas de verdade).
+6. roda `01`…`06`, depois `08` e `09` e, no fim, `07_concurrency.sh` (script bash com conexões paralelas de verdade).
 
 O contador de asserções lê as mensagens `NOTICE: OK` emitidas por `tests.ok/eq_int/eq_text/eq_bool`.
 
@@ -41,9 +41,9 @@ O contador de asserções lê as mensagens `NOTICE: OK` emitidas por `tests.ok/e
 
 ---
 
-## 2. Suíte do banco (00–08) — resultado: **VERDE**
+## 2. Suíte do banco (00–09) — resultado: **VERDE**
 
-Execução final: **288 asserções, todas aprovadas**, sem `ERROR` e sem `ASSERT FALHOU`.
+Execução final: **311 asserções, todas aprovadas**, sem `ERROR` e sem `ASSERT FALHOU`.
 
 | Arquivo | O que testa | Asserções notáveis |
 |---|---|---|
@@ -55,6 +55,7 @@ Execução final: **288 asserções, todas aprovadas**, sem `ERROR` e sem `ASSER
 | `05_delivery.sql` | clientes, endereços, taxas, fluxo do delivery | taxa por zona 800 → totais 2200 e 6100; bairro sem zona usa taxa padrão 500 → 1200; **dedupe** por telefone ("(86) 98888-7777" ≡ "86 98888.7777"); troco no delivery (2000 para 1200 → 800); `ADDRESS_REQUIRED`, `CUSTOMER_PHONE_INVALID`, `PAYMENT_REFUND_REQUIRED`, `ORDER_CANCELLED`, `BALANCE_PENDING`, `REASON_REQUIRED`, `FORBIDDEN`; taxa ajustada pelo admin (1000 → total 1700); fechamento forçado com motivo; garçom não enxerga delivery |
 | `06_reports.sql` | relatórios, painéis e auditoria | cada indicador comparado com **consulta independente às tabelas** (líquido, recebido, pendente, cancelado, ticket médio, salão+delivery, top produtos, formas de pagamento, sessões de caixa, painel operacional); filtros por modalidade/funcionário; busca do histórico por telefone, parcial e nome; 13 eventos de auditoria presentes; auditoria sem senha/token; somente-adição |
 | `08_troca_senha.sql` | troca obrigatória de senha (migração `0009`) | visitante sem sessão **não** baixa flag (`permission denied`); o funcionário baixa **a própria** flag; a flag de outro perfil não é tocada; chamar de novo **não** gera evento repetido de auditoria; evento `profile.password_changed` gravado com autor e alvo; funcionário **desativado** recebe `AUTH_REQUIRED` e continua com a flag de pé |
+| `09_fila_prontos.sql` | fila de pedidos prontos (migração `0010`) | `ready_at` e `session_status` na view; fila só com pedido pronto de salão; entrega válida; entrega repetida → `NO_STATUS_CHANGE`; não-pronto e delivery → `INVALID_TRANSITION`; garçom **entrega** mas não marca `confirmed`/`preparing` → `FORBIDDEN`; sessão encerrada → `SESSION_NOT_OPEN`; conta fechada → `ORDER_ACCOUNT_CLOSED`; histórico registra de/para/quem/quando |
 | `07_concurrency.sh` | corrida real entre duas conexões | 2ª abertura na mesma mesa → `TABLE_ALREADY_OPEN` (e nenhuma sessão órfã); mesmo `client_uuid` de pagamento em paralelo → **1 pagamento de 1400, troco 600 uma única vez**; 2º fechamento em paralelo → `SESSION_NOT_OPEN`; conta fechada **e auditada uma vez**; mesa volta a `available`; nenhum atendimento sobrando |
 
 ### 2.1 Detalhes de método

@@ -173,6 +173,10 @@ export interface OrderOverview {
   created_by: string
   created_by_name: string
   created_at: string
+  /** Quando o pedido ficou pronto (gravado pelo banco). Nulo em pedidos antigos. */
+  ready_at: string | null
+  /** Situação do atendimento da mesa. Nulo em pedidos sem mesa (delivery). */
+  session_status: 'open' | 'closed' | null
   account_closed_at: string | null
   cash_session_id: string | null
 }

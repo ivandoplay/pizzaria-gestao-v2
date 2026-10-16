@@ -16,6 +16,7 @@ const TrocarSenhaPage = lazy(() => import('./pages/TrocarSenhaPage'))
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
 const TablesPage = lazy(() => import('./pages/TablesPage'))
 const TableSessionPage = lazy(() => import('./pages/TableSessionPage'))
+const ReadyOrdersPage = lazy(() => import('./pages/ReadyOrdersPage'))
 const CashierHomePage = lazy(() => import('./pages/CashierHomePage'))
 const DeliveryPage = lazy(() => import('./pages/DeliveryPage'))
 const CashControlPage = lazy(() => import('./pages/CashControlPage'))
@@ -152,6 +153,14 @@ export default function App() {
           element={
             <Guard roles={['admin', 'manager', 'waiter']}>
               <TableSessionPage />
+            </Guard>
+          }
+        />
+        <Route
+          path="/pedidos-prontos"
+          element={
+            <Guard roles={['admin', 'manager', 'waiter']}>
+              <ReadyOrdersPage />
             </Guard>
           }
         />

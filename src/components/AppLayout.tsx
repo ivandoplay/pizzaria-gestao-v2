@@ -21,6 +21,7 @@ interface ItemNav {
 const NAV: ItemNav[] = [
   { to: '/caixa', rotulo: 'Caixa', icone: 'caixa', roles: ['admin', 'manager'], grupo: 'operacao', mobile: true },
   { to: '/mesas', rotulo: 'Mesas', icone: 'mesas', roles: ['admin', 'manager', 'waiter'], grupo: 'operacao', mobile: true },
+  { to: '/pedidos-prontos', rotulo: 'Prontos', icone: 'check', roles: ['admin', 'manager', 'waiter'], grupo: 'operacao', mobile: true },
   { to: '/delivery', rotulo: 'Delivery', icone: 'entrega', roles: ['admin', 'manager'], grupo: 'operacao', mobile: true },
   { to: '/historico', rotulo: 'Histórico', icone: 'historico', roles: ['admin', 'manager'], grupo: 'operacao', mobile: true },
   { to: '/dashboard', rotulo: 'Painel do dia', icone: 'painel', roles: ['admin'], grupo: 'gestao', mobile: true },

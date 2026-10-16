@@ -63,7 +63,7 @@ o que ainda depende de configuração manual e quais são as limitações.
 
 ## 2. Migrações e tabelas
 
-9 migrações versionadas em `supabase/migrations/` (**25 tabelas**), aplicadas em ordem:
+10 migrações versionadas em `supabase/migrations/` (**25 tabelas**), aplicadas em ordem:
 
 | Migração | Conteúdo |
 |---|---|
@@ -76,6 +76,7 @@ o que ainda depende de configuração manual e quais são as limitações.
 | `0007_rpc` | 14 RPCs operacionais |
 | `0008_reports` | 8 funções de relatório/indicadores |
 | `0009_troca_senha_obrigatoria` | `public.complete_password_change()` — baixa a própria flag de senha temporária, idempotente, com auditoria (23 funções no total) |
+| `0010_fila_pedidos_prontos` | fila de prontos: `order_overview` expõe `ready_at` e `session_status`; `advance_order_status` confere sessão da mesa e conta encerrada na transação, só no caminho de entrega. Sem tabela e sem função nova |
 
 Convenções do banco: dinheiro em **centavos inteiros**; índices únicos parciais garantindo uma sessão
 aberta por mesa e um turno aberto; `client_uuid unique` para idempotência; snapshots históricos;
@@ -101,10 +102,10 @@ trilha de auditoria somente-adição.
 
 | Verificação | Comando | Resultado |
 |---|---|---|
-| Suíte do banco (00–08), local | `bash tools/run-sql-tests.sh` | **288 asserções aprovadas**, 0 falhas |
-| Suíte do banco (00–08), **no Supabase real** | `tools/supabase-cloud-sql.sh` | **nenhuma falha** (falha em qualquer asserção aborta o arquivo) |
+| Suíte do banco (00–09), local | `bash tools/run-sql-tests.sh` | **311 asserções aprovadas**, 0 falhas |
+| Suíte do banco (00–08), **no Supabase real** (etapa de 15/10) | `tools/supabase-cloud-sql.sh` | **nenhuma falha** (falha em qualquer asserção aborta o arquivo); o `09` roda no banco local e, na nuvem, a validação é a migração aplicada + smoke + robôs |
 | Concorrência real (07) | idem (duas conexões em paralelo) | **verde**: abertura dupla bloqueada, clique duplo → 1 pagamento, fechamento duplo → recusado |
-| Testes unitários | `npm test` (Vitest) | **48/48** |
+| Testes unitários | `npm test` (Vitest) | **56/56** |
 | Tipos | `npm run typecheck` | **exit 0** |
 | Build de produção | `npx vite build` | **exit 0** (chunk principal 491 kB / 141 kB gzip + 1 chunk por tela) |
 | Interface em navegador real | `node tools/e2e-telas.mjs <URL>` (Playwright, contra o **site publicado**) | **0 falhas**: login dos 3 perfis, 11 telas do administrador, percurso completo do salão, bloqueio de permissão conferido, nenhum erro de console/rede |
@@ -132,7 +133,8 @@ Atualizado em **14/10/2026**, depois da execução com as credenciais reais.
 - Projeto: `qmrcnoigaszditwchsdz` (org *Pizzaria*, região `sa-east-1`, PostgreSQL 17.11).
 - **Backup do estado anterior** antes de qualquer alteração: as 22 tabelas / 101 linhas foram exportadas
   para `backups_supabase/` (dados em JSON + estrutura em SQL + instruções de restauração).
-- Schema `public` anterior removido (com a sua autorização) e as **9 migrações aplicadas em ordem**,
+- Schema `public` anterior removido (com a sua autorização) e as **9 migrações aplicadas em ordem**
+  em 14/10 (a `0010`, da fila de prontos, foi aplicada em 16/10),
   seguidas do `seed_structure.sql`. Catálogo conferido: **25 tabelas, 4 views, 23 funções, RLS e
   FORCE RLS nas 25 tabelas** e 10 tabelas publicadas no Realtime.
 - **Suíte de testes executada contra o banco real** (00 → 06): **nenhuma falha**. Em seguida os dados de
@@ -372,7 +374,7 @@ publicada, Realtime ativo e banco limpo (seção 5.2); código publicado no GitH
 |---|---|
 | Código (banco + servidor + interface) | completo para o escopo definido |
 | Migrações, RLS, RPCs, views, Realtime | escritos e validados localmente |
-| Testes | executados, verdes (288 asserções SQL locais + concorrência real + 48 unitários + robôs de navegador contra o site publicado) |
+| Testes | executados, verdes (311 asserções SQL locais + concorrência real + 56 unitários + robôs de navegador contra o site publicado) |
 | Build | verde |
 | GitHub | **publicado** (`ivandoplay/pizzaria-gestao-v2`, repositório público) |
 | Supabase | **configurado e verificado na nuvem** (migrações, RLS, Realtime, Edge Function, 3 perfis, fluxo ponta a ponta) |

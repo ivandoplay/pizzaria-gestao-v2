@@ -79,7 +79,7 @@ conta) e é fechado por `close_delivery_account`.
 
 ## 3. Regras de negócio (RPCs)
 
-14 funções em `20260101000007_rpc.sql`, 8 de relatório em `0008` e 1 de senha em `0009` (23 no total). Todas:
+14 funções em `20260101000007_rpc.sql`, 8 de relatório em `0008` e 1 de senha em `0009` (23 no total; a migração `0010` reforça `advance_order_status` sem criar função). Todas:
 
 - validam o perfil com `app_private.require_role(...)` (erro `FORBIDDEN`, SQLSTATE 42501);
 - são `security definer` com `search_path` fixo;

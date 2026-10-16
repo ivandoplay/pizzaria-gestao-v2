@@ -284,7 +284,9 @@ else falhou(`a tela abriu com o título "${h1}"`)
 // robô não depende disso: procura o cartão e, no meio do caminho, usa o próprio
 // botão "Atualizar" da tela — como faria o garçom.
 const alvo = `Pedido #${numeroPedido}`
-const regexMesa = new RegExp(`Mesa ${numeroMesa}\\b`)
+// O filtro do Playwright compara o textContent, que não tem espaços entre os
+// elementos ("Mesa 4Pedido #35") — por isso o lookahead em vez de \b.
+const regexMesa = new RegExp(`Mesa ${numeroMesa}(?!\\d)`)
 let achou = false
 let textoFila = ''
 for (let tentativa = 0; tentativa < 12 && !achou; tentativa += 1) {
@@ -299,7 +301,7 @@ for (let tentativa = 0; tentativa < 12 && !achou; tentativa += 1) {
 if (achou) ok(`o pedido #${numeroPedido} da mesa ${numeroMesa} está na fila`)
 else falhou(`o pedido #${numeroPedido} não apareceu na fila de prontos (tela: ${resumo(textoFila)})`)
 
-const cartao = page.locator('section').filter({ hasText: new RegExp(`Pedido #${numeroPedido}\\b`) }).first()
+const cartao = page.locator('section').filter({ hasText: new RegExp(`Pedido #${numeroPedido}(?!\\d)`) }).first()
 const textoCartao = achou ? await cartao.innerText().catch(() => '') : textoFila
 if (achou) {
   if (/Pronto/.test(textoCartao)) ok('o cartão traz o selo "Pronto"')

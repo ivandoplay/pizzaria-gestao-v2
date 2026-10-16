@@ -250,11 +250,16 @@ export default function ReadyOrdersPage() {
                 const itensDoPedido = itensPorPedido.get(pedido.id) ?? []
 
                 return (
-                  <Card key={pedido.id} padded={false} className="min-w-0">
-                    <div className="flex min-w-0 flex-col gap-3 p-4">
+                  <Card key={pedido.id} padded={false} className="relative min-w-0">
+                    {/* Faixa de 3 px na situação — mesma linguagem da tela de Mesas. */}
+                    <span
+                      aria-hidden
+                      className={`absolute inset-y-0 left-0 w-[3px] ${entregue ? 'bg-emerald-300' : 'bg-emerald-500'}`}
+                    />
+                    <div className="flex min-w-0 flex-col gap-2.5 p-3.5">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="text-[17px] font-semibold text-ink-900">
+                          <p className="text-[17px] font-semibold leading-tight text-ink-900">
                             Mesa {pedido.table_number ?? '—'}
                           </p>
                           <p className="text-pequeno text-ink-500">
@@ -266,7 +271,7 @@ export default function ReadyOrdersPage() {
                         <Badge tone={entregue ? 'green' : 'blue'}>{entregue ? 'Entregue' : 'Pronto'}</Badge>
                       </div>
 
-                      <ul className="min-w-0 space-y-1.5 text-pequeno">
+                      <ul className="min-w-0 space-y-1 text-pequeno">
                         {itensQuery.isLoading ? (
                           <li className="text-ink-400">Carregando itens…</li>
                         ) : itensDoPedido.length === 0 ? (
@@ -292,8 +297,8 @@ export default function ReadyOrdersPage() {
                       </ul>
 
                       {pedido.notes && (
-                        <p className="break-words rounded-interno bg-ink-50 px-3 py-2 text-pequeno text-ink-600">
-                          Observação do pedido: {pedido.notes}
+                        <p className="break-words rounded-interno bg-ink-50 px-2.5 py-1.5 text-pequeno text-ink-600">
+                          <span className="font-medium text-ink-700">Observação:</span> {pedido.notes}
                         </p>
                       )}
 

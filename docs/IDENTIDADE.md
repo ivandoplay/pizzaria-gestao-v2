@@ -21,6 +21,39 @@ movimento. Nenhuma tela tem cor fixa — tudo vem dos tokens abaixo.
 | Botão principal | `src/styles.css` | classe `.botao-primario` |
 | Desenhos dos ícones | `src/components/icons.tsx` | um traço SVG por nome (`NomeIcone`) |
 | Peças reutilizadas (cartão, selo, tabela, modal…) | `src/components/ui.tsx` | cada componente em um só lugar |
+| **Marca da casa (emblema)** | `src/components/Logo.tsx` | as formas SVG do emblema (`Emblema`) e a placa clara (`EmblemaEmPlaca`) |
+| Ícone da aba do navegador | `index.html` | `link rel="icon"` com o mesmo emblema em data-URI |
+
+---
+
+## 1.1 A marca da casa
+
+O emblema é uma **fatia de pizza dentro de um anel**, desenhada em vetor (`src/components/Logo.tsx`),
+e aparece em três lugares: a tela de entrada (placa grande), a lateral do sistema (placa de 36 px) e o
+ícone da aba do navegador (mesmo desenho em mini escala).
+
+Decisões por trás dele:
+
+1. **Vetor, nunca imagem.** Um PNG de marca teria de ser baixado em cada abertura do sistema — e o
+   celular do garçom não pode esperar download para mostrar a tela de entrada. Em SVG o emblema é
+   desenhado na hora e continua nítido do ícone de 16 px ao painel de 140 px.
+2. **Cores da identidade, nenhuma nova.** Massa no vermelho `brand` (`#c43a20`), borda assada no
+   `brand-800`, anel no `brand-700`, mussarela no tom do papel (`#fdf7f0`) e um único verde de manjericão
+   (`#4a7f42`) como acento. Quem trocar a paleta em `tailwind.config.js` deve revisar esses hexadecimais
+   dentro do `Logo.tsx` — é o único arquivo de marca com cor fixa, de propósito: a marca não deve mudar
+   de cor sozinha quando alguém ajustar um token de interface.
+3. **Formas chapadas, traço grosso, sem sombra nem degradê.** O emblema precisa funcionar bordado no
+   avental, impresso no cardápio e reduzido no favicon — efeito de luz não sobrevive a nenhum dos três.
+4. **Sobre fundo escuro, sempre na placa clara** (`EmblemaEmPlaca`): o anel vermelho sumiria no painel
+   vermelho da entrada e no carvão da lateral.
+
+### Tela de entrada
+
+A tela de entrada é a única tela com tratamento de vitrine — é a primeira impressão do cliente e do
+funcionário. Estrutura: painel de marca (luz, textura de grão e a lista do que o sistema faz) à esquerda
+no computador; no celular o mesmo painel vira uma **faixa fina no topo** com o cartão de acesso subindo
+por cima dela. As telas internas seguem exatamente o que já foi aprovado (cartões brancos de borda fina,
+lateral quase preta, raios 14/10/8) — bonito não pode competir com legibilidade no meio do turno.
 
 ---
 

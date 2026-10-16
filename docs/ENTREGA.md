@@ -322,6 +322,13 @@ botão **Confirmar entrega** com alvo grande e nenhuma rolagem lateral — medid
 e registrado em capturas (`artifacts/fila/`). As galerias de todas as telas por perfil estão em
 `telas-celular.png` (garçom) e `telas-computador.png` (caixa e administração).
 
+**Quinta passada — marca e tela de entrada (16/10/2026):** a pedido do administrador ("até o de login tá
+muito feia... dava para criar uma logo mais bonita"), o sistema ganhou **marca própria em vetor** — fatia
+de pizza dentro de um anel, nas cores da identidade — que aparece na tela de entrada, na lateral do
+sistema e no **ícone da aba do navegador**. A tela de entrada ganhou painel de marca com textura e halos,
+faixa no celular e cartão de acesso flutuante; as telas internas **não** mudaram. Detalhes e o porquê de
+cada decisão em [`IDENTIDADE.md`](IDENTIDADE.md) §1.1 e [`DECISIONS.md`](DECISIONS.md) §9.
+
 **Onde mexer depois:** os primitivos ficam em `src/components/ui.tsx`; as cores, sombras e animações em
 `tailwind.config.js`; os ícones em `src/components/icons.tsx`. Trocar a identidade visual da pizzaria é editar
 esses três arquivos — nenhuma tela tem cor fixa.

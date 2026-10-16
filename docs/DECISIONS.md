@@ -336,3 +336,23 @@ pelo sistema continuam nascendo com `must_change_password = true`.
 
 **Evidência:** login real conferido nos três perfis contra o site publicado (`e2e-telas.mjs`, 0 falhas e
 0 avisos, com a guarda que falha se a tela de troca obrigatória aparecer).
+
+## 9. Marca própria e tela de entrada redesenhada (16/10/2026)
+
+**Decisão:** o sistema ganhou uma **marca desenhada em vetor** (fatia de pizza dentro de um anel) e a
+tela de entrada foi reconstruída em torno dela. A marca aparece em três pontos: entrada (placa grande),
+lateral do sistema (placa de 36 px) e ícone da aba do navegador. Nenhuma tela interna foi redesenhada —
+o padrão visual aprovado continua o mesmo.
+
+**Como a marca foi escolhida:** o administrador pediu "uma logo mais bonita". Foram geradas duas opções
+de emblema, ele escolheu uma, e o desenho escolhido foi **redesenhado à mão em SVG** (não é a imagem
+gerada colada no sistema) para virar código: nítido em qualquer tamanho, ~1 kB, sem requisição de rede.
+As formas foram simplificadas em relação à referência — o desenho precisa sobreviver a 16 px no favicon.
+
+**Motivo de mexer só na entrada:** é a primeira impressão e não tem concorrência de conteúdo. Cartões,
+tabelas e botões das telas de trabalho seguem intocados, porque ali o critério é legibilidade no meio do
+turno, não vitrine. A textura de grão é SVG em data-URI (sem CDN) e a tela mantém a regra de sempre:
+nada de rolagem lateral no celular.
+
+**Ícone da aba:** o mesmo emblema em `data:image/svg+xml` no `index.html` — sem arquivo em `public/`,
+sem rota nova, sem cache antigo de favicon para limpar.

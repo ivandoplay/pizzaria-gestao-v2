@@ -21,6 +21,15 @@ o que ainda depende de configuração manual e quais são as limitações.
 - Cancelamento de item (total ou parcial) com motivo; cancelamento de pedido com motivo;
   `PAYMENT_REFUND_REQUIRED` se houver valor recebido.
 - Fluxo de status com histórico completo e sincronização dos painéis em tempo real.
+- **Fila de pedidos prontos** (`/pedidos-prontos`): visão operacional do salão — os pedidos do tipo
+  *mesa* que já saíram da produção, ordenados pelo mais antigo pelo horário real de `ready_at`, com
+  item, tamanho, sabores, adicionais e observações, tempo de espera e botão grande **Confirmar
+  entrega**. O tempo de espera é diferença entre instantes (não depende do relógio do aparelho) e
+  pedido sem horário confiável mostra "Horário indisponível". O cartão nunca sai da lista por
+  otimismo: só sai quando o banco confirma a transição. Botões de atualização manual, indicador de
+  conexão e estados de carregando/vazio/erro/reconectando. A regra final é do PostgreSQL: a entrega
+  é recusada se o atendimento da mesa foi encerrado, se a conta já foi fechada ou se outro funcionário
+  entregou o mesmo pedido antes.
 
 ### Caixa
 - Turno com fundo de troco (um caixa aberto por vez), sangria, suprimento, despesa e ajuste.
@@ -56,10 +65,10 @@ o que ainda depende de configuração manual e quais são as limitações.
 - **Celular (garçom):** item de tamanho único e sem escolha obrigatória entra na lista com **um
   toque**; alvos de toque de 44px; barra de envio fixa acima da navegação (zona do polegar); e a
   conta da mesa não tem mais rolagem lateral (era 862px de conteúdo numa tela de 390px).
-- **Varredura de todas as telas:** as 28 leituras de tela (todas as rotas dos 3 perfis, no celular e
-  no computador) passam sem rolagem lateral, sem erro de console e sem alvo de toque abaixo de
-  44px no celular — conferido por `tools/auditar-telas.mjs`, que também guarda uma captura de cada
-  tela em `artifacts/auditoria/`.
+- **Varredura de todas as telas:** as 46 leituras de tela (todas as rotas dos 3 perfis, no celular e
+  no computador, incluindo a fila de prontos) passam sem rolagem lateral, sem erro de console e sem
+  alvo de toque abaixo de 44px no celular — conferido por `tools/auditar-telas.mjs`, que também guarda
+  uma captura de cada tela em `artifacts/auditoria/`.
 
 ## 2. Migrações e tabelas
 
@@ -120,7 +129,7 @@ Detalhes, valores esperados e limitações em [`TESTES.md`](TESTES.md).
 
 ## 5. Estado do build e do deploy
 
-Atualizado em **14/10/2026**, depois da execução com as credenciais reais.
+Atualizado em **16/10/2026**, depois da execução com as credenciais reais e da fila de prontos.
 
 ### 5.1 GitHub — **executado**
 
@@ -194,7 +203,7 @@ Atualizado em **14/10/2026**, depois da execução com as credenciais reais.
   página e rotas do SPA, cabeçalhos de segurança, presença das variáveis no bundle, ausência de
   credencial privilegiada e login real pelo Auth.
 
-### 5.5 Revisão de interface e correções — **executado em 14/10/2026**
+### 5.5 Revisão de interface e correções — **executado de 14 a 16/10/2026**
 
 Revisão completa do front-end a pedido do administrador ("a interface está simples demais e abaixo do padrão
 profissional"). O banco, as RPCs, as políticas RLS e as regras de negócio **não foram alterados**.
@@ -306,6 +315,13 @@ garçom, executa o percurso do salão (abrir mesa, montar pedido, conferir a con
 verifica erro de console/rede e salva capturas em `artifacts/e2e/`. Resultado: **0 falhas**. As capturas não vão para
 o repositório (`artifacts/` está no `.gitignore`).
 
+**Quarta passada — fila de prontos e conferência por dispositivo (16/10/2026):** a tela *Pedidos prontos*
+foi desenhada sobre o design system já aprovado (nenhuma cor ou componente novo) e conferida no celular do
+garçom e no computador do caixa: cartões largos o bastante para ler item, observação e tempo sem esforço,
+botão **Confirmar entrega** com alvo grande e nenhuma rolagem lateral — medido por `tools/checar-rolagem.mjs`
+e registrado em capturas (`artifacts/fila/`). As galerias de todas as telas por perfil estão em
+`telas-celular.png` (garçom) e `telas-computador.png` (caixa e administração).
+
 **Onde mexer depois:** os primitivos ficam em `src/components/ui.tsx`; as cores, sombras e animações em
 `tailwind.config.js`; os ícones em `src/components/icons.tsx`. Trocar a identidade visual da pizzaria é editar
 esses três arquivos — nenhuma tela tem cor fixa.
@@ -347,7 +363,10 @@ publicada, Realtime ativo e banco limpo (seção 5.2); código publicado no GitH
 
 ## 8. Limitações conhecidas
 
-- Sem teste de fumaça contra o Supabase real nem E2E de navegador (detalhes em `TESTES.md`, seção 5).
+- Teste de fumaça contra o Supabase real e E2E de navegador **existem** (`tools/smoke-deploy.sh` e os
+  robôs Playwright), mas rodam à mão: a esteira cobre tipos, testes unitários, build e a suíte de banco
+  (detalhes em `TESTES.md`). Realtime por dois navegadores ao mesmo tempo e RLS de `storage` continuam
+  não exercitados.
 - Sem perfil de cozinha, sem impressão térmica, sem estoque avançado, sem emissão fiscal, sem gateway
   de pagamento e sem integrações externas (WhatsApp, aplicativos de entrega) — fora do escopo definido;
   Pix e cartão são registrados manualmente com confirmação do caixa.
@@ -361,9 +380,10 @@ publicada, Realtime ativo e banco limpo (seção 5.2); código publicado no GitH
 
 ## 9. Próximas etapas recomendadas
 
-1. Aplicar em um projeto Supabase de **teste** e rodar o teste de fumaça do checklist.
-2. Escrever E2E (Playwright) para os fluxos críticos: mesa → pedido → conta → caixa; delivery completo.
-3. Separar ambientes (produção × staging) com projetos Supabase distintos e previews da Vercel.
+1. Separar ambientes (produção × staging) com projetos Supabase distintos e previews da Vercel —
+   hoje o desenvolvimento e a produção compartilham o mesmo projeto Supabase.
+2. Ampliar a esteira: agendar os robôs de navegador contra um ambiente de teste (hoje eles exigem as
+   contas de produção e por isso rodam à mão).
 4. Monitoramento: alertar sobre divergência de caixa recorrente e pedidos abertos há muito tempo.
 5. Evoluções naturais do produto: perfil de cozinha (tela de produção), impressão térmica,
    estoque por insumo e ficha técnica, integração Pix real (com gateway homologado).
@@ -376,11 +396,11 @@ publicada, Realtime ativo e banco limpo (seção 5.2); código publicado no GitH
 | Aspecto | Situação |
 |---|---|
 | Código (banco + servidor + interface) | completo para o escopo definido |
-| Migrações, RLS, RPCs, views, Realtime | escritos e validados localmente |
-| Testes | executados, verdes (311 asserções SQL locais + concorrência real + 56 unitários + robôs de navegador contra o site publicado) |
+| Migrações, RLS, RPCs, views, Realtime | validados localmente (suíte 00–09) **e na nuvem** (as 10 migrações aplicadas no projeto real) |
+| Testes | executados, verdes (311 asserções SQL + concorrência real — na esteira e local —, 56 unitários, robôs de navegador contra o site publicado) |
 | Build | verde |
 | GitHub | **publicado** (`ivandoplay/pizzaria-gestao-v2`, repositório público) |
 | Supabase | **configurado e verificado na nuvem** (migrações, RLS, Realtime, Edge Function, 3 perfis, fluxo ponta a ponta) |
 | Cardápio | **72 itens de exemplo** aplicados (removíveis em um comando) + 8 bairros com taxa de entrega |
-| Deploy Vercel | **pendente** — importar o repositório + 3 variáveis de ambiente |
-| Pronto para venda real? | **falta pouco:** deploy na Vercel, troca da senha do admin e cadastro do cardápio real. O banco e as permissões já estão verificados em produção. |
+| Deploy Vercel | **publicado** (`pizzaria-gestao-v2.vercel.app`), com deploy automático a cada push no `main` |
+| Pronto para venda real? | **falta pouco:** trocar as senhas iniciais, substituir o cardápio de exemplo pelo real e preencher a tela Configurações. Site publicado, banco e permissões verificados em produção. |

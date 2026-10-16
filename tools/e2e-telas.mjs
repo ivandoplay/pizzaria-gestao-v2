@@ -110,6 +110,19 @@ async function entrar(page, perfil) {
     const erro = await page.locator('.text-red-900, [role="alert"]').first().innerText().catch(() => '')
     throw new Error(`login de ${perfil.login} não passou da tela de entrada ${erro ? `(${erro.trim()})` : ''}`)
   }
+
+  // Conta com troca de senha obrigatória pendente: o sistema mostra APENAS a tela
+  // de troca — e na MESMA URL. Sem esta guarda o robô percorreria "todas as telas"
+  // medindo sempre a tela de troca, dando tudo certo sem ter visto nada (foi o que
+  // já aconteceu uma vez). Melhor falhar com o motivo na cara.
+  const telaDeTroca = await page.locator('text=Defina sua senha definitiva').count()
+  if (telaDeTroca > 0) {
+    throw new Error(
+      `a conta ${perfil.login} está com troca de senha obrigatória pendente — ` +
+        'conclua o primeiro acesso (tools/preparar-contas-robo.mjs ou tools/primeiro-acesso.mjs); ' +
+        'sem isso o robô mediria a tela de troca em vez das telas do sistema',
+    )
+  }
 }
 
 async function conferirTela(page, perfil, [id, rota, tituloEsperado], errosDeConsole) {
@@ -136,7 +149,9 @@ async function conferirTela(page, perfil, [id, rota, tituloEsperado], errosDeCon
     registrar('falha', perfil.nome, id, 'ficou mais de 20 s no esqueleto de carregamento')
   }
   const titulo = await page.locator('h1').first().innerText().catch(() => '')
-  if (!titulo) registrar('falha', perfil.nome, id, 'sem título (h1) na tela')
+  if (/defina sua senha|troca obrigat/i.test(titulo)) {
+    registrar('falha', perfil.nome, id, `caiu na tela de troca obrigatória de senha em vez de ${rota}`)
+  } else if (!titulo) registrar('falha', perfil.nome, id, 'sem título (h1) na tela')
   else if (!titulo.toLowerCase().includes(tituloEsperado.toLowerCase())) {
     registrar('aviso', perfil.nome, id, `título "${titulo}" (esperava conter "${tituloEsperado}")`)
   }

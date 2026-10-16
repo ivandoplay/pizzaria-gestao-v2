@@ -352,8 +352,12 @@ publicada, Realtime ativo e banco limpo (seção 5.2); código publicado no GitH
 **Ainda falta:**
 
 1. ~~Deploy na Vercel~~ — **feito** (seção 5.4).
-2. **Trocar as senhas iniciais** de administrador, caixa e garçom — todas passaram pelo chat e devem ser
-   consideradas expostas (use *Funcionários → Redefinir senha*).
+2. **Redefinir as senhas dos três perfis antes de usar com dados reais.** Durante a fase de
+   demonstração (16/10/2026) o administrador pediu senhas **simplificadas — iguais ao próprio login** —
+   para entrar e sair rápido ao testar as telas. Funciona, e foi conferido no site publicado, mas é uma
+   **decisão temporária e insegura**: o endereço do sistema é público, então quem o descobrir consegue
+   entrar como administrador. Para voltar ao normal, use *Funcionários → Redefinir senha* (ou peça ao
+   responsável técnico), com senha forte, em cada conta.
 3. **Substituir o cardápio de exemplo pelo real:** apague o exemplo
    (`supabase/seed/remove_cardapio_EXEMPLO.sql`) e cadastre seus produtos, preços e bairros.
 4. **Preencher a tela Configurações** (nome da casa, telefone, descontos, taxa padrão, horários de

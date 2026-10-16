@@ -316,3 +316,23 @@ quebrada com a esteira verde. Banco **descartável** e **sem segredo de produç�
 igual para qualquer pull request, sem tocar no Supabase real.
 **O que continua fora:** robôs de navegador e `smoke-deploy.sh`, por dependerem do site e das contas de
 produção.
+
+## 8. Senhas simplificadas na fase de teste (16/10/2026)
+
+**Decisão:** durante a fase de demonstração, as senhas das contas `admin`, `caixa` e `garcom` foram
+trocadas para **o próprio login** e a marcação de troca obrigatória (`profiles.must_change_password`)
+foi baixada nas três — a pedido explícito do administrador, para entrar e sair rápido enquanto ele
+confere as telas. A reversão está prevista para quando o sistema sair da fase de teste.
+
+**Como foi feito:** o hash da senha é gravado no `auth.users` com o mesmo algoritmo que o Supabase usa
+(bcrypt, `extensions.crypt(…, extensions.gen_salt('bf'))`) e a flag de troca é baixada em `profiles`.
+Nenhuma tabela, política ou regra de negócio mudou; nenhum segredo privilegiado entrou no repositório.
+
+**Risco aceito, conscientemente:** o sistema está publicado em endereço público e as senhas são
+trivialmente adivinháveis. Enquanto os dados forem de demonstração o risco é baixo; **antes de cadastrar
+cardápio/preços reais é obrigatório redefinir as três senhas** (a pendência continua registrada em
+`ENTREGA.md`, seção 7). O fluxo de troca de senha no primeiro acesso segue intacto: contas novas criadas
+pelo sistema continuam nascendo com `must_change_password = true`.
+
+**Evidência:** login real conferido nos três perfis contra o site publicado (`e2e-telas.mjs`, 0 falhas e
+0 avisos, com a guarda que falha se a tela de troca obrigatória aparecer).

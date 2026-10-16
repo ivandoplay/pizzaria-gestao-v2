@@ -16,12 +16,14 @@ interface ItemNav {
   grupo: 'operacao' | 'gestao' | 'sistema'
   /** Aparece na barra inferior do celular. */
   mobile?: boolean
+  /** Termos extras para a busca da paleta de comandos (⌘K). */
+  termos?: string
 }
 
 const NAV: ItemNav[] = [
   { to: '/caixa', rotulo: 'Caixa', icone: 'caixa', roles: ['admin', 'manager'], grupo: 'operacao', mobile: true },
   { to: '/mesas', rotulo: 'Mesas', icone: 'mesas', roles: ['admin', 'manager', 'waiter'], grupo: 'operacao', mobile: true },
-  { to: '/pedidos-prontos', rotulo: 'Prontos', icone: 'check', roles: ['admin', 'manager', 'waiter'], grupo: 'operacao', mobile: true },
+  { to: '/pedidos-prontos', rotulo: 'Prontos', icone: 'check', roles: ['admin', 'manager', 'waiter'], grupo: 'operacao', mobile: true, termos: 'pedidos prontos fila entrega garçom salão' },
   { to: '/delivery', rotulo: 'Delivery', icone: 'entrega', roles: ['admin', 'manager'], grupo: 'operacao', mobile: true },
   { to: '/historico', rotulo: 'Histórico', icone: 'historico', roles: ['admin', 'manager'], grupo: 'operacao', mobile: true },
   { to: '/dashboard', rotulo: 'Painel do dia', icone: 'painel', roles: ['admin'], grupo: 'gestao', mobile: true },
@@ -163,6 +165,7 @@ export function AppLayout() {
       rotulo: `Ir para ${item.rotulo}`,
       grupo: 'Navegar',
       icone: item.icone,
+      termos: item.termos,
       executar: () => navigate(item.to),
     }))
     const acoes: Comando[] = [

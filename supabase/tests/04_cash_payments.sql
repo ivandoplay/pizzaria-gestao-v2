@@ -166,6 +166,14 @@ begin
 
   perform tests.login('carlos.caixa');
 
+  -- O pedido segue o fluxo real (produção pelo caixa, entrega à mesa). Desde a
+  -- migração 0012 o fechamento normal exige que não haja pedido em andamento —
+  -- o que este bloco testa é o bloqueio pelo SALDO.
+  perform public.advance_order_status(v_order.id, 'confirmed');
+  perform public.advance_order_status(v_order.id, 'preparing');
+  perform public.advance_order_status(v_order.id, 'ready');
+  perform public.advance_order_status(v_order.id, 'delivered_to_table');
+
   -- fechar conta com saldo pendente é bloqueado
   perform tests.expect_error(
     format($sql$select public.close_table_account(%L::uuid)$sql$, v_order.table_session_id),

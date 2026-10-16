@@ -17,6 +17,11 @@ const MESSAGES: { code: string; message: string }[] = [
   { code: 'SESSION_NOT_FOUND', message: 'Conta não encontrada.' },
   { code: 'SESSION_NOT_OPEN', message: 'Esta conta já foi fechada por outro usuário.' },
   { code: 'BALANCE_PENDING', message: 'Ainda há saldo pendente nesta conta.' },
+  {
+    code: 'ORDERS_IN_PROGRESS',
+    message:
+      'Ainda há pedido em andamento nesta mesa. Entregue em Pedidos prontos ou cancele o pedido antes de fechar a conta.',
+  },
   { code: 'ORDER_NOT_FOUND', message: 'Pedido não encontrado.' },
   { code: 'ORDER_CANCELLED', message: 'Este pedido está cancelado.' },
   { code: 'ORDER_ACCOUNT_CLOSED', message: 'A conta deste pedido já foi fechada.' },
@@ -115,4 +120,22 @@ export function translateError(error: unknown): string {
   }
 
   return raw
+}
+
+/**
+ * Código do erro, quando o banco devolveu um. Sem código = a resposta não
+ * chegou (rede caiu, sessão expirou): o navegador NÃO sabe se a operação foi
+ * gravada — é o caso em que repetir com a mesma chave é seguro.
+ */
+export function codigoDoErro(error: unknown): string | null {
+  if (!error) return null
+  const raw =
+    typeof error === 'string' ? error : ((error as { message?: string }).message ?? '')
+  const achado = MESSAGES.find(({ code }) => raw.toUpperCase().includes(code))
+  return achado?.code ?? null
+}
+
+/** Verdadeiro quando a resposta não trouxe código: resultado incerto. */
+export function erroSemCodigo(error: unknown): boolean {
+  return codigoDoErro(error) === null
 }

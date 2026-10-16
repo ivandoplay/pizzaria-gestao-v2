@@ -23,8 +23,9 @@ import {
   useToast,
 } from '../components/ui'
 import { Icon } from '../components/icons'
-import { duracaoDesde, formatMoney, formatTime, newClientUuid, plural } from '../lib/format'
-import { translateError } from '../lib/errors'
+import { duracaoDesde, formatMoney, formatTime, plural } from '../lib/format'
+import { useCofreDeChaves } from '../lib/idempotencia'
+import { codigoDoErro, erroSemCodigo, translateError } from '../lib/errors'
 import { TABLE_STATUS_LABELS, type TableOverview, type TableStatus } from '../lib/types'
 
 /** Aparência de cada situação da mesa — a cor comunica o estado antes do texto. */
@@ -85,6 +86,7 @@ export default function TablesPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const tables = useTables()
+  const cofreDeChaves = useCofreDeChaves()
 
   const [selecionada, setSelecionada] = useState<TableOverview | null>(null)
   const [abrirEm, setAbrirEm] = useState<TableOverview | null>(null)
@@ -102,19 +104,6 @@ export default function TablesPage() {
   }, [])
 
   const canOpenSession = profile?.role === 'admin' || profile?.role === 'manager' || profile?.role === 'waiter'
-  // Quem pode receber a conta: muda só o TEXTO do atalho no cartão (o destino é
-  // o mesmo — a tela da mesa — e a permissão de verdade continua no banco).
-  const podeReceber = profile?.role === 'admin' || profile?.role === 'manager'
-  /**
-   * Quem vê DINHEIRO.
-   *
-   * Combinado com o administrador em 16/10/2026: os TOTAIS do salão (quanto
-   * está aberto em todas as mesas, quanto há a receber) são assunto de gestão —
-   * só o administrador vê. O caixa continua vendo o valor de CADA conta, porque
-   * é ele quem recebe o pagamento na mesa; o garçom não vê valor de conta
-   * nenhum: ele anota pedido e entrega. Preço de item do cardápio continua
-   * aparecendo para todos (é o mesmo preço do menu impresso).
-   */
   /**
    * Quem vê DINHEIRO, depois do ajuste de 16/10/2026:
    *  · valor de CADA conta  → todo mundo (o garçom recebe e fecha na mesa);
@@ -156,17 +145,46 @@ export default function TablesPage() {
     if (!abrirEm) return
     setBusy(true)
     try {
+      // A chave pertence à OPERAÇÃO (mesa + dados digitados), não à tentativa:
+      // se a resposta se perder, tentar de novo devolve a MESMA sessão aberta em
+      // vez de criar outra. `renovar()` só depois do sucesso.
+      const chave = cofreDeChaves.chavePara(`${abrirEm.id}|${dados.pessoas}|${dados.observacao}`)
       const sessao = await api.openTableSession(
         abrirEm.id,
         dados.pessoas ? Number(dados.pessoas) : null,
         dados.observacao.trim() || null,
-        newClientUuid(),
+        chave,
       )
+      cofreDeChaves.renovar()
       toast.success(`Atendimento aberto na ${abrirEm.name ?? `mesa ${abrirEm.number}`}.`)
       await queryClient.invalidateQueries({ queryKey: ['tables'] })
       setAbrirEm(null)
       navigate(`/mesas/${(sessao as { id: string }).id}`)
     } catch (error) {
+      // Corrida do salão: dois funcionários tocaram "Abrir mesa" na mesma mesa
+      // ao mesmo tempo. Em vez de só mostrar erro, entrar no atendimento que
+      // acabou de abrir — que é o que o operador queria fazer.
+      if (codigoDoErro(error) === 'TABLE_ALREADY_OPEN') {
+        const atualizado = await tables.refetch()
+        const mesaAgora = (atualizado.data ?? []).find((mesa) => mesa.id === abrirEm.id)
+        setAbrirEm(null)
+        if (mesaAgora?.open_session_id) {
+          toast.info('Esta mesa já estava aberta — você entrou no atendimento em curso.')
+          navigate(`/mesas/${mesaAgora.open_session_id}`)
+        } else {
+          toast.error('Esta mesa já está em atendimento. A tela foi atualizada — confira a mesa antes de tentar de novo.')
+        }
+        return
+      }
+      if (erroSemCodigo(error)) {
+        // Sem resposta do servidor não se sabe se a mesa abriu. A chave da
+        // operação é a mesma, então repetir NÃO cria uma segunda sessão.
+        toast.error(
+          'Não foi possível confirmar a abertura. Se a mesa tiver sido aberta por esta tentativa, ela aparece ao atualizar — repetir não abre duas.',
+        )
+        await tables.refetch()
+        return
+      }
       toast.error(translateError(error))
     } finally {
       setBusy(false)
@@ -390,7 +408,12 @@ export default function TablesPage() {
                         to={`/mesas/${sessao}`}
                         className="flex h-11 items-center justify-center gap-1.5 border-t border-ink-100 bg-ink-25 text-[13px] font-semibold text-brand-700 transition hover:bg-brand-50"
                       >
-                        {podeReceber ? 'Conta e receber' : 'Abrir atendimento'}
+                        {/* O texto é o MESMO para todo perfil que entra na mesa
+                            ocupada: desde 16/10/2026 o garçom também recebe e
+                            fecha, então "Abrir atendimento" comunicava menos do
+                            que o sistema permite. Quem não pode receber continua
+                            vendo o botão de recebimento desabilitado lá dentro. */}
+                        Ver conta e receber
                         <Icon nome="seta-direita" className="h-4 w-4" />
                       </Link>
                     )}
@@ -458,10 +481,8 @@ function DetalhesMesa({
   isAdmin: boolean
 }) {
   const navigate = useNavigate()
-  const { profile } = useAuth()
   if (!mesa) return null
 
-  const podeFechar = profile?.role === 'admin' || profile?.role === 'manager'
   const temConta = Boolean(mesa.open_session_id)
 
   return (
@@ -480,7 +501,7 @@ function DetalhesMesa({
           )}
           {temConta && (
             <Button icone="seta-direita" onClick={() => navigate(`/mesas/${mesa.open_session_id}`)}>
-              {podeFechar ? 'Abrir conta e receber' : 'Abrir atendimento'}
+              Ver conta e receber
             </Button>
           )}
         </>

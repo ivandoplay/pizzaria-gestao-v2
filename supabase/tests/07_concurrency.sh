@@ -6,7 +6,7 @@
 # enquanto a outra tenta a mesma operação:
 #   1. abrir atendimento na mesma mesa;
 #   2. registrar o mesmo pagamento (idempotência por client_uuid);
-#   3. fechar a mesma conta.
+#   3. fechar a mesma conta (com o pedido já entregue — migração 0012).
 #
 # Requer o banco de teste já migrado, com seed estrutural e tests/00_setup.sql
 # aplicados (o runner tools/run-sql-tests.sh cuida disso).
@@ -127,6 +127,24 @@ if [ "$PAY_COUNT" = "1" ] && [ "$PAID" = "1400" ] && [ "$TROCO" = "600" ]; then
   ok "clique duplo simultâneo gerou 1 único recebimento de 1400 (troco 600 registrado uma vez)"
 else
   fail "recebimentos=$PAY_COUNT, pago=$PAID, troco=$TROCO — possível duplicidade: $B_OUT"
+fi
+
+# -----------------------------------------------------------------------------
+echo "-- 07.2b pedido entregue antes do fechamento (0012) --"
+# Desde a migração 0012 a conta não é fechada com pedido em andamento: o pedido
+# do atendimento concorrente percorre o fluxo real até a entrega. O que a etapa
+# seguinte testa é a DISPUTA pelo fechamento, não a regra de pendência.
+q "select tests.login('carlos.caixa');
+   select public.advance_order_status('$ORDER'::uuid, 'confirmed');
+   select public.advance_order_status('$ORDER'::uuid, 'preparing');
+   select public.advance_order_status('$ORDER'::uuid, 'ready');
+   select public.advance_order_status('$ORDER'::uuid, 'delivered_to_table');" > /tmp/conc_entrega.log 2>&1
+
+ENTREGUE=$(q "select status from public.orders where id = '$ORDER'")
+if [ "$ENTREGUE" = "delivered_to_table" ]; then
+  ok "pedido entregue antes do fechamento — pendência zerada"
+else
+  fail "pedido não chegou a 'delivered_to_table': $ENTREGUE"
 fi
 
 # -----------------------------------------------------------------------------

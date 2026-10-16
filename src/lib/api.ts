@@ -440,6 +440,13 @@ export async function setOrderDiscount(orderId: string, reason: string, pct?: nu
   return unwrap(data, error)
 }
 
+/** O salão pergunta só isto: existe turno de caixa aberto? (sem valores) */
+export async function cashSessionIsOpen(): Promise<boolean> {
+  const { data, error } = await supabase.rpc('cash_session_is_open')
+  if (error) throw error
+  return Boolean(data)
+}
+
 export async function registerPayment(input: {
   orderId: string
   methodId: string

@@ -96,8 +96,16 @@ for (const perfil of PERFIS) {
     if (!ocupada) continue
     await cartao.click()
     await espera(700)
-    const abrir = page.locator('button').filter({ hasText: /^(Abrir|Acompanhar)/ }).first()
-    if ((await abrir.count()) === 0) continue
+    // O cartão abre o painel da mesa ("DetalhesMesa"), onde ficam os atalhos.
+    const abrir = page
+      .locator('button')
+      .filter({ hasText: /^(Abrir mesa|Ver conta e receber|Acompanhar)/ })
+      .first()
+    if ((await abrir.count()) === 0) {
+      await page.keyboard.press('Escape')
+      await espera(400)
+      continue
+    }
     await abrir.click()
     await page.waitForFunction(() => !document.querySelector('.esqueleto'), undefined, { timeout: 25000 }).catch(() => {})
     await espera(1200)

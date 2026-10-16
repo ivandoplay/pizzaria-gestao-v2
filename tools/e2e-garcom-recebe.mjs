@@ -9,10 +9,12 @@
  *   2. abre a última mesa livre do salão (a menos usada) e lança um item;
  *   3. confere que a tela da conta MOSTRA o valor (Total da conta / Recebido /
  *      Falta receber) — antes desta correção o garçom não via dinheiro nenhum;
- *   4. abre a janela "Receber", escolhe Dinheiro, informa quanto o cliente
- *      entregou e registra o recebimento (o valor entra no caixa do turno);
- *   5. fecha a conta quitada e libera a mesa;
- *   6. volta para /mesas e confere que a mesa está livre de novo.
+ *   4. confere que o fechamento é RECUSADO com pedido em andamento (regra da
+ *      migração 0012) — a tela precisa dizer o motivo antes do clique;
+ *   5. o CAIXA (conta de apoio, em outra aba) conduz a produção até "pronto";
+ *   6. o garçom entrega pela fila de Pedidos prontos;
+ *   7. só então recebe em dinheiro e fecha a conta quitada;
+ *   8. volta para /mesas e confere que a mesa está livre de novo.
  *
  * O robô não abre nem fecha caixa: ele usa o turno que estiver aberto — o banco
  * é quem entra com o valor no turno em curso e recusa, com mensagem clara, se
@@ -29,11 +31,15 @@ const garcom = {
   login: process.env.PZ_GARCOM_LOGIN ?? 'robo.garcom',
   senha: process.env.PZ_GARCOM_PASSWORD,
 }
+const caixa = {
+  login: process.env.PZ_CAIXA_LOGIN ?? 'robo.caixa',
+  senha: process.env.PZ_CAIXA_PASSWORD,
+}
 const prefixo = process.env.PZ_PRINTS ?? 'artifacts/garcom-recebe'
 const celular = { width: 390, height: 844 }
 
-if (!garcom.senha) {
-  console.error('Defina PZ_GARCOM_PASSWORD.')
+if (!garcom.senha || !caixa.senha) {
+  console.error('Defina PZ_GARCOM_PASSWORD e PZ_CAIXA_PASSWORD.')
   process.exit(2)
 }
 
@@ -61,26 +67,35 @@ const contexto = await navegador.newContext({
 const page = await contexto.newPage()
 page.setDefaultTimeout(20_000)
 
+/**
+ * O caixa trabalha em OUTRO aparelho (computador do balcão) — e é ele quem
+ * conduz a produção. Abrir um segundo contexto é o mais próximo do salão real:
+ * duas sessões independentes, como a pizzaria funciona.
+ */
+const contextoCaixa = await navegador.newContext({ viewport: { width: 1440, height: 900 }, locale: 'pt-BR' })
+const pageCaixa = await contextoCaixa.newPage()
+pageCaixa.setDefaultTimeout(20_000)
+
 const errosDeConsole = []
 page.on('console', (msg) => {
   if (msg.type() === 'error') errosDeConsole.push(msg.text())
 })
 
-async function entrar() {
-  await page.goto(`${base}/login`, { waitUntil: 'domcontentloaded' })
-  if (await page.locator('button:has-text("Entrar com outra conta")').count()) {
-    await page.locator('button:has-text("Entrar com outra conta")').click()
+async function entrar(perfil = garcom, alvo = page) {
+  await alvo.goto(`${base}/login`, { waitUntil: 'domcontentloaded' })
+  if (await alvo.locator('button:has-text("Entrar com outra conta")').count()) {
+    await alvo.locator('button:has-text("Entrar com outra conta")').click()
   }
-  await page.waitForSelector('input[autocomplete="username"]', { timeout: 30_000 })
-  await page.fill('input[autocomplete="username"]', garcom.login)
-  await page.fill('input[autocomplete="current-password"]', garcom.senha)
-  await page.click('button[type="submit"]')
-  await page
+  await alvo.waitForSelector('input[autocomplete="username"]', { timeout: 30_000 })
+  await alvo.fill('input[autocomplete="username"]', perfil.login)
+  await alvo.fill('input[autocomplete="current-password"]', perfil.senha)
+  await alvo.click('button[type="submit"]')
+  await alvo
     .waitForFunction(() => !location.pathname.startsWith('/login'), undefined, { timeout: 30_000 })
     .catch(() => {})
   await espera(2200)
-  if ((await page.locator('text=Defina sua senha definitiva').count()) > 0) {
-    throw new Error(`${garcom.login} está com troca de senha obrigatória pendente`)
+  if ((await alvo.locator('text=Defina sua senha definitiva').count()) > 0) {
+    throw new Error(`${perfil.login} está com troca de senha obrigatória pendente`)
   }
 }
 
@@ -140,9 +155,10 @@ const idSessao = urlConta.split('/').pop()
 console.log('\n== 2) lança um item no carrinho e envia para a produção')
 const contarCarrinho = () => page.locator('button[title="Remover item da lista"]').count()
 let lancado = false
+let numeroPedido = 0
 for (const nomeAba of ['Bebidas', 'Porções']) {
   if (lancado) break
-  const aba = page.locator('button').filter({ hasText: new RegExp(`^${nomeAba}\\b`) }).first()
+  const aba = page.locator('button').filter({ hasText: new RegExp(`^${nomeAba}\b`) }).first()
   if ((await aba.count()) > 0) {
     await aba.click()
     await espera(800)
@@ -178,9 +194,13 @@ const enviar = page.locator('button:has-text("Enviar pedido para a produção")'
 if (await enviar.count()) {
   await enviar.click().catch(() => {})
   await espera(2600)
-  const avisoEnvio = (await page.locator('body').innerText()).match(/Pedido #[^]*?(produção\.)/)
-  if (avisoEnvio) ok(`pedido lançado (${resumo(avisoEnvio[0], 60)})`)
-  else aviso('sem confirmação textual do envio — seguindo pela conta')
+  const avisoEnvio = (await page.locator('body').innerText()).match(/Pedido #(\d+)/)
+  if (avisoEnvio) {
+    numeroPedido = Number(avisoEnvio[1])
+    ok(`pedido #${numeroPedido} lançado`)
+  } else {
+    aviso('sem confirmação textual do envio — seguindo pela conta')
+  }
 } else {
   falhou('não achei o botão "Enviar pedido para a produção"')
 }
@@ -200,7 +220,103 @@ if (valorFalta !== null) ok(`falta receber lido na tela: ${dinheiro(valorFalta)}
 else falhou('não consegui ler "Falta receber" na tela')
 await page.screenshot({ path: `${prefixo}/1-conta-com-valor.png`, fullPage: true })
 
-console.log('\n== 4) o garçom registra o recebimento')
+console.log('\n== 4) fechamento RECUSADO com pedido em andamento (migração 0012)')
+{
+  const botaoFechar = page.locator('button:has-text("Fechar conta")').first()
+  if ((await botaoFechar.count()) === 0) {
+    falhou('o botão "Fechar conta" não aparece para o garçom')
+  } else {
+    await botaoFechar.click()
+    const janela = page.locator('[role="dialog"]:has-text("Fechar conta da mesa")').last()
+    await janela.waitFor({ timeout: 15_000 }).catch(() => {})
+    const texto = await janela.innerText().catch(() => '')
+    if (/pedido em andamento/i.test(texto)) ok('a janela explica que há pedido em andamento')
+    else falhou(`a janela não avisou da pendência (${resumo(texto)})`)
+    if (/Prontos aguardando entrega|Em produção/.test(texto)) ok('a janela mostra o resumo operacional dos pedidos')
+    else falhou('a janela não mostrou o resumo operacional')
+    const confirmar = janela.locator('button:has-text("Confirmar fechamento")').last()
+    if (await confirmar.isDisabled()) ok('o fechamento está bloqueado enquanto o pedido não é entregue')
+    else falhou('o "Confirmar fechamento" ficou habilitado com pedido em andamento')
+    await janela.screenshot({ path: `${prefixo}/3b-fechamento-bloqueado.png` })
+    await janela.locator('button:has-text("Voltar")').first().click().catch(() => {})
+    await espera(800)
+  }
+}
+
+console.log('\n== 5) o caixa conduz a produção até o pedido ficar pronto')
+await entrar(caixa, pageCaixa)
+await pageCaixa.goto(`${base}/mesas/${idSessao}`, { waitUntil: 'domcontentloaded' })
+await pageCaixa.waitForFunction(() => !document.querySelector('.esqueleto'), undefined, { timeout: 25_000 }).catch(() => {})
+await espera(1500)
+for (const passo of ['Confirmado', 'Em preparação', 'Pronto']) {
+  const abrirSituacao = pageCaixa.locator('button:has-text("Situação")').first()
+  if ((await abrirSituacao.count()) === 0) {
+    falhou(`o caixa não encontrou o botão "Situação" para marcar ${passo}`)
+    break
+  }
+  await abrirSituacao.click()
+  const janela = pageCaixa.locator('[role="dialog"]').last()
+  await janela.waitFor({ timeout: 15_000 }).catch(() => {})
+  const botao = janela.locator(`button:has-text("Marcar como ${passo}")`).first()
+  if ((await botao.count()) === 0) {
+    falhou(`não achei "Marcar como ${passo}" para o caixa`)
+    await pageCaixa.keyboard.press('Escape')
+    break
+  }
+  await botao.click()
+  await espera(2000)
+  await pageCaixa.keyboard.press('Escape').catch(() => {})
+  await espera(600)
+}
+ok('produção conduzida pelo caixa até "Pronto"')
+
+console.log('\n== 6) o garçom entrega pela fila de Pedidos prontos')
+await page.goto(`${base}/pedidos-prontos`, { waitUntil: 'domcontentloaded' })
+await semEsqueleto()
+let entregue = false
+for (let tentativa = 0; tentativa < 5 && !entregue; tentativa += 1) {
+  // O filtro do Playwright compara o textContent, que não tem espaços entre os
+  // elementos ("Mesa 12Pedido #26") — por isso o lookahead em vez de \b, e o
+  // número do pedido junto para não confundir a mesa 1 com a 12.
+  const cartao = page
+    .locator('section')
+    .filter({ hasText: new RegExp(`Mesa ${numeroMesa}(?!\\d)`) })
+    .filter({ hasText: `Pedido #${numeroPedido}` })
+    .first()
+  if ((await cartao.count()) === 0) {
+    await page.locator('button:has-text("Atualizar")').first().click().catch(() => {})
+    await espera(1800)
+    continue
+  }
+  const botao = cartao.locator('button:has-text("Confirmar entrega")').first()
+  if ((await botao.count()) === 0) {
+    await espera(1800)
+    continue
+  }
+  await botao.click()
+  await espera(2600)
+  entregue = true
+}
+if (entregue) ok(`pedido da mesa ${numeroMesa} entregue pela fila`)
+else falhou(`não consegui entregar o pedido da mesa ${numeroMesa} pela fila`)
+
+await page.goto(`${base}/mesas/${idSessao}`, { waitUntil: 'domcontentloaded' })
+await semEsqueleto()
+{
+  const abrir = page.locator('button:has-text("Fechar conta")').first()
+  if ((await abrir.count()) > 0) {
+    await abrir.click()
+    const janela = page.locator('[role="dialog"]:has-text("Fechar conta da mesa")').last()
+    await janela.waitFor({ timeout: 15_000 }).catch(() => {})
+    const texto = await janela.innerText().catch(() => '')
+    if (/pedido em andamento/i.test(texto)) falhou('a entrega não zerou a pendência da conta')
+    else ok('depois da entrega a pendência zerou (o fechamento não é mais bloqueado por pedido)')
+    await janela.locator('button:has-text("Voltar")').first().click().catch(() => {})
+    await espera(800)
+  }
+}
+
+console.log('\n== 7) o garçom registra o recebimento')
 if ((valorFalta ?? 0) === 0) {
   aviso('a conta já estava quitada — pulando o registro e indo direto ao fechamento')
 } else {
@@ -263,7 +379,7 @@ if ((valorFalta ?? 0) === 0) {
   }
 }
 
-console.log('\n== 5) o garçom fecha a conta quitada')
+console.log('\n== 8) o garçom fecha a conta quitada')
 await page
   .locator('[role="dialog"]:has-text("Receber — pedido")')
   .waitFor({ state: 'detached', timeout: 10_000 })
@@ -290,7 +406,7 @@ if ((await botaoFechar.count()) === 0) {
 }
 await page.screenshot({ path: `${prefixo}/5-depois-de-fechar.png`, fullPage: true })
 
-console.log('\n== 6) a mesa está livre de novo')
+console.log('\n== 9) a mesa está livre de novo')
 await semEsqueleto()
 const livresDepois = page.locator('button').filter({ hasText: 'Iniciar atendimento' })
 let mesaVoltou = false

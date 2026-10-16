@@ -64,6 +64,23 @@ begin
     (select total_cents from public.order_overview where id = v_order.id),
     5300, '10.2 garçom lê o total da conta que atende');
 
+  -- 0012: com pedido em andamento, nem o garçom fecha a conta (o pedido é
+  -- entregue ou cancelado antes — a mesa não é liberada com pedido na cozinha).
+  perform tests.expect_error(
+    format($sql$select public.close_table_account(%L::uuid)$sql$, v_session),
+    'ORDERS_IN_PROGRESS', '10.2b pedido em andamento impede o fechamento da conta');
+
+  -- O pedido segue o fluxo real: produção conduzida pelo caixa, entrega pelo
+  -- garçom. Só depois disso a conta pode ser fechada.
+  perform tests.logout();
+  perform tests.login('carlos.caixa');
+  perform public.advance_order_status(v_order.id, 'confirmed');
+  perform public.advance_order_status(v_order.id, 'preparing');
+  perform public.advance_order_status(v_order.id, 'ready');
+  perform tests.logout();
+  perform tests.login('gisele.garcom');
+  perform public.advance_order_status(v_order.id, 'delivered_to_table');
+
   -- 1) garçom RECEBE (dinheiro, com troco) no pedido dele
   v_pagamento := public.register_payment(v_order.id, 'cash', 3000, 5000, false, null,
     '00000000-0000-0000-0000-000000000104'::uuid);
@@ -137,6 +154,17 @@ begin
         'modifier_option_ids', jsonb_build_array(v_fx.opt_queijo)))),
     '00000000-0000-0000-0000-000000000107'::uuid);
   perform tests.eq_int(v_order.total_cents, 5300, '10.15 pedido do bloco de limites: 5300');
+
+  -- Pedido entregue primeiro: o que este bloco testa é o bloqueio pelo SALDO
+  -- (a regra do pedido em andamento foi provada em 10.2b).
+  perform tests.logout();
+  perform tests.login('carlos.caixa');
+  perform public.advance_order_status(v_order.id, 'confirmed');
+  perform public.advance_order_status(v_order.id, 'preparing');
+  perform public.advance_order_status(v_order.id, 'ready');
+  perform public.advance_order_status(v_order.id, 'delivered_to_table');
+  perform tests.logout();
+  perform tests.login('gisele.garcom');
 
   -- NÃO fecha conta com saldo pendente
   perform tests.expect_error(
@@ -222,6 +250,12 @@ begin
 
   perform public.register_payment(v_order.id, 'pix', 5300, null, false, null,
     '00000000-0000-0000-0000-000000000113'::uuid);
+  -- Pedido entregue antes de fechar (migração 0012): a mesa não é liberada com
+  -- pedido em andamento.
+  perform public.advance_order_status(v_order.id, 'confirmed');
+  perform public.advance_order_status(v_order.id, 'preparing');
+  perform public.advance_order_status(v_order.id, 'ready');
+  perform public.advance_order_status(v_order.id, 'delivered_to_table');
   perform public.close_table_account(v_session);
   perform tests.eq_int(
     (select count(*) from public.table_sessions where id = v_session and status = 'open'),

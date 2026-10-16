@@ -101,6 +101,8 @@ declare
   v_fx record;
   v_mesa9 uuid;
   v_mesa10 uuid;
+  v_fechamento jsonb;
+  v_guardado public.orders;
   v_session9 uuid;
   v_session10 uuid;
   v_pronto public.orders;
@@ -194,7 +196,13 @@ begin
 
   perform tests.logout();
 
-  -- ---------------------------------------------------- 3) atendimento fechado
+  -- ------------------------- 3) fechamento com pedido em andamento (0012)
+  --
+  -- Até a migração 0011 dava para encerrar a conta com um pedido `ready` na
+  -- fila: a sessão fechava e a entrega passava a ser recusada — pedido preso.
+  -- Desde a 0012 o fechamento NORMAL é recusado enquanto houver pedido
+  -- aguardando ação, e o fechamento EXCEPCIONAL (administrador, com
+  -- justificativa) cancela esses pedidos em vez de deixá-los impossíveis.
   perform tests.login('gisele.garcom');
   v_session10 := (public.open_table_session(v_mesa10, 2::smallint, null,
                                             '00000000-0000-0000-0000-0000000000e5'::uuid)).id;
@@ -209,39 +217,85 @@ begin
   perform public.advance_order_status(v_encerrado.id, 'confirmed');
   perform public.advance_order_status(v_encerrado.id, 'preparing');
   perform public.advance_order_status(v_encerrado.id, 'ready');
-  perform tests.logout();
 
-  -- A conta é encerrada com o pedido ainda na fila (cliente foi embora).
-  perform tests.login('ana.admin');
-  perform public.close_table_account(v_session10, true, 'teste da fila: conta encerrada antes da entrega');
-  perform tests.logout();
-
-  perform tests.login('gisele.garcom');
+  -- 1) fechamento normal recusado enquanto o pedido espera entrega
   perform tests.expect_error(
-    format($sql$select public.advance_order_status(%L::uuid, 'delivered_to_table')$sql$, v_encerrado.id),
-    'SESSION_NOT_OPEN', 'pedido de atendimento encerrado não pode ser entregue');
+    format($sql$select public.close_table_account(%L::uuid)$sql$, v_session10),
+    'ORDERS_IN_PROGRESS', 'pedido pronto impede o fechamento normal da conta (0012)');
 
-  perform tests.eq_text((select status from public.orders where id = v_encerrado.id),
-    'ready', 'depois da recusa, o pedido continua pronto (nada foi entregue pela metade)');
-
-  -- O atendimento encerrado sai da fila, mesmo com o pedido em "pronto".
+  -- a mesa continua em atendimento e o pedido continua na fila
+  perform tests.eq_text((select status from public.table_sessions where id = v_session10),
+    'open', 'a mesa segue em atendimento depois da recusa');
   perform tests.eq_int(
     (select count(*) from public.order_overview
       where status = 'ready' and service_mode = 'dine_in'
         and account_closed_at is null and session_status = 'open'
         and id = v_encerrado.id),
-    0, 'pedido de atendimento encerrado não aparece na fila');
+    1, 'o pedido pronto continua na fila (nada foi liberado pela metade)');
   perform tests.logout();
 
-  -- Cinto e suspensório: se a conta estiver marcada como fechada mas a sessão
-  -- ainda aparecer aberta (estado que só existe em conserto manual), a entrega
-  -- também é recusada. Aqui o atendimento é reaberto de propósito, sob o
-  -- postgres, só para exercitar essa guarda.
-  update public.table_sessions set status = 'open', closed_at = null where id = v_session10;
+  -- 2) fechamento excepcional resolve a pendência: cancela com a justificativa
+  perform tests.login('ana.admin');
+  v_fechamento := public.close_table_account(v_session10, true,
+    'teste da fila: cliente foi embora antes da entrega');
+  perform tests.eq_int((v_fechamento ->> 'orders_cancelled_on_close')::bigint, 1,
+    'fechamento excepcional cancela o pedido pendente (não deixa pedido preso)');
+  perform tests.eq_text((select status from public.orders where id = v_encerrado.id),
+    'cancelled', 'o pedido pendente ficou cancelado');
+  perform tests.eq_text((select cancel_reason from public.orders where id = v_encerrado.id),
+    'teste da fila: cliente foi embora antes da entrega', 'o cancelamento guarda a justificativa');
+  perform tests.ok(
+    exists (select 1 from public.order_status_history h
+             where h.order_id = v_encerrado.id and h.to_status = 'cancelled'),
+    'o histórico do pedido registra o cancelamento no fechamento');
+  perform tests.ok(
+    exists (select 1 from public.audit_logs a
+             where a.action = 'order.status.cancelled' and a.entity_id = v_encerrado.id::text),
+    'o cancelamento no fechamento excepcional fica na auditoria');
+  perform tests.ok(
+    exists (select 1 from public.audit_logs a
+             where a.action = 'table_account.close' and a.entity_id = v_session10::text
+               and (a.details ->> 'orders_cancelled_on_close') = '1'),
+    'o fechamento registra quantos pedidos foram cancelados');
+  perform tests.logout();
 
+  -- 3) pedido cancelado não entra na fila nem aceita entrega
   perform tests.login('gisele.garcom');
   perform tests.expect_error(
     format($sql$select public.advance_order_status(%L::uuid, 'delivered_to_table')$sql$, v_encerrado.id),
+    'CANCELLED', 'pedido cancelado no fechamento não aceita entrega');
+  perform tests.eq_int(
+    (select count(*) from public.order_overview
+      where status = 'ready' and service_mode = 'dine_in'
+        and account_closed_at is null and session_status = 'open'
+        and id = v_encerrado.id),
+    0, 'pedido cancelado não aparece na fila');
+  perform tests.logout();
+
+  -- 4) Cinto e suspensório: se a conta estiver marcada como fechada mas a sessão
+  -- ainda aparecer aberta (estado que só existe em conserto manual), a entrega
+  -- também é recusada. Aqui o pedido é marcado como de conta fechada e o
+  -- atendimento reaberto de propósito, sob o postgres, só para exercitar a guarda.
+  perform tests.login('gisele.garcom');
+  v_guardado := public.create_order(
+    jsonb_build_object('service_mode', 'dine_in', 'table_session_id', v_session9,
+      'items', jsonb_build_array(jsonb_build_object(
+        'product_id', v_fx.drink, 'variant_id', v_fx.variant_drink_un, 'quantity', 1))),
+    '00000000-0000-0000-0000-0000000000e7'::uuid);
+  perform tests.logout();
+
+  perform tests.login('carlos.caixa');
+  perform public.advance_order_status(v_guardado.id, 'confirmed');
+  perform public.advance_order_status(v_guardado.id, 'preparing');
+  perform public.advance_order_status(v_guardado.id, 'ready');
+  perform tests.logout();
+
+  update public.orders set account_closed_at = now() where id = v_guardado.id;
+  update public.table_sessions set status = 'open', closed_at = null where id = v_session9;
+
+  perform tests.login('gisele.garcom');
+  perform tests.expect_error(
+    format($sql$select public.advance_order_status(%L::uuid, 'delivered_to_table')$sql$, v_guardado.id),
     'ORDER_ACCOUNT_CLOSED', 'conta marcada como fechada também recusa a entrega');
   perform tests.logout();
 

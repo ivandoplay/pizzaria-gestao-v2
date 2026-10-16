@@ -3,10 +3,17 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Button, Callout, ConfirmDialog, Field, Input, Modal, useToast } from './ui'
 import { Icon, type NomeIcone } from './icons'
 import { useAuth } from '../context/AuthContext'
-import { formatMoney, formatTime, newClientUuid, parseMoneyToCents } from '../lib/format'
-import { translateError } from '../lib/errors'
+import { formatMoney, formatTime, parseMoneyToCents } from '../lib/format'
+import { useChaveIdempotente } from '../lib/idempotencia'
+import { erroSemCodigo, translateError } from '../lib/errors'
 import * as api from '../lib/api'
-import { invalidateOrderData, useOpenCashSession, usePaymentMethods, usePayments } from '../lib/hooks'
+import {
+  invalidateOrderData,
+  useCashSessionIsOpen,
+  useOpenCashSession,
+  usePaymentMethods,
+  usePayments,
+} from '../lib/hooks'
 import type { Payment } from '../lib/types'
 
 /**
@@ -81,6 +88,7 @@ export function PaymentModal({
 
   const nomeMetodo = (id: string) => activeMethods.find((method) => method.id === id)?.label ?? 'Forma de pagamento'
 
+
   // Pré-preenche o valor com o saldo pendente: é o caso mais comum (conta cheia).
   useEffect(() => {
     if (amount === '') setAmount((remaining / 100).toFixed(2).replace('.', ','))
@@ -92,6 +100,15 @@ export function PaymentModal({
   const changeCents =
     selectedMethod?.requires_change && tenderedCents !== null ? Math.max(tenderedCents - amountCents, 0) : 0
 
+  /**
+   * Chave da operação de recebimento: acompanha o CONTEÚDO do pagamento, não o
+   * clique. Perdida a resposta, tentar de novo com o mesmo conteúdo reencontra o
+   * recebimento já gravado (idempotência por `client_uuid` no banco) em vez de
+   * receber duas vezes. Ao confirmar, a chave é renovada para o próximo valor.
+   */
+  const assinaturaDoRecebimento = `${selectedMethod?.id ?? ''}|${amountCents}|${tenderedCents ?? ''}|${isPrepaid}|${note.trim()}`
+  const { chave: chaveDoRecebimento, renovar: renovarChaveDoRecebimento } = useChaveIdempotente(assinaturaDoRecebimento)
+
   const semMetodo = !methods.isLoading && activeMethods.length === 0
   /**
    * A gaveta (sessão de caixa) é lida só por caixa e administrador — RLS.
@@ -101,8 +118,14 @@ export function PaymentModal({
    * o botão desabilitado mesmo com o caixa aberto.
    */
   const leAGaveta = isAdmin || isManager
-  const caixaFechado = leAGaveta && !cashSession.isLoading && !cashSession.data
-  const podeRegistrar = remaining > 0 && !semMetodo && !caixaFechado && amountCents > 0
+  /** Quem não lê a gaveta pergunta só "tem turno aberto?" — sem ver valores. */
+  const caixaParaQuemNaoLe = useCashSessionIsOpen(!leAGaveta)
+  const caixaFechado = leAGaveta
+    ? !cashSession.isLoading && !cashSession.data
+    : caixaParaQuemNaoLe.data === false
+  const caixaIndefinido = !leAGaveta && caixaParaQuemNaoLe.isLoading
+  const caixaAberto = leAGaveta ? Boolean(cashSession.data) : caixaParaQuemNaoLe.data === true
+  const podeRegistrar = remaining > 0 && !semMetodo && !caixaFechado && !caixaIndefinido && amountCents > 0
 
   async function handleSubmit() {
     if (!selectedMethod) return
@@ -130,7 +153,7 @@ export function PaymentModal({
         tenderedCents: selectedMethod.requires_change ? tenderedCents : null,
         isPrepaid,
         note: note.trim() || null,
-        clientUuid: newClientUuid(),
+        clientUuid: chaveDoRecebimento,
       })
       toast.success(
         changeCents > 0
@@ -141,9 +164,16 @@ export function PaymentModal({
       setTendered('')
       setNote('')
       setIsPrepaid(false)
+      renovarChaveDoRecebimento()
       invalidateOrderData(queryClient)
     } catch (error) {
-      toast.error(translateError(error))
+      if (erroSemCodigo(error)) {
+        toast.error(
+          'Não foi possível confirmar o recebimento. Se ele já tiver sido registrado, repetir este mesmo valor não duplica — confira o “Já recebido” antes de tentar de novo.',
+        )
+      } else {
+        toast.error(translateError(error))
+      }
     } finally {
       setBusy(false)
     }
@@ -225,10 +255,22 @@ export function PaymentModal({
           {/* Quem não lê a gaveta (garçom) não é bloqueado por ela: o valor entra
               no turno que estiver aberto e é o banco que recusa, com mensagem
               clara, quando ninguém abriu o caixa. */}
-          {!leAGaveta && (
-            <Callout tom="info" titulo="O recebimento entra no caixa do turno">
-              O valor cai no turno de caixa que estiver aberto. Se o sistema recusar, é porque ninguém abriu o
-              caixa ainda — peça para o caixa abrir o turno.
+          {!leAGaveta && caixaIndefinido && (
+            <Callout tom="info" titulo="Conferindo o caixa…">
+              Verificando se o turno de caixa está aberto — o recebimento entra no turno em curso.
+            </Callout>
+          )}
+
+          {!leAGaveta && caixaAberto && (
+            <Callout tom="info" titulo="Caixa aberto">
+              O recebimento entra no turno de caixa em curso. O valor aparece no fechamento do turno.
+            </Callout>
+          )}
+
+          {!leAGaveta && caixaFechado && (
+            <Callout tom="atencao" titulo="Caixa fechado">
+              Ninguém abriu o turno de caixa ainda. Peça para o caixa abrir o turno e registre o recebimento —
+              o banco recusa pagamentos sem uma sessão aberta.
             </Callout>
           )}
 

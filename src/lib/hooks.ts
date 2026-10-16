@@ -16,6 +16,7 @@ export const qk = {
   payments: (ids: string[]) => ['payments', ids] as const,
   statusHistory: (ids: string[]) => ['status-history', ids] as const,
   cashSession: ['cash-session'] as const,
+  cashSessionOpen: ['cash-session-open'] as const,
   cashMovements: (sessionId: string) => ['cash-movements', sessionId] as const,
   menu: ['menu'] as const,
   profiles: ['profiles'] as const,
@@ -75,6 +76,20 @@ export function useStatusHistory(orderIds: string[]) {
 
 export function useOpenCashSession() {
   return useQuery({ queryKey: qk.cashSession, queryFn: api.fetchOpenCashSession, refetchInterval: 60_000 })
+}
+
+/**
+ * Estado do caixa para quem NÃO lê a gaveta (o garçom): devolve apenas
+ * "existe turno aberto?" — sem valores, sem movimentos. Evita o garçom
+ * preencher a janela de recebimento para só então descobrir que não dá.
+ */
+export function useCashSessionIsOpen(habilitado: boolean) {
+  return useQuery({
+    queryKey: qk.cashSessionOpen,
+    queryFn: api.cashSessionIsOpen,
+    enabled: habilitado,
+    refetchInterval: 60_000,
+  })
 }
 
 export function useCashMovements(sessionId?: string) {
@@ -165,6 +180,7 @@ export function useRealtimeSync(enabled = true) {
       }
       if (has('cash')) {
         void queryClient.invalidateQueries({ queryKey: qk.cashSession })
+        void queryClient.invalidateQueries({ queryKey: qk.cashSessionOpen })
         void queryClient.invalidateQueries({ queryKey: ['cash-movements'] })
         queue.current.delete('cash')
       }

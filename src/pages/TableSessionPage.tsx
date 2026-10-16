@@ -15,6 +15,7 @@ import {
 } from '../lib/hooks'
 import * as api from '../lib/api'
 import { OrderComposer, type MenuData } from '../components/OrderComposer'
+import { useChaveIdempotente } from '../lib/idempotencia'
 import { PaymentModal } from '../components/PaymentPanel'
 import {
   Badge,
@@ -34,8 +35,8 @@ import {
   useToast,
 } from '../components/ui'
 import { Icon } from '../components/icons'
-import { duracaoDesde, formatDateTime, formatMoney, formatTime, newClientUuid, plural } from '../lib/format'
-import { translateError } from '../lib/errors'
+import { duracaoDesde, formatDateTime, formatMoney, formatTime, plural } from '../lib/format'
+import { codigoDoErro, erroSemCodigo, translateError } from '../lib/errors'
 import { ORDER_STATUS_LABELS, TABLE_STATUS_LABELS, type CartItem, type OrderItemOverview, type OrderOverview, type OrderStatus } from '../lib/types'
 
 export default function TableSessionPage() {
@@ -58,6 +59,8 @@ export default function TableSessionPage() {
   const [closeDialog, setCloseDialog] = useState<{ reason: string } | null>(null)
   const [statusModalOrder, setStatusModalOrder] = useState<string | null>(null)
   const [cancelItem, setCancelItem] = useState<{ id: string; label: string } | null>(null)
+  const [cancelarPedido, setCancelarPedido] = useState<{ id: string; numero: number } | null>(null)
+  const [motivoDoCancelamento, setMotivoDoCancelamento] = useState('')
   const [cancelReason, setCancelReason] = useState('')
   const [busy, setBusy] = useState(false)
   const [agora, setAgora] = useState(() => Date.now())
@@ -99,9 +102,37 @@ export default function TableSessionPage() {
   const podeReceberNaMesa = isManager || isWaiter
   const nomeMetodo = (id: string) => metodos.data?.find((metodo) => metodo.id === id)?.label ?? 'forma não identificada'
   const itensAtivos = items.filter((item) => !item.is_cancelled)
+
+  /**
+   * Pendência operacional: pedido que ainda exige ação da equipe. Enquanto
+   * houver um destes, o banco recusa o fechamento normal (migração 0012) —
+   * a tela antecipa a regra em vez de deixar o operador descobrir no clique.
+   */
+  const pedidosAguardando = orderList.filter((order) =>
+    ['received', 'confirmed', 'preparing'].includes(order.status),
+  )
+  const pedidosProntos = orderList.filter((order) => order.status === 'ready')
+  const pedidosPendentes = pedidosAguardando.length + pedidosProntos.length
+  const pedidosEntregues = orderList.filter((order) => order.status === 'delivered_to_table').length
+  const pedidosCancelados = orderList.filter((order) => order.status === 'cancelled').length
   const emProducao = sessionOrders.filter((order) =>
     ['received', 'confirmed', 'preparing', 'ready'].includes(order.status),
   ).length
+
+  /**
+   * Chave da operação de envio: muda quando o CARRINHO muda (outra operação),
+   * não a cada clique. Assim, se a resposta se perder na rede e o operador
+   * tentar de novo, o banco reconhece a mesma chave e devolve o MESMO pedido —
+   * em vez de criar um segundo.
+   */
+  const assinaturaDoPedido = useMemo(
+    () =>
+      JSON.stringify(
+        cart.map((item) => [item.key, item.quantity, item.notes, item.modifier_option_ids, item.flavor_product_ids]),
+      ),
+    [cart],
+  )
+  const { chave: chaveDoPedido, renovar: renovarChaveDoPedido } = useChaveIdempotente(assinaturaDoPedido)
 
   async function handleSendOrder() {
     if (!sessionId || cart.length === 0) return
@@ -119,25 +150,56 @@ export default function TableSessionPage() {
           modifier_option_ids: item.modifier_option_ids,
         })),
       }
-      const order = await api.createOrder(payload, newClientUuid())
+      const order = await api.createOrder(payload, chaveDoPedido)
       const numero = (order as unknown as { order_number: number }).order_number
       toast.success(`Pedido #${numero} enviado para a produção.`)
       setCart([])
+      renovarChaveDoPedido()
       invalidateOrderData(queryClient)
     } catch (error) {
-      toast.error(translateError(error))
+      if (erroSemCodigo(error)) {
+        // Sem resposta do servidor não se sabe se gravou. A chave é a mesma,
+        // então repetir é seguro — e isso precisa ser dito, não escondido.
+        toast.error(
+          'Não foi possível confirmar o envio. Se o pedido já tiver sido registrado, ele não será duplicado — confira a lista de pedidos e use “Enviar” de novo se não aparecer.',
+        )
+        void orders.refetch()
+      } else {
+        toast.error(translateError(error))
+      }
     } finally {
       setSending(false)
     }
   }
 
-  async function handleStatusChange(orderId: string, status: OrderStatus) {
+  /**
+   * Cancelar PEDIDO exige motivo (o banco recusa sem ele: REASON_REQUIRED).
+   * Por isso "Cancelado" não muda de situação direto: abre a janela de motivo,
+   * como no cancelamento de item.
+   */
+  async function handleStatusChange(orderId: string, status: OrderStatus, motivo?: string) {
     setBusy(true)
     try {
-      await api.advanceOrderStatus(orderId, status)
+      await api.advanceOrderStatus(orderId, status, motivo)
       toast.success(`Pedido atualizado para “${ORDER_STATUS_LABELS[status]}”.`)
       invalidateOrderData(queryClient)
       setStatusModalOrder(null)
+    } catch (error) {
+      toast.error(translateError(error))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function confirmarCancelamentoDoPedido() {
+    if (!cancelarPedido) return
+    setBusy(true)
+    try {
+      await api.advanceOrderStatus(cancelarPedido.id, 'cancelled', motivoDoCancelamento.trim())
+      toast.success('Pedido cancelado. Ele continua no histórico, com motivo e responsável.')
+      invalidateOrderData(queryClient)
+      setCancelarPedido(null)
+      setMotivoDoCancelamento('')
     } catch (error) {
       toast.error(translateError(error))
     } finally {
@@ -168,16 +230,32 @@ export default function TableSessionPage() {
       const result = (await api.closeTableAccount(sessionId, {
         force,
         reason: closeDialog?.reason || undefined,
-      })) as { balance_cents: number }
-      toast.success(
-        result.balance_cents > 0
-          ? `Conta encerrada com saldo pendente de ${formatMoney(result.balance_cents)} — registrado na auditoria.`
-          : 'Conta fechada e mesa liberada para o próximo atendimento.',
-      )
+      })) as { balance_cents: number; orders_cancelled_on_close?: number }
+      const cancelados = result.orders_cancelled_on_close ?? 0
+      if (result.balance_cents > 0) {
+        toast.success(
+          `Conta encerrada com saldo pendente de ${formatMoney(result.balance_cents)} — registrado na auditoria.`,
+        )
+      } else if (cancelados > 0) {
+        toast.success(
+          `Conta encerrada e ${plural(cancelados, 'pedido cancelado', 'pedidos cancelados')} com a sua justificativa — a mesa foi liberada.`,
+        )
+      } else {
+        toast.success('Conta fechada e mesa liberada para o próximo atendimento.')
+      }
       invalidateOrderData(queryClient)
       setCloseDialog(null)
       navigate('/mesas')
     } catch (error) {
+      // Outro operador fechou a mesma conta no meio do caminho: o resultado que
+      // o operador queria (mesa livre) já é verdade — não é erro para ele.
+      if (codigoDoErro(error) === 'SESSION_NOT_OPEN') {
+        toast.info('Este atendimento já tinha sido encerrado por outro usuário. A mesa foi liberada.')
+        invalidateOrderData(queryClient)
+        setCloseDialog(null)
+        navigate('/mesas')
+        return
+      }
       toast.error(translateError(error))
     } finally {
       setClosing(false)
@@ -309,12 +387,16 @@ export default function TableSessionPage() {
             </Button>
             {podeFecharConta && (
               <Button
-                variant={balance > 0 ? 'secondary' : 'success'}
+                variant={balance > 0 || pedidosPendentes > 0 ? 'secondary' : 'success'}
                 icone={balance > 0 ? 'dinheiro' : 'check'}
                 onClick={() => setCloseDialog({ reason: '' })}
-                disabled={sessionOrders.length === 0}
+                disabled={!activeSession}
               >
-                {balance > 0 ? 'Fechar conta' : 'Fechar conta e liberar'}
+                {orderList.length === 0
+                  ? 'Encerrar atendimento'
+                  : balance > 0
+                    ? 'Fechar conta'
+                    : 'Fechar conta e liberar'}
               </Button>
             )}
           </>
@@ -581,7 +663,15 @@ export default function TableSessionPage() {
                     size="sm"
                     variant={status === 'cancelled' ? 'danger' : 'primary'}
                     loading={busy}
-                    onClick={() => handleStatusChange(statusModalOrder, status)}
+                    onClick={() => {
+                      if (status === 'cancelled') {
+                        const alvo = orderList.find((order) => order.id === statusModalOrder)
+                        setStatusModalOrder(null)
+                        setCancelarPedido({ id: statusModalOrder, numero: alvo?.order_number ?? 0 })
+                        return
+                      }
+                      void handleStatusChange(statusModalOrder, status)
+                    }}
                   >
                     Marcar como {ORDER_STATUS_LABELS[status]}
                   </Button>
@@ -661,6 +751,39 @@ export default function TableSessionPage() {
         }
       />
 
+      {/* Cancelar pedido inteiro (o banco exige motivo) */}
+      <ConfirmDialog
+        open={Boolean(cancelarPedido)}
+        title="Cancelar pedido"
+        confirmLabel="Confirmar cancelamento"
+        tone="danger"
+        loading={busy}
+        onCancel={() => {
+          setCancelarPedido(null)
+          setMotivoDoCancelamento('')
+        }}
+        onConfirm={confirmarCancelamentoDoPedido}
+        message={
+          <div className="space-y-3">
+            <p>
+              Pedido <strong>#{cancelarPedido?.numero}</strong> — todos os itens dele saem da conta.
+            </p>
+            <Field label="Motivo do cancelamento" obrigatorio hint="Mínimo de 3 caracteres.">
+              <Input
+                value={motivoDoCancelamento}
+                onChange={(event) => setMotivoDoCancelamento(event.target.value)}
+                placeholder="ex.: cliente desistiu, pedido lançado errado"
+                autoFocus
+              />
+            </Field>
+            <Callout tom="info">
+              O pedido não é apagado: fica cancelado com motivo, responsável e horário, e o total da conta é
+              recalculado. Se já houver dinheiro recebido, o sistema pede o estorno antes.
+            </Callout>
+          </div>
+        }
+      />
+
       {/* Fechamento da conta */}
       <Modal
         open={Boolean(closeDialog)}
@@ -673,24 +796,26 @@ export default function TableSessionPage() {
             <Button variant="secondary" onClick={() => setCloseDialog(null)} disabled={closing}>
               Voltar
             </Button>
-            {balance > 0 && isAdmin && (
+            {isAdmin && (balance > 0 || pedidosPendentes > 0) && (
               <Button
                 variant="danger"
                 loading={closing}
                 onClick={() => handleCloseAccount(true)}
                 disabled={!closeDialog?.reason || closeDialog.reason.trim().length < 3}
               >
-                Fechar com saldo (excepcional)
+                {pedidosPendentes > 0
+                  ? `Fechar e cancelar ${plural(pedidosPendentes, 'pedido', 'pedidos')}`
+                  : 'Fechar com saldo (excepcional)'}
               </Button>
             )}
             <Button
               variant="success"
               icone="check"
               loading={closing}
-              disabled={balance > 0}
+              disabled={balance > 0 || pedidosPendentes > 0}
               onClick={() => handleCloseAccount(false)}
             >
-              Confirmar fechamento
+              {orderList.length === 0 ? 'Encerrar sem consumo' : 'Confirmar fechamento'}
             </Button>
           </>
         }
@@ -712,7 +837,41 @@ export default function TableSessionPage() {
             </div>
           </div>
 
-          {balance > 0 ? (
+          {/* Situação operacional: o que ainda depende da equipe nesta mesa. */}
+          <div className="rounded-card border border-ink-200 bg-white p-4">
+            <p className="rotulo mb-2">Pedidos deste atendimento</p>
+            <Linha rotulo="Em produção" valor={String(pedidosAguardando.length)} />
+            <Linha rotulo="Prontos aguardando entrega" valor={String(pedidosProntos.length)} />
+            <Linha rotulo="Entregues à mesa" valor={String(pedidosEntregues)} />
+            <Linha rotulo="Cancelados" valor={String(pedidosCancelados)} />
+          </div>
+
+          {pedidosPendentes > 0 ? (
+            <div className="space-y-3">
+              <Callout tom="erro" titulo="Ainda há pedido em andamento nesta mesa">
+                {plural(pedidosPendentes, 'pedido', 'pedidos')} ainda
+                {pedidosPendentes === 1 ? ' precisa' : ' precisam'} de ação:{' '}
+                {pedidosProntos.length > 0
+                  ? 'entregue o que já está pronto em “Pedidos prontos”'
+                  : 'acompanhe a produção (o preparo é conduzido pelo caixa)'}{' '}
+                ou cancele o pedido com motivo. O banco recusa fechar a conta — e a mesa não é liberada — enquanto
+                isso não for resolvido: sem essa trava, o pedido ficaria impossível de entregar depois.
+              </Callout>
+              {isAdmin && (
+                <Field
+                  label="Justificativa do fechamento excepcional"
+                  obrigatorio
+                  hint="Mínimo de 3 caracteres. Os pedidos pendentes serão cancelados com este motivo."
+                >
+                  <Input
+                    value={closeDialog?.reason ?? ''}
+                    onChange={(event) => setCloseDialog({ reason: event.target.value })}
+                    placeholder="ex.: cliente foi embora durante o preparo"
+                  />
+                </Field>
+              )}
+            </div>
+          ) : balance > 0 ? (
             <div className="space-y-3">
               <Callout tom="atencao" titulo="Ainda há saldo pendente">
                 Registre os recebimentos antes de fechar: o banco recusa fechar conta com saldo. O fechamento
@@ -728,6 +887,11 @@ export default function TableSessionPage() {
                 </Field>
               )}
             </div>
+          ) : orderList.length === 0 ? (
+            <Callout tom="info" titulo="Nenhum pedido lançado">
+              Esta mesa foi aberta mas não consumiu nada. Encerrar libera a mesa para o próximo cliente, sem
+              movimentar o caixa — e o encerramento fica registrado na auditoria.
+            </Callout>
           ) : (
             <p className="text-xs text-ink-500">
               Ao confirmar, os pedidos ficam com a conta encerrada e a mesa é liberada para o próximo atendimento.

@@ -358,6 +358,15 @@ passou a ser tratado entrando no atendimento que já existe. Suíte de banco: **
 `11_fechamento_seguro.sql`); robô de aceitação `tools/e2e-garcom-recebe.mjs` reescrito para a regra nova
 (9 passos, verde em local e produção). Decisões em [`DECISIONS.md`](DECISIONS.md) §11.
 
+**Sexta, em seguida — tela da conta redesenhada (16/10/2026):** com a regra de dinheiro e o fechamento
+seguro no lugar, a conta da mesa foi arrumada para os dois aparelhos. No computador o cardápio entrava numa
+coluna estreita e virava uma grade de ~70 px com o nome do produto quebrado; no celular quatro cartões
+grandes empurravam a conta para baixo da dobra. Agora o compositor de pedido tem uma forma **empilhada**
+(catálogo em cima, lista embaixo) e o resumo da conta é uma **faixa 2×2** no celular, com os quatro quadros
+no computador; a barra de envio ficou fina e só aparece quando há item. Rolagem no celular: 7.608 px →
+7.365 px. Nada foi escondido — mesmos números, botões e travas. Decisões e antes × depois em
+[`IDENTIDADE.md`](IDENTIDADE.md) §8 e `mesa-aberta-antes-e-depois.png`.
+
 **Onde mexer depois:** os primitivos ficam em `src/components/ui.tsx`; as cores, sombras e animações em
 `tailwind.config.js`; os ícones em `src/components/icons.tsx`. Trocar a identidade visual da pizzaria é editar
 esses três arquivos — nenhuma tela tem cor fixa.

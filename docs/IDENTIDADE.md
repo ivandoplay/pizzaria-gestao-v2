@@ -156,7 +156,37 @@ comparação em `mesas-antes-e-depois.png`):
   (administrador/caixa) ou "Abrir atendimento" (mesa livre). Ninguém precisa abrir a mesa para descobrir
   que é ali que se continua o atendimento.
 
-## 8. Checklist antes de publicar uma mudança visual
+## 8. Tela "Mesa aberta" (conta da mesa) — 16/10/2026
+
+Fila depois de "Mesas". A regra de dinheiro já estava certa; o **arranjo** é que não se sustentava. Duas
+quebras encontradas com captura real (comparação em `mesa-aberta-antes-e-depois.png`):
+
+1. **No computador, o cardápio ficava ilegível.** O compositor de pedido (`OrderComposer`) foi feito para
+   viver numa faixa larga (~900 px) e entrava aqui numa coluna de ~620 px. A grade tentava três colunas de
+   ~70 px e o nome do produto quebrava letra por letra ("Á-g-u-a"). A correção **não** foi espremer mais:
+   `OrderComposer` ganhou a opção `empilhado` — catálogo em cima, lista do pedido embaixo, na largura toda.
+   É a mesma tela do celular, que já era empilhada por natureza; mudou só a forma de arranjar.
+2. **No celular, a conta ficava abaixo da dobra.** Quatro cartões grandes de resumo ocupavam a primeira
+   tela inteira. Agora é uma **faixa compacta 2×2** (`grid-cols-2`, visível só no celular) e os quatro
+   quadros grandes aparecem apenas a partir de `lg`. Os detalhes que não cabem na faixa (pedidos, itens,
+   troco e o aviso de saldo) viram uma linha de texto logo abaixo dela. Rolagem: 7.608 px → 7.365 px.
+
+Dois ajustes que apareceram no caminho e valem como regra geral:
+
+* **Barra fixa é para a ação, não para o texto.** A barra de envio do pedido tinha duas linhas de texto e
+  a nota de idempotência; no celular ela ficava parada na frente do cardápio e o garçom não enxergava os
+  produtos enquanto escolhia. Agora ela é **fina** (total + botão na mesma linha) e só aparece quando há
+  item na lista — no computador continua sempre visível. A nota de idempotência mudou para dentro da
+  "Lista do pedido", onde vale nos dois tamanhos.
+* **Contador no cabeçalho não pode cair sozinho.** No `Card` do sistema, o bloco do título passou a ocupar
+  o espaço que sobra (`flex-1`) e as ações não quebram linha: o número de pedidos fica na mesma linha do
+  título em vez de aparecer sozinho embaixo dele no celular.
+
+O cartão de cada pedido ganhou a **faixa de 3 px na cor da situação** — a mesma linguagem de "Mesas" — no
+lugar das bolinhas do selo. Nada foi escondido: os mesmos quatro números, os mesmos botões e as mesmas
+travas (inclusive o aviso de que o fechamento é recusado com pedido em andamento).
+
+## 9. Checklist antes de publicar uma mudança visual
 
 ```bash
 npm run typecheck      # tipos

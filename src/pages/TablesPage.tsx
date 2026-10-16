@@ -115,8 +115,12 @@ export default function TablesPage() {
    * nenhum: ele anota pedido e entrega. Preço de item do cardápio continua
    * aparecendo para todos (é o mesmo preço do menu impresso).
    */
+  /**
+   * Quem vê DINHEIRO, depois do ajuste de 16/10/2026:
+   *  · valor de CADA conta  → todo mundo (o garçom recebe e fecha na mesa);
+   *  · TOTAL do salão       → só o administrador (soma de todas as contas).
+   */
   const verTotaisDoSalao = isAdmin
-  const verValoresDeConta = isAdmin || profile?.role === 'manager'
 
   const list = useMemo(() => {
     const termo = busca.trim().toLowerCase()
@@ -340,9 +344,8 @@ export default function TablesPage() {
                             {minutos >= 90 && <span className="font-semibold text-amber-700">· atenção</span>}
                           </span>
 
-                          {verValoresDeConta ? (
-                            <>
-                              <span className="num mt-auto text-[19px] font-semibold leading-tight text-ink-900">
+                          <>
+                            <span className="num mt-auto text-[19px] font-semibold leading-tight text-ink-900">
                                 {formatMoney(mesa.total_cents)}
                               </span>
                               <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11.5px]">
@@ -353,15 +356,8 @@ export default function TablesPage() {
                                 ) : (
                                   <span className="font-medium text-emerald-700">conta paga</span>
                                 )}
-                              </span>
-                            </>
-                          ) : (
-                            /* Garçom: o que ele precisa saber é o que falta
-                               SAIR da produção, não quanto está a conta. */
-                            <span className="mt-auto text-[11.5px] text-ink-500">
-                              {mesa.open_items_count} item{mesa.open_items_count === 1 ? '' : 's'} na mesa
                             </span>
-                          )}
+                          </>
 
                           {mesa.pending_kitchen_count > 0 && (
                             <span className="inline-flex items-center gap-1 text-[11.5px] font-medium text-amber-700">
@@ -414,7 +410,6 @@ export default function TablesPage() {
 
       <DetalhesMesa
         mesa={selecionada}
-        verValores={verValoresDeConta}
         onClose={() => setSelecionada(null)}
         onEditar={(mesa) => {
           setSelecionada(null)
@@ -456,14 +451,11 @@ function DetalhesMesa({
   onClose,
   onEditar,
   isAdmin,
-  verValores,
 }: {
   mesa: TableOverview | null
   onClose: () => void
   onEditar: (mesa: TableOverview) => void
   isAdmin: boolean
-  /** Valores da conta: caixa e administrador (o garçom não vê dinheiro). */
-  verValores: boolean
 }) {
   const navigate = useNavigate()
   const { profile } = useAuth()
@@ -520,26 +512,19 @@ function DetalhesMesa({
               </div>
             </div>
 
-            {verValores ? (
-              <div className="mt-4 space-y-1.5 border-t border-ink-200 pt-3 text-sm">
-                <Linha rotulo="Subtotal" valor={formatMoney(mesa.subtotal_cents)} />
-                {mesa.discount_cents > 0 && (
-                  <Linha rotulo="Descontos" valor={`- ${formatMoney(mesa.discount_cents)}`} />
-                )}
-                <Linha rotulo="Total da conta" valor={formatMoney(mesa.total_cents)} destaque />
-                {mesa.paid_cents > 0 && <Linha rotulo="Já recebido" valor={formatMoney(mesa.paid_cents)} />}
-                <Linha
-                  rotulo={mesa.balance_cents > 0 ? 'Falta receber' : 'Conta quitada'}
-                  valor={formatMoney(mesa.balance_cents)}
-                  cor={mesa.balance_cents > 0 ? 'text-brand-700' : 'text-emerald-700'}
-                />
-              </div>
-            ) : (
-              <p className="mt-4 border-t border-ink-200 pt-3 text-[12px] leading-relaxed text-ink-500">
-                Os valores da conta são conferidos no caixa. Aqui você acompanha os pedidos, a produção e o
-                tempo do atendimento.
-              </p>
-            )}
+          <div className="mt-4 space-y-1.5 border-t border-ink-200 pt-3 text-sm">
+              <Linha rotulo="Subtotal" valor={formatMoney(mesa.subtotal_cents)} />
+              {mesa.discount_cents > 0 && (
+                <Linha rotulo="Descontos" valor={`- ${formatMoney(mesa.discount_cents)}`} />
+              )}
+              <Linha rotulo="Total da conta" valor={formatMoney(mesa.total_cents)} destaque />
+              {mesa.paid_cents > 0 && <Linha rotulo="Já recebido" valor={formatMoney(mesa.paid_cents)} />}
+              <Linha
+                rotulo={mesa.balance_cents > 0 ? 'Falta receber' : 'Conta quitada'}
+                valor={formatMoney(mesa.balance_cents)}
+                cor={mesa.balance_cents > 0 ? 'text-brand-700' : 'text-emerald-700'}
+              />
+            </div>
           </div>
         )}
 

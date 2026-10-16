@@ -329,6 +329,21 @@ sistema e no **ícone da aba do navegador**. A tela de entrada ganhou painel de 
 faixa no celular e cartão de acesso flutuante; as telas internas **não** mudaram. Detalhes e o porquê de
 cada decisão em [`IDENTIDADE.md`](IDENTIDADE.md) §1.1 e [`DECISIONS.md`](DECISIONS.md) §9.
 
+**Sexta passada — tela "Mesas" e a regra de dinheiro do garçom (16/10/2026):** duas mudanças pedidas pelo
+administrador no mesmo dia.
+
+1. **Salão redesenhado.** A tela "Mesas" passou a mostrar o salão inteiro de um relance: duas colunas de
+   cartões no celular (rolagem de 2.269 px para 1.462 px), faixa de 3 px na cor da situação, faixa de resumo
+   compacta no celular e quatro quadros no computador, e **atalho de um toque** no cartão da mesa ocupada
+   ("Conta e receber"). Decisões em [`IDENTIDADE.md`](IDENTIDADE.md) §7; antes × depois em
+   `mesas-antes-e-depois.png`.
+2. **Dinheiro: o garçom vê, recebe e fecha.** O administrador corrigiu a regra da véspera — o garçom precisa
+   ver o valor de **cada conta**, **receber** e **fechar**. Isso deixou de ser só exibição e virou regra no
+   banco (migração `20260101000011_garcom_recebe_e_fecha.sql`, `register_payment` e `close_table_account`
+   autorizando o papel `waiter`). A soma de todas as contas continua exclusiva do administrador; fechar com
+   saldo pendente, estornar e descontar também. Suíte de banco: 337 asserções (novo arquivo
+   `10_garcom_recebe_e_fecha.sql`, 26 delas). Regra completa em [`DECISIONS.md`](DECISIONS.md) §10.
+
 **Onde mexer depois:** os primitivos ficam em `src/components/ui.tsx`; as cores, sombras e animações em
 `tailwind.config.js`; os ícones em `src/components/icons.tsx`. Trocar a identidade visual da pizzaria é editar
 esses três arquivos — nenhuma tela tem cor fixa.
@@ -407,8 +422,8 @@ publicada, Realtime ativo e banco limpo (seção 5.2); código publicado no GitH
 | Aspecto | Situação |
 |---|---|
 | Código (banco + servidor + interface) | completo para o escopo definido |
-| Migrações, RLS, RPCs, views, Realtime | validados localmente (suíte 00–09) **e na nuvem** (as 10 migrações aplicadas no projeto real) |
-| Testes | executados, verdes (311 asserções SQL + concorrência real — na esteira e local —, 56 unitários, robôs de navegador contra o site publicado) |
+| Migrações, RLS, RPCs, views, Realtime | validados localmente (suíte 00–10) **e na nuvem** (as 11 migrações aplicadas no projeto real) |
+| Testes | executados, verdes (337 asserções SQL + concorrência real — na esteira e local —, 56 unitários, robôs de navegador contra o site publicado) |
 | Build | verde |
 | GitHub | **publicado** (`ivandoplay/pizzaria-gestao-v2`, repositório público) |
 | Supabase | **configurado e verificado na nuvem** (migrações, RLS, Realtime, Edge Function, 3 perfis, fluxo ponta a ponta) |

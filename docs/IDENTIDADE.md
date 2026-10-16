@@ -140,7 +140,23 @@ polegar; a barra de envio do pedido fica fixa acima da barra de navegação; e a
 ter rolagem lateral nem alvo de dedo abaixo de 44px no celular — as duas coisas são medidas, tela
 por tela, por `tools/checar-rolagem.mjs` e `tools/auditar-telas.mjs`.
 
-## 7. Checklist antes de publicar uma mudança visual
+## 7. Tela "Mesas" — leitura de salão em um relance (16/10/2026)
+
+Redesenho feito **primeiro no papel**, depois no código (recaptura em `artifacts/mesas-novas/`,
+comparação em `mesas-antes-e-depois.png`):
+
+* **Grade de 2 colunas no celular** (antes, uma coluna por cartão): a rolagem para ver as 12 mesas caiu
+  de 2.269 px para 1.462 px — o salão inteiro se lê quase sem rolar.
+* **Faixa de situação** de 3 px na borda esquerda do cartão (livre, ocupada, conta pedida, produção
+  travada) em vez de moldura colorida: a cor fica no canto que o olho varre primeiro, sem pintar o cartão
+  inteiro e sem depender só dela (o texto continua dizendo "LIVRE"/"OCUPADA").
+* **Faixa de resumo** no topo: no celular é uma grade 2×2 compacta; no computador, quatro quadros
+  (`StatTile`). Os dois mostram os mesmos números — a diferença é só tamanho.
+* **Um toque para agir:** o cartão da mesa ocupada tem um atalho no rodapé — "Conta e receber"
+  (administrador/caixa) ou "Abrir atendimento" (mesa livre). Ninguém precisa abrir a mesa para descobrir
+  que é ali que se continua o atendimento.
+
+## 8. Checklist antes de publicar uma mudança visual
 
 ```bash
 npm run typecheck      # tipos
@@ -149,6 +165,7 @@ npx vite build         # build de produção
 bash tools/run-sql-tests.sh                      # (só se mexer em banco)
 node tools/e2e-telas.mjs  http://localhost:4173  # telas, permissões e capturas
 node tools/teste-login.mjs http://localhost:4173 # entrar, recarregar, trocar de conta
+PZ_GARCOM_PASSWORD=... node tools/e2e-garcom-recebe.mjs http://localhost:4173 # garçom vê/recebe/fecha
 ```
 
 O robô de telas salva capturas em `artifacts/e2e/` — é a forma mais rápida de conferir

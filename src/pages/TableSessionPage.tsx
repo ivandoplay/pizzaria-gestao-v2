@@ -43,7 +43,7 @@ export default function TableSessionPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const toast = useToast()
-  const { profile, isManager } = useAuth()
+  const { profile, isAdmin, isManager, isWaiter } = useAuth()
 
   const tables = useTables()
   const menu = useMenu()
@@ -86,16 +86,17 @@ export default function TableSessionPage() {
     change: sessionOrders.reduce((soma, order) => soma + order.change_given_cents, 0),
   }
   const balance = Math.max(totals.total - totals.paid, 0)
-  const canClose = isManager || profile?.role === 'admin'
   /**
-   * Dinheiro nesta tela: caixa e administrador.
-   *
-   * Decisão de 16/10/2026 (pedido do administrador): o GARÇOM não vê valor de
-   * conta — ele anota pedido, entrega e acompanha a produção; receber é do
-   * caixa. Preço de item do cardápio continua aparecendo para todos (é o mesmo
-   * preço do menu impresso, e o garçom precisa dele para vender).
+   * Dinheiro nesta tela — regra de 16/10/2026 (pedido do administrador):
+   *  · o GARÇOM vê o valor da conta, registra o recebimento e fecha a conta
+   *    quitada (quem confere é o banco: migração 0011);
+   *  · fechar conta com SALDO PENDENTE (excepcional) e ver o agregado do salão
+   *    seguem exclusivos do administrador;
+   *  · estorno e desconto continuam com caixa e administrador.
+   * Preço de item do cardápio sempre apareceu para todos (é o preço do menu).
    */
-  const verValores = canClose
+  const podeFecharConta = isManager || isWaiter
+  const podeReceberNaMesa = isManager || isWaiter
   const nomeMetodo = (id: string) => metodos.data?.find((metodo) => metodo.id === id)?.label ?? 'forma não identificada'
   const itensAtivos = items.filter((item) => !item.is_cancelled)
   const emProducao = sessionOrders.filter((order) =>
@@ -306,7 +307,7 @@ export default function TableSessionPage() {
             <Button variant="secondary" icone="imprimir" onClick={() => imprimirRecibo()} disabled={itensAtivos.length === 0}>
               Recibo
             </Button>
-            {canClose && (
+            {podeFecharConta && (
               <Button
                 variant={balance > 0 ? 'secondary' : 'success'}
                 icone={balance > 0 ? 'dinheiro' : 'check'}
@@ -329,25 +330,14 @@ export default function TableSessionPage() {
         </div>
       )}
 
-      {/* Resumo da conta: dinheiro só para quem recebe (caixa e administrador).
-          O garçom vê o que interessa ao salão — pedidos, itens e produção. */}
-      <div className={`mb-4 grid gap-3 sm:grid-cols-2 ${verValores ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
-        {verValores ? (
-          <>
-            <Resumo rotulo="Total da conta" valor={formatMoney(totals.total)} detalhe={`${plural(sessionOrders.length, 'pedido', 'pedidos')} · ${plural(itensAtivos.length, 'item', 'itens')}`} icone="dinheiro" />
-            <Resumo rotulo="Recebido" valor={formatMoney(totals.paid)} detalhe={totals.change > 0 ? `troco ${formatMoney(totals.change)}` : 'sem troco registrado'} icone="check" tom="verde" />
-            <Resumo rotulo="Falta receber" valor={formatMoney(balance)} detalhe={balance > 0 ? 'registre o pagamento antes de fechar' : 'conta quitada'} icone="relogio" tom={balance > 0 ? 'marca' : 'verde'} />
-          </>
-        ) : (
-          <>
-            <Resumo rotulo="Pedidos" valor={String(sessionOrders.length)} detalhe={`${plural(itensAtivos.length, 'item lançado', 'itens lançados')} nesta conta`} icone="lista" />
-            <Resumo rotulo="Em produção" valor={String(emProducao)} detalhe="pedidos ainda não entregues" icone="raio" tom={emProducao > 0 ? 'ambar' : 'neutro'} />
-            <Resumo rotulo="Na mesa desde" valor={duracaoDesde(tableRow?.opened_at ?? null, agora)} detalhe="tempo do atendimento" icone="relogio" />
-          </>
-        )}
-        {verValores && (
-          <Resumo rotulo="Em produção" valor={String(emProducao)} detalhe="pedidos ainda não entregues" icone="raio" tom={emProducao > 0 ? 'ambar' : 'neutro'} />
-        )}
+      {/* Resumo da conta: o valor de CADA conta é de todo mundo — o garçom
+          recebe e fecha na mesa (16/10/2026). O total do salão (soma de todas as
+          contas) continua sendo só do administrador, na tela de Mesas. */}
+      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Resumo rotulo="Total da conta" valor={formatMoney(totals.total)} detalhe={`${plural(sessionOrders.length, 'pedido', 'pedidos')} · ${plural(itensAtivos.length, 'item', 'itens')}`} icone="dinheiro" />
+        <Resumo rotulo="Recebido" valor={formatMoney(totals.paid)} detalhe={totals.change > 0 ? `troco ${formatMoney(totals.change)}` : 'sem troco registrado'} icone="check" tom="verde" />
+        <Resumo rotulo="Falta receber" valor={formatMoney(balance)} detalhe={balance > 0 ? 'registre o pagamento antes de fechar' : 'conta quitada'} icone="relogio" tom={balance > 0 ? 'marca' : 'verde'} />
+        <Resumo rotulo="Em produção" valor={String(emProducao)} detalhe="pedidos ainda não entregues" icone="raio" tom={emProducao > 0 ? 'ambar' : 'neutro'} />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.1fr_1fr]">
@@ -452,7 +442,7 @@ export default function TableSessionPage() {
                         )}
                       </ul>
 
-                      {verValores && pagamentosDoPedido.length > 0 && (
+                      {pagamentosDoPedido.length > 0 && (
                         <div className="border-t border-ink-100 bg-ink-50/60 px-3.5 py-2 text-[11px] text-ink-600">
                           Recebimentos:{' '}
                           {pagamentosDoPedido
@@ -473,7 +463,7 @@ export default function TableSessionPage() {
                         <Button size="sm" variant="secondary" icone="imprimir" onClick={() => imprimirComanda(order)}>
                           Comanda
                         </Button>
-                        {isManager && !order.account_closed_at && !order.is_cancelled && (
+                        {podeReceberNaMesa && !order.account_closed_at && !order.is_cancelled && (
                           <Button size="sm" icone="dinheiro" onClick={() => setPaymentOrder(order.id)}>
                             Receber
                           </Button>
@@ -683,7 +673,7 @@ export default function TableSessionPage() {
             <Button variant="secondary" onClick={() => setCloseDialog(null)} disabled={closing}>
               Voltar
             </Button>
-            {balance > 0 && profile?.role === 'admin' && (
+            {balance > 0 && isAdmin && (
               <Button
                 variant="danger"
                 loading={closing}
@@ -728,7 +718,7 @@ export default function TableSessionPage() {
                 Registre os recebimentos antes de fechar: o banco recusa fechar conta com saldo. O fechamento
                 excepcional é exclusivo do administrador e fica gravado na auditoria.
               </Callout>
-              {profile?.role === 'admin' && (
+              {isAdmin && (
                 <Field label="Justificativa do fechamento excepcional" obrigatorio hint="Mínimo de 3 caracteres.">
                   <Input
                     value={closeDialog?.reason ?? ''}
@@ -759,7 +749,7 @@ function Resumo({
   rotulo: string
   valor: string
   detalhe: string
-  icone: 'dinheiro' | 'check' | 'relogio' | 'raio' | 'lista'
+  icone: 'dinheiro' | 'check' | 'relogio' | 'raio'
   tom?: 'neutro' | 'verde' | 'marca' | 'ambar'
 }) {
   const cores = {

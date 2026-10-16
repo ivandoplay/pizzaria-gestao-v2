@@ -357,31 +357,53 @@ nada de rolagem lateral no celular.
 **Ícone da aba:** o mesmo emblema em `data:image/svg+xml` no `index.html` — sem arquivo em `public/`,
 sem rota nova, sem cache antigo de favicon para limpar.
 
-## 10. Quem vê dinheiro (16/10/2026)
+## 10. Quem vê dinheiro (16/10/2026 — **corrigido no mesmo dia**)
 
-**Pedido do administrador:** *"os garçons e o caixa não precisa saber quanto é que eu vou receber total…
-quanto que tem aberto em todas as mesas; não precisa disso, apenas o administrador precisa."*
+### 10.1 Primeira versão (substituída)
 
-**Decisão — três níveis de visibilidade:**
+O pedido original foi: *"os garçons e o caixa não precisa saber quanto é que eu vou receber total… quanto
+que tem aberto em todas as mesas; apenas o administrador precisa."* Isso foi lido como "garçom não vê
+dinheiro nenhum": o valor de cada conta ficou com **administrador e caixa**, e o garçom via só contagem de
+itens e produção. Foi para o ar em `a12c637` — e ficou **só na interface** (nenhuma política do banco mudou).
 
-1. **Totais do salão (agregado):** "Consumido no salão" e "A receber" na tela Mesas aparecem **só para o
-   administrador**. É informação de gestão: soma de todas as contas abertas.
-2. **Valores de cada conta (por mesa):** valor no cartão da mesa, "falta receber", subtotal/total na janela
-   de detalhes e os cartões *Total da conta / Recebido / Falta receber* da tela da mesa ficam com
-   **administrador e caixa**. O caixa precisa deles — é ele quem recebe o pagamento e confere a gaveta.
-3. **Garçom:** não vê valor de conta nenhum. No cartão da mesa, no lugar do valor, aparece quantos itens
-   estão na mesa; na janela de detalhes e na tela da conta aparece a explicação de que os valores são
-   conferidos no caixa. No lugar dos cartões de dinheiro, a tela da mesa mostra **Pedidos**, **Em produção**
-   e **Na mesa desde** — o que interessa a quem atende.
+### 10.2 A correção do administrador (regra vigente)
 
-**O que continua visível para todos:** preço de item e de pedido (é o mesmo preço do cardápio impresso, e
-o garçom precisa dele para vender e para conferir o pedido com o cliente) e o **Recibo** da mesa (é a conta
-do cliente, que ele pode pedir a qualquer momento).
+Pouco depois, o próprio administrador corrigiu: *"eu quero que o garçom veja o valor total de cada conta e
+que ele consiga receber o valor também e fechar a conta."* Regra vigente, em **três níveis**:
 
-**Motivo de não esconder no banco:** a RLS e as permissões de escrita continuam como estavam — o que mudou
-foi a **exibição**. Decidir isso no banco exigiria dar ao garçom uma visão diferente de `orders`/`payments`
-para o mesmo pedido, o que multiplicaria as regras sem ganho de segurança real (o garçom já não consegue
-receber, descontar nem fechar conta — isso sempre foi bloqueado pela RPC). **Limite honesto:** é ocultação
-de interface, não criptografia; quem abrir as ferramentas do navegador e souber consultar a API pública
-ainda vê os números que a RLS permite ler. Se o administrador quiser bloqueio *no banco*, é uma mudança
-separada (view/coluna por papel) e precisa ser pedida explicitamente.
+| Informação | Quem vê |
+|---|---|
+| **Soma de todas as contas** ("Consumido no salão", "A receber") — informação de gestão | **só administrador** |
+| **Valor de cada conta** (cartão da mesa, falta receber, Total/Recebido/Falta receber na tela da mesa) | administrador, caixa e **garçom** |
+| **Receber** o pagamento da mesa (o valor entra no caixa do turno aberto) | administrador, caixa e **garçom** |
+| **Fechar** a conta **quitada** e liberar a mesa | administrador, caixa e **garçom** |
+| **Fechar com saldo pendente** (excepcional, com justificativa) | **só administrador** |
+| **Estorno** de recebimento e **desconto** no pedido | administrador e caixa |
+
+### 10.3 Agora é regra no banco, não ocultação de tela
+
+A v1 era exibição: qualquer chamada direta à API devolveria o número que a RLS já liberava. A v2 resolve na
+origem — migração **`20260101000011_garcom_recebe_e_fecha.sql`** recria `register_payment` e
+`close_table_account` com o papel `waiter` autorizado (mesmas validações, mesmos cálculos, só a linha do
+`require_role` mudou; **nenhuma política de RLS e nenhum GRANT foi tocado**). A suíte de banco ganhou o
+arquivo **`supabase/tests/10_garcom_recebe_e_fecha.sql`** (26 asserções): garçom recebe, entra no turno em
+curso e fecha a conta quitada; continua **barrado** em fechar com saldo, estornar, descontar, abrir/fechar
+caixa e ver o agregado do salão.
+
+### 10.4 O que a interface precisou mudar junto
+
+* `PaymentPanel`: o botão "Registrar" era bloqueado quando a tela não via um caixa aberto
+  (`caixaFechado`). O garçom **não lê** `cash_sessions` (é leitura de caixa/administrador), então ficaria
+  travado para sempre. Agora esse bloqueio vale só para quem lê a gaveta; para os demais a janela explica
+  que o valor entra no turno aberto e **quem decide é o banco** (que responde `CASH_SESSION_REQUIRED` com
+  mensagem clara se ninguém abriu o caixa).
+* `TableSessionPage`: "Receber" e "Fechar conta" deixam de exigir caixa/administrador; o fechamento com
+  saldo pendente continua com o administrador (botão e justificativa).
+* `TablesPage`: o valor de cada conta volta ao cartão e à janela de detalhes para todos; o agregado do
+  salão continua escondido para caixa e garçom (essa é a única parte escondida — e é de gestão).
+
+**Limite honesto (o que ainda não é verdade):** a lista de **comprovantes** de cada pedido vem da tabela
+`payments`, cuja leitura é de caixa/administrador (`is_manager()`). O garçom registra o recebimento e vê
+total/recebido/falta somados (vêm das views de conta), mas **não abre a lista de comprovantes** — para isso
+seria preciso mudar política de `payments`, o que não foi pedido nem autorizado. Se for desejado, é uma
+migração pequena e separada.

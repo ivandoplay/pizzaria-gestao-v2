@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Button, Callout, ConfirmDialog, Field, Input, Modal, useToast } from './ui'
 import { Icon, type NomeIcone } from './icons'
+import { useAuth } from '../context/AuthContext'
 import { formatMoney, formatTime, newClientUuid, parseMoneyToCents } from '../lib/format'
 import { translateError } from '../lib/errors'
 import * as api from '../lib/api'
@@ -53,6 +54,7 @@ export function PaymentModal({
   /** Chamado depois de um recebimento confirmado, para imprimir o comprovante. */
   onImprimirRecibo?: () => void
 }) {
+  const { isAdmin, isManager } = useAuth()
   const toast = useToast()
   const queryClient = useQueryClient()
   const methods = usePaymentMethods(true)
@@ -91,7 +93,15 @@ export function PaymentModal({
     selectedMethod?.requires_change && tenderedCents !== null ? Math.max(tenderedCents - amountCents, 0) : 0
 
   const semMetodo = !methods.isLoading && activeMethods.length === 0
-  const caixaFechado = !cashSession.isLoading && !cashSession.data
+  /**
+   * A gaveta (sessão de caixa) é lida só por caixa e administrador — RLS.
+   * Para quem NÃO lê (garçom), "sem dado" não significa "caixa fechado": ele
+   * recebe na mesa e quem decide é o banco, que recusa o recebimento com uma
+   * mensagem clara quando não há turno aberto. Sem isso, o garçom ficaria com
+   * o botão desabilitado mesmo com o caixa aberto.
+   */
+  const leAGaveta = isAdmin || isManager
+  const caixaFechado = leAGaveta && !cashSession.isLoading && !cashSession.data
   const podeRegistrar = remaining > 0 && !semMetodo && !caixaFechado && amountCents > 0
 
   async function handleSubmit() {
@@ -209,6 +219,16 @@ export function PaymentModal({
             <Callout tom="atencao" titulo="Nenhum caixa aberto">
               Abra o caixa em <strong>Controle de caixa</strong> antes de registrar recebimentos — o banco recusa
               pagamentos sem uma sessão de caixa aberta.
+            </Callout>
+          )}
+
+          {/* Quem não lê a gaveta (garçom) não é bloqueado por ela: o valor entra
+              no turno que estiver aberto e é o banco que recusa, com mensagem
+              clara, quando ninguém abriu o caixa. */}
+          {!leAGaveta && (
+            <Callout tom="info" titulo="O recebimento entra no caixa do turno">
+              O valor cai no turno de caixa que estiver aberto. Se o sistema recusar, é porque ninguém abriu o
+              caixa ainda — peça para o caixa abrir o turno.
             </Callout>
           )}
 

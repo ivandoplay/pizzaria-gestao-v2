@@ -16,7 +16,11 @@ set -uo pipefail
 DB="${DB:-pizzaria_test}"
 FAILED=0
 
-q() { sudo -u postgres psql -q -t -A -v ON_ERROR_STOP=1 -d "$DB" -c "$1" 2>&1; }
+# Mesmo ajuste do runner: na esteira a conexão é direta (usuário e senha).
+# shellcheck disable=SC2086
+SUDO_PG="${PSQL_SUDO-sudo -u postgres}"
+
+q() { $SUDO_PG psql -q -t -A -v ON_ERROR_STOP=1 -d "$DB" -c "$1" 2>&1; }
 ok()   { echo "  OK  $1"; }
 fail() { echo "  FALHOU  $1"; FAILED=1; }
 

@@ -113,7 +113,8 @@ trilha de auditoria somente-adição.
 | Fila de pedidos prontos | `node tools/e2e-fila.mjs <URL>` (Playwright, contra o **site publicado**) | **0 falhas**: mesa aberta pelo garçom, pedido lançado com observação, produção avançada pelo caixa até “Pronto”, cartão conferido na fila (mesa, número, item, observação, selo e tempo de espera), entrega confirmada, histórico com “Entregue à mesa” e pedido fora da fila depois |
 | Auditoria de telas | `node tools/auditar-telas.mjs <URL>` (Playwright, 3 perfis × celular e computador, 46 leituras de tela) | **0 falhas, 0 avisos** — nenhuma rolagem lateral e nenhum alvo de toque abaixo de 44px no celular |
 | Conferência do deploy | `bash tools/smoke-deploy.sh <URL> admin '<senha>'` | **tudo certo** (rotas, cabeçalhos, variáveis no bundle, ausência de credencial privilegiada, login real) |
-| Esteira automática | GitHub Actions → `CI` (`npm ci`, `tsc -b`, Vitest, `vite build`) | **sucesso** na execução `38825141161` (15/10/2026, commit `085e707`) |
+| Esteira automática — aplicação | GitHub Actions → `CI`, trabalho `verificar` (`npm ci`, `tsc -b`, Vitest, `vite build`) | **sucesso** (16/10/2026) |
+| Esteira automática — banco | GitHub Actions → `CI`, trabalho `banco` (PostgreSQL 17 descartável + `tools/run-sql-tests.sh`: migrações, suíte 00–09, concorrência) | **sucesso** (16/10/2026) |
 
 Detalhes, valores esperados e limitações em [`TESTES.md`](TESTES.md).
 

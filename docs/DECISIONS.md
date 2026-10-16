@@ -303,3 +303,16 @@ da página, não o endereço.
 proposital). Em 16/10/2026 isso enganou um robô de auditoria: ele "passou" por todas as telas medindo a
 mesma tela de troca. Hoje `auditar-telas.mjs` e `checar-rolagem.mjs` falham de propósito quando detectam
 a tela de troca.
+
+### 7.6 A suíte de banco entrou na esteira (e o runner ganhou `PSQL_SUDO`)
+**Decisão:** o `CI` passou a ter um segundo trabalho, `banco`, que sobe um **PostgreSQL 17 descartável**
+no executor e roda `tools/run-sql-tests.sh` inteiro — shim, 10 migrações, seed, suíte `00`…`09` e o
+teste de concorrência. Para isso o runner deixou de chamar `sudo -u postgres` fixo e passou a usar
+`SUDO_PG="${PSQL_SUDO-sudo -u postgres}"`: sem variável nada muda no desenvolvimento local; na esteira
+`PSQL_SUDO=""` faz a conexão direta (usuário e senha do serviço).
+**Motivo:** a suíte de banco é onde moram as regras de negócio (preço, concorrência, permissão, RLS).
+Ela era o único pedaço grande do sistema que só rodava à mão — um `push` podia publicar migração
+quebrada com a esteira verde. Banco **descartável** e **sem segredo de produção**: o trabalho roda
+igual para qualquer pull request, sem tocar no Supabase real.
+**O que continua fora:** robôs de navegador e `smoke-deploy.sh`, por dependerem do site e das contas de
+produção.

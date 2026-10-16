@@ -10,12 +10,18 @@ set -euo pipefail
 
 DB="${DB:-pizzaria_test}"
 PSQL=(psql -q -v ON_ERROR_STOP=1 -d "$DB")
+# Como o psql é chamado. No desenvolvimento local o banco roda como dono
+# `postgres`, então o padrão é `sudo -u postgres`. Na esteira (GitHub Actions)
+# existe um serviço PostgreSQL que aceita conexão direta com usuário e senha:
+# basta `PSQL_SUDO="" PGHOST=... PGUSER=... PGPASSWORD=...`.
+# shellcheck disable=SC2086
+SUDO_PG="${PSQL_SUDO-sudo -u postgres}"
 LOG_DIR="$(mktemp -d)"
 FAILED=0
 
 run() {  # run <rótulo> <arquivo>
   local label="$1" file="$2"
-  if sudo -u postgres "${PSQL[@]}" -f "$file" >"$LOG_DIR/$(basename "$file").log" 2>&1; then
+  if $SUDO_PG "${PSQL[@]}" -f "$file" >"$LOG_DIR/$(basename "$file").log" 2>&1; then
     echo "  ✔ $label"
   else
     echo "  ✘ $label  (veja o log abaixo)"
@@ -25,10 +31,10 @@ run() {  # run <rótulo> <arquivo>
 }
 
 echo "== Recriando o banco de testes ($DB) =="
-sudo -u postgres psql -q -c "drop database if exists $DB;" -c "create database $DB owner postgres;"
+$SUDO_PG psql -q -c "drop database if exists $DB;" -c "create database $DB owner postgres;"
 
 echo "== Aplicando shim do ambiente Supabase =="
-sudo -u postgres "${PSQL[@]}" -f tools/local_pg_shim.sql >"$LOG_DIR/shim.log" 2>&1
+$SUDO_PG "${PSQL[@]}" -f tools/local_pg_shim.sql >"$LOG_DIR/shim.log" 2>&1
 
 echo "== Aplicando migrações (na ordem) =="
 for f in supabase/migrations/*.sql; do

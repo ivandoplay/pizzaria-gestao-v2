@@ -115,10 +115,11 @@ para o seed e a remoção, então as listas nunca ficam desencontradas).
 |---|---|---|
 | `supabase/tests/00_setup.sql` … `09_fila_prontos.sql` | 311 asserções no PostgreSQL: RLS, privilégios, permissões por perfil, cardápio, mesas/pedidos, caixa/pagamentos, delivery, relatórios, auditoria, troca obrigatória de senha e fila de prontos | **verde** (local) |
 | `supabase/tests/07_concurrency.sh` | Concorrência real com duas conexões simultâneas (abertura de mesa, clique duplo de pagamento, fechamento duplo) | **verde** |
-| Vitest (`npm test`) | Regras de preço espelhadas do banco, formatação BRL/datas/durações/plural, tradução de erros, criação sob demanda do cliente Supabase e regras da troca de senha | **48/48** |
+| Vitest (`npm test`) | Regras de preço espelhadas do banco, formatação BRL/datas/durações/plural, tradução de erros, criação sob demanda do cliente Supabase, regras da troca de senha e regras da fila de prontos | **56/56** |
 | `npm run typecheck` | TypeScript em modo estrito, sem emissão | **exit 0** |
 | `npm run build` | Build de produção com cada tela em um chunk próprio | **exit 0** (principal 491 kB / 141 kB gzip + chunks por tela) |
-| GitHub Actions (`CI`) | A cada push no `main` e em pull request: `npm ci` → `tsc -b` → Vitest → `vite build` | **sucesso** (execução `38825141161`, 15/10/2026) |
+| GitHub Actions (`CI`) — aplicação | A cada push no `main`, pull request e execução manual: `npm ci` → `tsc -b` → Vitest → `vite build` | **sucesso** (16/10/2026) |
+| GitHub Actions (`CI`) — banco | PostgreSQL 17 descartável no próprio executor: `tools/run-sql-tests.sh` (migrações + suíte 00–09 + concorrência com conexões paralelas) | **sucesso** (16/10/2026) |
 
 Reproduza tudo com:
 

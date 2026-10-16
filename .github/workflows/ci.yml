@@ -1,15 +1,18 @@
 # Esteira de verificação — roda a cada push no `main` e em cada pull request.
 #
-# O que ela cobre: o que NÃO depende de segredo — checagem de tipos, testes
-# unitários (Vitest) e build de produção. É a rede que pega o erro bobo antes de
-# o deploy automático da Vercel publicar.
+# O que ela cobre (o que NÃO depende de segredo ou de produção):
+#   1. `verificar`: tipos, testes unitários (Vitest) e build de produção — a rede
+#      que pega o erro bobo antes de o deploy automático da Vercel publicar;
+#   2. `banco`: sobe um PostgreSQL 17 descartável e roda a suíte de banco inteira
+#      (`tools/run-sql-tests.sh`): migrações, RLS, privilégios, RPCs, relatórios,
+#      auditoria, troca de senha, fila de prontos e o teste de concorrência com
+#      conexões paralelas de verdade.
 #
-# O que ela NÃO cobre (e continua sendo rodado à mão, com as senhas no ambiente):
-#   * suíte do banco (`tools/run-sql-tests.sh`) — precisa de um PostgreSQL local;
+# O que ela NÃO cobre (segue sendo rodado à mão, com as senhas no ambiente):
 #   * robôs de navegador contra o Supabase real (`tools/auditar-telas.mjs`,
-#     `e2e-telas.mjs`, `teste-login.mjs`, `teste-troca-senha.mjs`);
+#     `e2e-fila.mjs`, `e2e-telas.mjs`, `teste-login.mjs`, `teste-troca-senha.mjs`);
 #   * `smoke-deploy.sh`, que confere o site publicado depois do deploy.
-# Motivo: exigem segredos ou serviços de produção e não devem rodar a cada pull
+# Motivo: exigem segredos e serviços de produção e não devem rodar a cada pull
 # request de terceiros.
 name: CI
 
@@ -50,3 +53,46 @@ jobs:
 
       - name: Build de produção (Vite)
         run: npm run build
+
+  banco:
+    name: suíte do banco (PostgreSQL 17)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # Banco descartável: recriado a cada execução, sem dado de produção.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # Conexão direta (sem `sudo -u postgres`): é para isso que o runner aceita
+      # PSQL_SUDO vazio.
+      PGHOST: localhost
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PSQL_SUDO: ''
+      DB: pizzaria_test
+
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v4
+
+      - name: Instalar o cliente psql
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+
+      - name: Rodar a suíte do banco (00–09 + concorrência)
+        run: bash tools/run-sql-tests.sh

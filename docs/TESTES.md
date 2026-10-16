@@ -17,16 +17,25 @@ npm run typecheck # tsc -b
 npm run build     # build de produção
 ```
 
-Esses três últimos passos rodam sozinhos a cada push no `main` (e em cada pull
-request): é a esteira **CI** em `.github/workflows/ci.yml` — `npm ci` →
-`typecheck` → `test` → `build`. O que depende de segredo ou de serviço de
-produção (suíte do banco, robôs de navegador, `smoke-deploy.sh`) continua sendo
-rodado à mão, e o cabeçalho do arquivo diz isso com todas as letras.
+A esteira **CI** (`.github/workflows/ci.yml`) roda dois trabalhos:
+
+1. **aplicação** — a cada push no `main`, pull request e execução manual:
+   `npm ci` → `typecheck` → `test` → `build`;
+2. **banco** — sobe um **PostgreSQL 17 descartável** no próprio executor e roda
+   `tools/run-sql-tests.sh` inteiro: shim, as 10 migrações, seed e a suíte
+   `00`…`09` + o teste de concorrência com conexões paralelas de verdade.
+
+Só o que depende de **segredo ou de produção** continua rodando à mão: os robôs de
+navegador contra o Supabase real e o `smoke-deploy.sh` — de propósito, para que
+um pull request de terceiros não toque em dados de produção.
 
 ### 1.1 O que `run-sql-tests.sh` faz
 
 1. `drop database if exists pizzaria_test` + `create database pizzaria_test owner postgres`
-   (sempre do zero — rodar sem recriar gera erro de chave duplicada nas fixtures);
+   (sempre do zero — rodar sem recriar gera erro de chave duplicada nas fixtures).
+   Localmente os comandos usam `sudo -u postgres`; onde houver conexão direta
+   (como o serviço PostgreSQL da esteira) basta `PSQL_SUDO=""` com `PGHOST`,
+   `PGUSER` e `PGPASSWORD` definidos;
 2. aplica `tools/local_pg_shim.sql` (emula `auth.uid()`, `auth.role()`, roles
    `anon`/`authenticated`/`service_role`, `supabase_realtime`, extensões);
 3. aplica as 10 migrações em ordem;
@@ -169,9 +178,11 @@ no meio do movimento.
    fumaça (login, RLS, RPC, anônimo bloqueado, Edge Function) foi executado na nuvem (seção 5).
    Continua não testado: RLS de `storage` (o sistema ainda não usa Storage) e o Realtime em uso real
    por dois navegadores ao mesmo tempo.
-2. **Robôs de navegador existem, mas não há CI.** As telas são varridas por Playwright
-   (`auditar-telas`, `checar-rolagem`, `e2e-telas`, `teste-login`, `teste-troca-senha`) rodando **à mão**
-   contra o site publicado — não há pipeline automatizado nem execução agendada.
+2. **Os robôs de navegador rodam à mão; a suíte de banco está na esteira.** As telas são varridas por
+   Playwright (`auditar-telas`, `checar-rolagem`, `e2e-telas`, `teste-login`, `teste-troca-senha`,
+   `e2e-fila`) rodando **à mão** contra o site publicado, com as senhas no ambiente — não há execução
+   agendada. **Desde 16/10/2026 a suíte de banco (00–09 + concorrência) roda sozinha na esteira**, em
+   um PostgreSQL 17 descartável (trabalho `banco` do `CI`), junto com tipos, testes unitários e build.
 3. **Edge Function deployada, mas fora da suíte de banco** — `admin-create-employee` roda no projeto
    real (cria funcionário e recusa login duplicado) e é exercitada pelo robô `teste-troca-senha.mjs`;
    ela não entra na suíte SQL porque depende de `service_role`. Dois detalhes de ambiente: rodando o

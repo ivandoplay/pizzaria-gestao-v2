@@ -50,6 +50,18 @@ async function entrar(page, perfil) {
     .waitForFunction(() => !location.pathname.startsWith('/login'), undefined, { timeout: 30000 })
     .catch(() => {})
   await espera(2200)
+  // Conta com troca de senha obrigatória pendente: o sistema mostra APENAS a tela
+  // de troca (na mesma URL), e o robô acabaria medindo sempre a mesma tela, dando
+  // "tudo certo" sem ter visto nada. Melhor falhar com o motivo na cara.
+  const telaDeTroca = await page.locator('text=Defina sua senha definitiva').count()
+  if (telaDeTroca > 0) {
+    throw new Error(
+      `a conta ${perfil.usuario} está com troca de senha obrigatória pendente — ` +
+        'conclua o primeiro acesso (tools/preparar-contas-robo.mjs ou tools/primeiro-acesso.mjs); ' +
+        'sem isso o robô mediria a tela de troca em vez das telas do sistema',
+    )
+  }
+
 }
 
 for (const perfil of PERFIS) {

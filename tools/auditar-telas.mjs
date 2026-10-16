@@ -121,6 +121,19 @@ async function entrar(page, perfil) {
     .waitForFunction(() => !location.pathname.startsWith('/login'), undefined, { timeout: 30_000 })
     .catch(() => {})
   await espera(2000)
+
+  // Conta com troca de senha obrigatória pendente: o sistema mostra APENAS a tela
+  // de troca (na mesma URL), e o robô acabaria medindo sempre a mesma tela, dando
+  // "tudo certo" sem ter visto nada. Melhor falhar com o motivo na cara.
+  const telaDeTroca = await page.locator('text=Defina sua senha definitiva').count()
+  if (telaDeTroca > 0) {
+    throw new Error(
+      `a conta ${perfil.usuario} está com troca de senha obrigatória pendente — ` +
+        'conclua o primeiro acesso (tools/preparar-contas-robo.mjs ou tools/primeiro-acesso.mjs); ' +
+        'sem isso o robô mediria a tela de troca em vez das telas do sistema',
+    )
+  }
+
 }
 
 /** Descobre a conta de uma mesa aberta para poder auditar a tela mais usada do salão. */
@@ -185,6 +198,9 @@ for (const tamanho of listaTamanhos) {
         registrar(problemas, `${etiqueta}: rolagem lateral de ${medida.rolagemLateral}px (tela ${medida.tela}px, conteúdo ${medida.conteudo}px)`)
       }
       if (!medida.titulo) registrar(problemas, `${etiqueta}: tela sem título (h1)`)
+      if (/defina sua senha|troca obrigat/i.test(medida.titulo)) {
+        registrar(problemas, `${etiqueta}: caiu na tela de troca obrigatória de senha em vez de ${destino}`)
+      }
       if (medida.agora > 0) registrar(problemas, `${etiqueta}: ficou carregando (esqueleto) depois de 25 s`)
       for (const erro of new Set(erros)) registrar(problemas, `${etiqueta}: ${erro}`)
 

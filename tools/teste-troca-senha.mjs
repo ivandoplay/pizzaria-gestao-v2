@@ -111,7 +111,8 @@ if (!jaExiste) {
   // senha uma única vez, e é de lá que o robô a lê. Assim o teste pode rodar
   // quantas vezes for preciso, sempre com a mesma conta.
   const linha = page.locator('li').filter({ hasText: LOGIN_TESTE }).first()
-  const ativar = linha.locator('button:has-text("Ativar")')
+  // `has-text("Ativar")` também casa com "Desativar": use exato.
+  const ativar = linha.getByRole('button', { name: 'Ativar', exact: true })
   if ((await ativar.count()) > 0) {
     await ativar.click()
     await espera(700)

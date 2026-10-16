@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext'
 import { useTables } from '../lib/hooks'
@@ -28,12 +28,46 @@ import { translateError } from '../lib/errors'
 import { TABLE_STATUS_LABELS, type TableOverview, type TableStatus } from '../lib/types'
 
 /** Aparência de cada situação da mesa — a cor comunica o estado antes do texto. */
-const VISUAL: Record<TableStatus, { faixa: string; ponto: string; rotulo: string }> = {
-  available: { faixa: 'bg-emerald-500/70', ponto: 'bg-emerald-500', rotulo: 'text-emerald-700' },
-  occupied: { faixa: 'bg-amber-500/80', ponto: 'bg-amber-500', rotulo: 'text-amber-700' },
-  awaiting_close: { faixa: 'bg-sky-500/80', ponto: 'bg-sky-500', rotulo: 'text-sky-700' },
-  attention: { faixa: 'bg-rose-500', ponto: 'bg-rose-500', rotulo: 'text-rose-700' },
-  inactive: { faixa: 'bg-ink-300', ponto: 'bg-ink-400', rotulo: 'text-ink-500' },
+const VISUAL: Record<TableStatus, { faixa: string; ponto: string; rotulo: string; chip: string }> = {
+  available: { faixa: 'bg-emerald-500/70', ponto: 'bg-emerald-500', rotulo: 'text-emerald-700', chip: 'bg-emerald-50 text-emerald-700' },
+  occupied: { faixa: 'bg-amber-500/80', ponto: 'bg-amber-500', rotulo: 'text-amber-700', chip: 'bg-amber-50 text-amber-700' },
+  awaiting_close: { faixa: 'bg-sky-500/80', ponto: 'bg-sky-500', rotulo: 'text-sky-700', chip: 'bg-sky-50 text-sky-700' },
+  attention: { faixa: 'bg-rose-500', ponto: 'bg-rose-500', rotulo: 'text-rose-700', chip: 'bg-rose-50 text-rose-700' },
+  inactive: { faixa: 'bg-ink-300', ponto: 'bg-ink-400', rotulo: 'text-ink-500', chip: 'bg-ink-100 text-ink-500' },
+}
+
+/**
+ * Resumo do salão em faixa compacta (celular).
+ *
+ * Existe só no celular, e por um motivo prático: no computador os quatro
+ * cartões grandes cabem numa faixa e ajudam quem está no balcão; no bolso do
+ * garçom eles empurravam a primeira mesa para fora da tela. São os MESMOS
+ * quatro números, só que em duas colunas enxutas — nenhuma informação some.
+ */
+function ResumoCompacto({
+  resumo,
+}: {
+  resumo: { livres: number; emUso: number; atendimento: number; pendentes: number }
+}) {
+  const itens = [
+    { rotulo: 'Livres', valor: String(resumo.livres), cor: 'text-emerald-700', ponto: 'bg-emerald-500' },
+    { rotulo: 'Em atendimento', valor: String(resumo.emUso), cor: 'text-amber-700', ponto: 'bg-amber-500' },
+    { rotulo: 'Consumo', valor: formatMoney(resumo.atendimento), cor: 'text-ink-900', ponto: 'bg-brand-500' },
+    { rotulo: 'A receber', valor: formatMoney(resumo.pendentes), cor: 'text-ink-900', ponto: 'bg-ink-300' },
+  ]
+  return (
+    <div className="mb-4 grid grid-cols-2 gap-2 lg:hidden">
+      {itens.map((item) => (
+        <div key={item.rotulo} className="rounded-card border border-ink-200 bg-white px-3 py-2 shadow-card">
+          <p className="flex items-center gap-1.5 truncate text-[10px] font-semibold uppercase tracking-[0.06em] text-ink-500">
+            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${item.ponto}`} />
+            {item.rotulo}
+          </p>
+          <p className={`num mt-0.5 truncate text-[17px] font-semibold leading-tight ${item.cor}`}>{item.valor}</p>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 type Filtro = 'todas' | 'available' | 'ocupadas'
@@ -61,6 +95,9 @@ export default function TablesPage() {
   }, [])
 
   const canOpenSession = profile?.role === 'admin' || profile?.role === 'manager' || profile?.role === 'waiter'
+  // Quem pode receber a conta: muda só o TEXTO do atalho no cartão (o destino é
+  // o mesmo — a tela da mesa — e a permissão de verdade continua no banco).
+  const podeReceber = profile?.role === 'admin' || profile?.role === 'manager'
 
   const list = useMemo(() => {
     const termo = busca.trim().toLowerCase()
@@ -117,7 +154,7 @@ export default function TablesPage() {
     <div>
       <PageHeader
         titulo="Mesas"
-        descricao="Situação do salão em tempo real. Toque em uma mesa para atender ou ver a conta."
+        descricao="O salão em tempo real. Mesa livre abre o atendimento; mesa ocupada mostra a conta, os pedidos e o atalho para entrar nela."
         acoes={
           <>
             <IconButton
@@ -144,7 +181,9 @@ export default function TablesPage() {
         <ErrorBlock message={translateError(tables.error)} onRetry={() => void tables.refetch()} />
       ) : (
         <>
-          <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <ResumoCompacto resumo={resumo} />
+
+          <div className="mb-5 hidden gap-3 lg:grid lg:grid-cols-4">
             <StatTile
               rotulo="Mesas livres"
               valor={resumo.livres}
@@ -210,66 +249,79 @@ export default function TablesPage() {
               }
             />
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-3 lg:gap-3 xl:grid-cols-4">
               {list.map((mesa) => {
                 const visual = VISUAL[mesa.status]
                 const livre = mesa.status === 'available'
+                const inativa = mesa.status === 'inactive'
                 const minutos = mesa.opened_at ? Math.floor((agora - new Date(mesa.opened_at).getTime()) / 60000) : 0
+                const sessao = mesa.open_session_id
                 return (
-                  <button
+                  <div
                     key={mesa.id}
-                    onClick={() => (livre ? setAbrirEm(mesa) : setSelecionada(mesa))}
-                    className={`grade-navegavel group relative flex flex-col overflow-hidden rounded-card border border-ink-200 bg-white text-left shadow-card transition
-                      duration-200 ease-smooth hover:-translate-y-0.5 hover:border-ink-300 hover:shadow-raised ${
-                        mesa.status === 'inactive' ? 'opacity-70' : ''
-                      }`}
+                    className={`flex flex-col overflow-hidden rounded-card border bg-white shadow-card transition duration-200 ease-smooth hover:-translate-y-0.5 hover:border-ink-300 hover:shadow-raised ${
+                      livre ? 'border-dashed border-ink-300' : 'border-ink-200'
+                    } ${inativa ? 'opacity-70' : ''}`}
                   >
-                    <span className={`h-[3px] w-full ${visual.faixa}`} />
-                    <div className="flex items-start justify-between gap-2 px-4 pt-3.5 pb-2">
-                      <div className="min-w-0">
-                        <p className="truncate text-[16px] font-semibold tracking-[-0.01em] text-ink-900">
-                          {mesa.name ?? `Mesa ${mesa.number}`}
-                        </p>
-                        <p className="text-[12px] text-ink-500">
-                          {mesa.seats ? `${mesa.seats} lugares` : 'Sem lugares definidos'}
-                        </p>
-                      </div>
-                      <span className={`flex items-center gap-1.5 whitespace-nowrap text-micro font-semibold uppercase tracking-[0.05em] ${visual.rotulo}`}>
-                        <span className={`h-1.5 w-1.5 rounded-full ${visual.ponto}`} />
-                        {TABLE_STATUS_LABELS[mesa.status]}
-                      </span>
-                    </div>
+                    <span className={`h-[3px] w-full ${visual.faixa}`} aria-hidden />
 
-                    <div className="flex flex-1 flex-col gap-1.5 px-4 pb-4">
+                    {/* Corpo do cartão: leva aos detalhes da mesa (ou abre o
+                        atendimento, quando a mesa está livre). */}
+                    <button
+                      type="button"
+                      onClick={() => (livre ? setAbrirEm(mesa) : setSelecionada(mesa))}
+                      className={`grade-navegavel flex flex-1 flex-col gap-2 px-3.5 pb-3.5 pt-3 text-left ${
+                        livre || inativa ? 'justify-center' : ''
+                      }`}
+                    >
+                      {/* O nome ocupa a linha inteira: é o que o garçom
+                          procura primeiro. O selo desce para a linha de
+                          baixo — espremido ao lado, cortava o nome. */}
+                      <span className="block truncate text-[16px] font-semibold leading-tight tracking-[-0.01em] text-ink-900">
+                        {mesa.name ?? `Mesa ${mesa.number}`}
+                      </span>
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        <span
+                          className={`inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-[0.04em] ${visual.chip}`}
+                        >
+                          <span className={`h-1.5 w-1.5 rounded-full ${visual.ponto}`} />
+                          {TABLE_STATUS_LABELS[mesa.status]}
+                        </span>
+                        {mesa.seats ? (
+                          <span
+                            className="inline-flex shrink-0 items-center gap-0.5 text-[11.5px] text-ink-500"
+                            title={`${mesa.seats} lugares`}
+                          >
+                            <Icon nome="usuario" className="h-3.5 w-3.5 text-ink-400" />
+                            {mesa.seats}
+                          </span>
+                        ) : null}
+                      </span>
+
                       {livre ? (
-                        <p className="flex items-center gap-1.5 text-pequeno font-medium text-emerald-700">
-                          <Icon nome="mais" className="h-4 w-4" />
+                        <span className="inline-flex items-center gap-1 whitespace-nowrap pt-1 text-[12.5px] font-semibold text-emerald-700">
+                          <Icon nome="mais" className="h-4 w-4 shrink-0" />
                           Iniciar atendimento
-                        </p>
-                      ) : mesa.status === 'inactive' ? (
-                        <p className="text-pequeno text-ink-500">Mesa desativada — fora de uso.</p>
+                        </span>
+                      ) : inativa ? (
+                        <span className="text-pequeno text-ink-500">Mesa desativada — fora de uso.</span>
                       ) : (
                         <>
-                          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-ink-600">
-                            <span className="inline-flex items-center gap-1">
+                          <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11.5px] text-ink-600">
+                            <span className="inline-flex items-center gap-1 font-medium">
                               <Icon nome="relogio" className="h-3.5 w-3.5 text-ink-400" />
                               {duracaoDesde(mesa.opened_at, agora)}
                             </span>
                             <span className="text-ink-300">·</span>
-                            <span>
-                              desde {formatTime(mesa.opened_at)}
-                              {minutos >= 90 && <span className="ml-1 font-medium text-amber-700">(atenção)</span>}
-                            </span>
-                          </p>
-                          <p className="text-[12px] text-ink-600">
-                            {mesa.open_orders_count} pedido{mesa.open_orders_count === 1 ? '' : 's'} ·{' '}
-                            {mesa.open_items_count} item{mesa.open_items_count === 1 ? '' : 's'}
-                            {mesa.guest_count ? ` · ${mesa.guest_count} pessoa${mesa.guest_count === 1 ? '' : 's'}` : ''}
-                          </p>
-                          <p className="num mt-auto pt-2 text-lg font-semibold text-ink-900">
+                            <span>desde {formatTime(mesa.opened_at)}</span>
+                            {minutos >= 90 && <span className="font-semibold text-amber-700">· atenção</span>}
+                          </span>
+
+                          <span className="num mt-auto text-[19px] font-semibold leading-tight text-ink-900">
                             {formatMoney(mesa.total_cents)}
-                          </p>
-                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                          </span>
+
+                          <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11.5px]">
                             {mesa.balance_cents > 0 ? (
                               <span className="font-medium text-brand-700">
                                 falta {formatMoney(mesa.balance_cents)}
@@ -283,14 +335,37 @@ export default function TablesPage() {
                                 {mesa.pending_kitchen_count} na produção
                               </span>
                             )}
-                          </div>
-                          {mesa.opened_by_name && (
-                            <p className="truncate text-[11px] text-ink-500">Atendimento: {mesa.opened_by_name}</p>
-                          )}
+                          </span>
+
+                          {/* Detalhe fino só onde há largura: no celular o mesmo
+                              dado está a um toque, na janela de detalhes. */}
+                          <span className="hidden flex-wrap items-center gap-x-2 gap-y-1 text-[11.5px] text-ink-500 sm:flex">
+                            <span>
+                              {mesa.open_orders_count} pedido{mesa.open_orders_count === 1 ? '' : 's'} ·{' '}
+                              {mesa.open_items_count} item{mesa.open_items_count === 1 ? '' : 's'}
+                            </span>
+                            {mesa.guest_count ? (
+                              <span>· {mesa.guest_count} pessoa{mesa.guest_count === 1 ? '' : 's'}</span>
+                            ) : null}
+                            {mesa.opened_by_name ? <span>· {mesa.opened_by_name}</span> : null}
+                          </span>
                         </>
                       )}
-                    </div>
-                  </button>
+                    </button>
+
+                    {/* Atalho direto para a mesa: um toque em vez de dois.
+                        É um LINK porque navega — e porque link tem volta
+                        (botão direito, nova aba) que botão não tem. */}
+                    {sessao && !inativa && (
+                      <Link
+                        to={`/mesas/${sessao}`}
+                        className="flex h-11 items-center justify-center gap-1.5 border-t border-ink-100 bg-ink-25 text-[13px] font-semibold text-brand-700 transition hover:bg-brand-50"
+                      >
+                        {podeReceber ? 'Conta e receber' : 'Abrir atendimento'}
+                        <Icon nome="seta-direita" className="h-4 w-4" />
+                      </Link>
+                    )}
+                  </div>
                 )
               })}
             </div>

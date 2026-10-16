@@ -148,11 +148,19 @@ async function acharConta(page) {
     const cartao = cartoes.nth(i)
     const ocupada = await cartao.evaluate((el) => /Ocupada|Aguardando|Atenção/.test(el.textContent ?? ''))
     if (!ocupada) continue
-    await cartao.click()
-    await espera(600)
-    const abrir = page.locator('button').filter({ hasText: /^(Abrir|Acompanhar)/ }).first()
-    if ((await abrir.count()) === 0) continue
-    await abrir.click()
+    // Desde 16/10/2026 o cartão ocupado tem um atalho direto que navega para a
+    // conta (um toque em vez de dois). Se ele não existir (cartão antigo em
+    // cache), cai no caminho de antes: abrir a janela e clicar no botão dela.
+    const atalho = page.locator('a[href^="/mesas/"]').nth(0)
+    if (await atalho.count() > 0) {
+      await atalho.click()
+    } else {
+      await cartao.click()
+      await espera(600)
+      const abrir = page.locator('button').filter({ hasText: /^(Abrir|Acompanhar)/ }).first()
+      if ((await abrir.count()) === 0) continue
+      await abrir.click()
+    }
     await page.waitForFunction(() => !document.querySelector('.esqueleto'), undefined, { timeout: 25_000 }).catch(() => {})
     await espera(600)
     const rota = new URL(page.url()).pathname

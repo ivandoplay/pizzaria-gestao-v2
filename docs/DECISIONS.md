@@ -407,3 +407,78 @@ caixa e ver o agregado do salão.
 total/recebido/falta somados (vêm das views de conta), mas **não abre a lista de comprovantes** — para isso
 seria preciso mudar política de `payments`, o que não foi pedido nem autorizado. Se for desejado, é uma
 migração pequena e separada.
+
+---
+
+## 11. Fechamento seguro: a mesa não é liberada com pedido em andamento (16/10/2026)
+
+### 11.1 O achado P0 da auditoria de telas
+
+Era o pior tipo de falha para o salão: dava para fechar a conta com pedido ainda em produção. A conta
+fechava, a mesa voltava para "livre" e o pedido continuava existindo — sem mesa para ser entregue e **fora
+da fila de prontos** (a fila só mostra pedido de conta aberta). O garçom perdia o pedido de vista e a
+cozinha seguia produzindo prato para uma mesa que o sistema dizia estar vazia. O caminho era acessível a
+qualquer perfil que fecha conta.
+
+### 11.2 A trava passou para o banco — migração `20260101000012_fechamento_seguro_e_caixa.sql`
+
+`close_table_account` passa a **recusar** o fechamento normal com `ORDERS_IN_PROGRESS` enquanto existir
+pedido em `received`, `confirmed`, `preparing`, `ready` ou `out_for_delivery`. A recusa devolve também o
+resumo do que falta (`orders_in_progress`) para a tela explicar o motivo em vez de só negar o clique.
+
+A ordem dos locks e o cálculo do saldo **não mudaram**: a verificação nova entra dentro da mesma transação,
+depois do `SELECT … FOR UPDATE` que já existia. Quem tenta fechar enquanto alguém entrega o último pedido é
+resolvido pelo banco, não pela tela — a interface impede o clique inválido, mas a decisão é do PostgreSQL.
+
+### 11.3 O caminho excepcional ficou estreito, explicado e auditado
+
+Fechar a mesa com cliente que foi embora no meio do preparo continua possível — mas só para o
+**administrador**, com justificativa de pelo menos 3 caracteres. Com a justificativa, o banco:
+
+* cancela os pedidos pendentes da sessão com o motivo informado, gravando histórico (`cancelled`) e evento
+  de auditoria com **`on_session_close: true`** — dá para ver depois que o cancelamento veio do fechamento,
+  e não de um cancelamento solto;
+* devolve **`orders_cancelled_on_close`** para a tela confirmar quantos pedidos foram cancelados;
+* **recusa** com `PAYMENT_REFUND_REQUIRED` se algum pedido pendente já tem dinheiro recebido: primeiro o
+  estorno (administrador/caixa), depois o fechamento. O banco não guarda dinheiro de pedido cancelado.
+
+### 11.4 O caixa "vivo" na tela — sem vazar valor de gaveta para quem não abre gaveta
+
+A mesma migração cria **`cash_session_is_open()`**: responde apenas "existe turno aberto?" e autoriza
+administrador, gerente e garçom (para o anônimo continua `permission denied`). O painel de recebimento usa
+essa resposta em vez de deduzir o caixa pela ausência de erro:
+
+* quem **lê a gaveta** (administrador e caixa) vê o turno com os valores e a contagem esperada;
+* o **garçom** vê só o estado — "Conferindo o caixa…", "Caixa aberto" ou "Caixa fechado (peça para abrir o
+  turno)" — sem nenhum valor de caixa, e o botão de registrar recebimento fica travado quando não há turno;
+* o estado é uma consulta viva (`qk.cashSessionOpen`, invalidada junto com o resto do caixa), então a tela
+  muda quando o caixa abre ou fecha — antes ela congelava no que existia quando a página carregou.
+
+Assim ninguém fica preso num botão morto e ninguém ganha informação que não deve ver.
+
+### 11.5 Idempotência amarrada à operação, não ao clique (`src/lib/idempotencia.ts`)
+
+O `client_uuid` do banco sempre protegeu contra duplicação, mas a tela sorteava a chave a cada clique: se a
+resposta se perdesse no meio e o operador tocasse de novo, era *outra* chave e um segundo registro podia
+entrar. Agora a chave é presa à **assinatura da operação**:
+
+* `useChaveIdempotente(assinatura)` para o que dá para assinar antes do clique — carrinho do pedido e
+  valores do recebimento. No sucesso a chave é renovada (`renovar()`), para a próxima operação não repetir
+  a anterior;
+* `criarCofreDeChaves`/`useCofreDeChaves` para o que só existe no clique (abertura de mesa:
+  `mesa|pessoas|observação`);
+* resposta que não chegou é tratada como **resultado incerto**, não como erro de gravação: `erroSemCodigo()`
+  mostra "não deu para confirmar — repetir não duplica", e a chave é mantida para o operador repetir sem medo;
+* `TABLE_ALREADY_OPEN` (corrida do salão) virou um caso de uso: a lista é recarregada e o operador entra no
+  atendimento que já existe, em vez de ver um erro cru.
+
+**Limite honesto:** a proteção vale por aba/aparelho. Duas pessoas em aparelhos diferentes continuam sendo
+resolvidas pelo banco (`TABLE_ALREADY_OPEN`) — a diferença é que a tela reage a isso em vez de travar.
+
+### 11.6 O que ficou de fora (e por quê)
+
+* **RLS e GRANT de `payments` não mudaram** — o garçom registra e vê os totais da conta, mas continua sem
+  abrir a lista de comprovantes (limite já registrado em §10.4). Se for desejado, é migração separada.
+* **Nada de fila, canal Realtime ou tabela paralela** — a regra vive nas funções que já existiam.
+* **A tela não "esconde" o botão de fechar quando há pendência: ela explica.** Botão morto ou aviso que
+  esconde a causa é exatamente o tipo de cosmético que a revisão proibiu.

@@ -111,25 +111,26 @@ trilha de auditoria somente-adição.
 
 | Verificação | Comando | Resultado |
 |---|---|---|
-| Suíte do banco (00–09), local | `bash tools/run-sql-tests.sh` | **311 asserções aprovadas**, 0 falhas |
+| Suíte do banco (00–11), local | `bash tools/run-sql-tests.sh` | **372 asserções aprovadas**, 0 falhas |
 | Suíte do banco (00–08), **no Supabase real** (etapa de 15/10) | `tools/supabase-cloud-sql.sh` | **nenhuma falha** (falha em qualquer asserção aborta o arquivo); o `09` roda no banco local e, na nuvem, a validação é a migração aplicada + smoke + robôs |
 | Concorrência real (07) | idem (duas conexões em paralelo) | **verde**: abertura dupla bloqueada, clique duplo → 1 pagamento, fechamento duplo → recusado |
 | Testes unitários | `npm test` (Vitest) | **56/56** |
 | Tipos | `npm run typecheck` | **exit 0** |
-| Build de produção | `npx vite build` | **exit 0** (chunk principal 491 kB / 141 kB gzip + 1 chunk por tela) |
+| Build de produção | `npx vite build` | **exit 0** (chunk principal 493 kB / 142 kB gzip + 1 chunk por tela) |
 | Interface em navegador real | `node tools/e2e-telas.mjs <URL>` (Playwright, contra o **site publicado**) | **0 falhas**: login dos 3 perfis, 11 telas do administrador, percurso completo do salão, bloqueio de permissão conferido, nenhum erro de console/rede |
 | Troca obrigatória de senha | `node tools/teste-troca-senha.mjs <URL>` (Playwright, contra o **site publicado**) | **0 falhas**: senha temporária não abre o sistema (nem pela rota), validações da troca, senha antiga deixa de funcionar, evento na auditoria e conta de teste desativada |
+| Fechamento seguro (garçom recebe e fecha) | `PZ_GARCOM_LOGIN=… PZ_CAIXA_LOGIN=… node tools/e2e-garcom-recebe.mjs <URL>` (Playwright, celular 390×844, **local e site publicado**) | **0 falhas, 9 passos**: o garçom vê o valor da conta, o fechamento é **recusado** com pedido em andamento (motivo explicado na tela), o caixa conduz a produção até "Pronto", o garçom entrega pela fila, a pendência zera, ele recebe em dinheiro e **fecha** a conta — mesa de volta aos livres |
 | Fila de pedidos prontos | `node tools/e2e-fila.mjs <URL>` (Playwright, contra o **site publicado**) | **0 falhas**: mesa aberta pelo garçom, pedido lançado com observação, produção avançada pelo caixa até “Pronto”, cartão conferido na fila (mesa, número, item, observação, selo e tempo de espera), entrega confirmada, histórico com “Entregue à mesa” e pedido fora da fila depois |
 | Auditoria de telas | `node tools/auditar-telas.mjs <URL>` (Playwright, 3 perfis × celular e computador, 46 leituras de tela) | **0 falhas, 0 avisos** — nenhuma rolagem lateral e nenhum alvo de toque abaixo de 44px no celular |
 | Conferência do deploy | `bash tools/smoke-deploy.sh <URL> admin '<senha>'` | **tudo certo** (rotas, cabeçalhos, variáveis no bundle, ausência de credencial privilegiada, login real) |
 | Esteira automática — aplicação | GitHub Actions → `CI`, trabalho `verificar` (`npm ci`, `tsc -b`, Vitest, `vite build`) | **sucesso** (16/10/2026) |
-| Esteira automática — banco | GitHub Actions → `CI`, trabalho `banco` (PostgreSQL 17 descartável + `tools/run-sql-tests.sh`: migrações, suíte 00–09, concorrência) | **sucesso** (16/10/2026) |
+| Esteira automática — banco | GitHub Actions → `CI`, trabalho `banco` (PostgreSQL 17 descartável + `tools/run-sql-tests.sh`: migrações, suíte 00–11, concorrência) | **sucesso** (16/10/2026) |
 
 Detalhes, valores esperados e limitações em [`TESTES.md`](TESTES.md).
 
 ## 5. Estado do build e do deploy
 
-Atualizado em **16/10/2026**, depois da execução com as credenciais reais e da fila de prontos.
+Atualizado em **16/10/2026**, depois da correção do fechamento seguro (a mesa não é liberada com pedido em andamento).
 
 ### 5.1 GitHub — **executado**
 
@@ -344,6 +345,19 @@ administrador no mesmo dia.
    saldo pendente, estornar e descontar também. Suíte de banco: 337 asserções (novo arquivo
    `10_garcom_recebe_e_fecha.sql`, 26 delas). Regra completa em [`DECISIONS.md`](DECISIONS.md) §10.
 
+**Sexta à tarde — fechamento seguro (16/10/2026):** o achado P0 da auditoria de telas. Era possível fechar a
+conta com pedido ainda em produção: a mesa era liberada e o pedido ficava **fora da fila de prontos**, sem
+mesa para ser entregue. A correção é no banco (migração `20260101000012_fechamento_seguro_e_caixa.sql`,
+aplicada na nuvem): fechamento normal com pedido em andamento → `ORDERS_IN_PROGRESS` e a mesa continua
+aberta; o caminho excepcional (administrador + justificativa) cancela os pendentes com histórico e auditoria
+`on_session_close`, e pedido já pago exige estorno antes. A mesma migração criou `cash_session_is_open()`,
+que deu ao painel de recebimento um **estado de caixa vivo** — quem lê a gaveta vê os valores, o garçom vê
+só "caixa aberto/fechado", sem botão morto. No cliente, a chave de idempotência passou a ser presa à
+**assinatura da operação** (repetir depois de uma resposta perdida não duplica), e `TABLE_ALREADY_OPEN`
+passou a ser tratado entrando no atendimento que já existe. Suíte de banco: **372 asserções** (novo arquivo
+`11_fechamento_seguro.sql`); robô de aceitação `tools/e2e-garcom-recebe.mjs` reescrito para a regra nova
+(9 passos, verde em local e produção). Decisões em [`DECISIONS.md`](DECISIONS.md) §11.
+
 **Onde mexer depois:** os primitivos ficam em `src/components/ui.tsx`; as cores, sombras e animações em
 `tailwind.config.js`; os ícones em `src/components/icons.tsx`. Trocar a identidade visual da pizzaria é editar
 esses três arquivos — nenhuma tela tem cor fixa.
@@ -422,8 +436,8 @@ publicada, Realtime ativo e banco limpo (seção 5.2); código publicado no GitH
 | Aspecto | Situação |
 |---|---|
 | Código (banco + servidor + interface) | completo para o escopo definido |
-| Migrações, RLS, RPCs, views, Realtime | validados localmente (suíte 00–10) **e na nuvem** (as 11 migrações aplicadas no projeto real) |
-| Testes | executados, verdes (337 asserções SQL + concorrência real — na esteira e local —, 56 unitários, robôs de navegador contra o site publicado) |
+| Migrações, RLS, RPCs, views, Realtime | validados localmente (suíte 00–11) **e na nuvem** (as 12 migrações aplicadas no projeto real) |
+| Testes | executados, verdes (372 asserções SQL + concorrência real — na esteira e local —, 56 unitários, robôs de navegador contra o site publicado) |
 | Build | verde |
 | GitHub | **publicado** (`ivandoplay/pizzaria-gestao-v2`, repositório público) |
 | Supabase | **configurado e verificado na nuvem** (migrações, RLS, Realtime, Edge Function, 3 perfis, fluxo ponta a ponta) |

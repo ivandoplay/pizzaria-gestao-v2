@@ -94,6 +94,7 @@ As migrações ficam em `supabase/migrations/` e são aplicadas **em ordem**:
 | `20260101000009_troca_senha_obrigatoria.sql` | `complete_password_change()`: baixa a própria flag de senha temporária, idempotente e auditada (23 funções no total). |
 | `20260101000010_fila_pedidos_prontos.sql` | Fila de pedidos prontos: a view `order_overview` passa a expor **`ready_at`** (horário em que o pedido ficou pronto) e **`session_status`**; `advance_order_status` confere **sessão da mesa e conta encerrada dentro da transação** no caminho `delivered_to_table`. Nenhuma função nova: continuam 23. |
 | `20260101000011_garcom_recebe_e_fecha.sql` | Dinheiro sob a regra do administrador (16/10/2026): `register_payment` e `close_table_account` passam a autorizar o papel **`waiter`** — o garçom vê o valor da conta, **recebe** (o valor entra no turno de caixa aberto) e **fecha** a conta quitada. Nenhuma política de RLS nem GRANT mudou; continuam exclusivos do administrador/caixa: fechar com saldo pendente, estornar, descontar e o agregado do salão. |
+| `20260101000012_fechamento_seguro_e_caixa.sql` | Fechamento seguro (16/10/2026): `close_table_account` **recusa** fechar a conta com pedido em andamento (`ORDERS_IN_PROGRESS`) — antes a mesa era liberada e o pedido ficava impossível de entregar. O fechamento excepcional (administrador + justificativa) cancela os pendentes com histórico e auditoria (`on_session_close`) e devolve `orders_cancelled_on_close`; pendente com dinheiro recebido exige estorno (`PAYMENT_REFUND_REQUIRED`). Cria `cash_session_is_open()` para admin/gerente/garçom — o garçom sabe se há turno aberto sem ver valor de caixa. |
 
 Seeds:
 
@@ -114,18 +115,18 @@ para o seed e a remoção, então as listas nunca ficam desencontradas).
 
 | Suíte | O que cobre | Resultado |
 |---|---|---|
-| `supabase/tests/00_setup.sql` … `09_fila_prontos.sql` | 311 asserções no PostgreSQL: RLS, privilégios, permissões por perfil, cardápio, mesas/pedidos, caixa/pagamentos, delivery, relatórios, auditoria, troca obrigatória de senha e fila de prontos | **verde** (local) |
+| `supabase/tests/00_setup.sql` … `11_fechamento_seguro.sql` | 372 asserções no PostgreSQL: RLS, privilégios, permissões por perfil, cardápio, mesas/pedidos, caixa/pagamentos, delivery, relatórios, auditoria, troca obrigatória de senha, fila de prontos, dinheiro do garçom e fechamento seguro | **verde** (local) |
 | `supabase/tests/07_concurrency.sh` | Concorrência real com duas conexões simultâneas (abertura de mesa, clique duplo de pagamento, fechamento duplo) | **verde** |
 | Vitest (`npm test`) | Regras de preço espelhadas do banco, formatação BRL/datas/durações/plural, tradução de erros, criação sob demanda do cliente Supabase, regras da troca de senha e regras da fila de prontos | **56/56** |
 | `npm run typecheck` | TypeScript em modo estrito, sem emissão | **exit 0** |
-| `npm run build` | Build de produção com cada tela em um chunk próprio | **exit 0** (principal 491 kB / 141 kB gzip + chunks por tela) |
+| `npm run build` | Build de produção com cada tela em um chunk próprio | **exit 0** (principal 493 kB / 142 kB gzip + chunks por tela) |
 | GitHub Actions (`CI`) — aplicação | A cada push no `main`, pull request e execução manual: `npm ci` → `tsc -b` → Vitest → `vite build` | **sucesso** (16/10/2026) |
-| GitHub Actions (`CI`) — banco | PostgreSQL 17 descartável no próprio executor: `tools/run-sql-tests.sh` (migrações + suíte 00–10 + concorrência com conexões paralelas) | **sucesso** (16/10/2026) |
+| GitHub Actions (`CI`) — banco | PostgreSQL 17 descartável no próprio executor: `tools/run-sql-tests.sh` (migrações + suíte 00–11 + concorrência com conexões paralelas) | **sucesso** (16/10/2026) |
 
 Reproduza tudo com:
 
 ```bash
-bash tools/run-sql-tests.sh   # recria o banco, aplica migrações + seeds e roda 00–10
+bash tools/run-sql-tests.sh   # recria o banco, aplica migrações + seeds e roda 00–11
 npm test && npm run build
 ```
 

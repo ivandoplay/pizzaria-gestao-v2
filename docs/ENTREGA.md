@@ -367,6 +367,15 @@ no computador; a barra de envio ficou fina e só aparece quando há item. Rolage
 7.365 px. Nada foi escondido — mesmos números, botões e travas. Decisões e antes × depois em
 [`IDENTIDADE.md`](IDENTIDADE.md) §8 e `mesa-aberta-antes-e-depois.png`.
 
+**Sexta, ainda — fila de prontos alinhada e base limpa (16/10/2026):** o cartão da fila ganhou a faixa de
+3 px na situação (a mesma linguagem de Mesas e da conta), espaçamento mais justo e o rótulo curto de
+observação — 1.267 px → 1.211 px de rolagem no celular com 4 pedidos prontos. Junto: o robô `e2e-fila.mjs`
+tinha o mesmo bug de seletor do robô da conta (o filtro compara o textContent, sem espaços entre elementos)
+e foi corrigido; e nasceu o utilitário `tools/limpar-contas-teste.mjs`, que fecha as contas que os robôs
+deixam abertas pelo caminho do sistema (por padrão só lista). Com ele, as 6 contas abertas de teste na base
+foram fechadas — a nuvem ficou sem nenhuma mesa aberta, com tudo registrado na auditoria. Antes × depois em
+`fila-antes-e-depois.png`; decisões em [`IDENTIDADE.md`](IDENTIDADE.md) §9.
+
 **Onde mexer depois:** os primitivos ficam em `src/components/ui.tsx`; as cores, sombras e animações em
 `tailwind.config.js`; os ícones em `src/components/icons.tsx`. Trocar a identidade visual da pizzaria é editar
 esses três arquivos — nenhuma tela tem cor fixa.

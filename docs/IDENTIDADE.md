@@ -186,7 +186,21 @@ O cartão de cada pedido ganhou a **faixa de 3 px na cor da situação** — a m
 lugar das bolinhas do selo. Nada foi escondido: os mesmos quatro números, os mesmos botões e as mesmas
 travas (inclusive o aviso de que o fechamento é recusado com pedido em andamento).
 
-## 9. Checklist antes de publicar uma mudança visual
+## 9. Tela "Pedidos prontos" — 16/10/2026
+
+Terceira da fila de redesenho. Aqui não havia quebra: a fila funciona e o garçom entrega com um toque. A
+mudança foi **alinhar a linguagem** e tirar excesso — este cartão é lido de pé, com o celular na mão, e cada
+linha a mais é uma linha que ele precisa pular:
+
+* **Faixa de 3 px na situação** (verde = pronto, verde claro = entregue), como na tela de Mesas e no cartão
+  do pedido da conta. A cor acompanha, mas não substitui: o selo continua escrito "Pronto"/"Entregue".
+* **Cartão mais justo:** `p-4` → `p-3.5`, `gap-3` → `gap-2.5`, itens com espaçamento menor.
+* **"Observação do pedido: …" → "Observação: …"** — o resto do cartão já diz de que pedido se trata.
+
+Medido: com 4 pedidos prontos, a fila no celular caiu de 1.267 px para 1.211 px de rolagem. Nada foi
+escondido — itens, tempo de espera, observação e o botão de entrega continuam iguais.
+
+## 10. Checklist antes de publicar uma mudança visual
 
 ```bash
 npm run typecheck      # tipos

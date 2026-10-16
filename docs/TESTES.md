@@ -81,7 +81,7 @@ Execução final: **311 asserções, todas aprovadas**, sem `ERROR` e sem `ASSER
 
 ---
 
-## 3. Testes da aplicação — resultado: **48/48**
+## 3. Testes da aplicação — resultado: **56/56**
 
 `npm test` (Vitest, sem ambiente de navegador):
 
@@ -92,6 +92,7 @@ Execução final: **311 asserções, todas aprovadas**, sem `ERROR` e sem `ASSER
 | `src/lib/errors.test.ts` | 5 | tradução de códigos do banco, códigos desconhecidos, mensagens do Supabase |
 | `src/lib/supabase.test.ts` | 3 | importar o módulo não cria cliente (regressão do WebSocket em Node), `CONFIGURACAO_PENDENTE` sem env e fuso padrão |
 | `src/lib/senha.test.ts` | 13 | troca de senha: senha atual obrigatória, mínimo de 8 caracteres, senha só de espaços, nova igual à atual, repetição diferente, nível de força (fraca/razoável/forte) e lista de senhas óbvias |
+| `src/lib/fila.test.ts` | 8 | fila de prontos: só entra pedido `ready` de salão com conta aberta; nada de delivery, cancelado ou já entregue; ordem pelo `ready_at` (e não pelo horário do pedido), sem depender da ordem que o banco devolveu; pedido sem horário confiável vai para o fim sem sumir; detalhes do item (tamanho, sabores, adicionais, observação) sem repetir sabor único nem inventar detalhe de item simples |
 
 `pricing.ts` merece destaque: é a **prévia** do navegador espelhando o cálculo do banco. Se ela divergir,
 o valor mostrado é substituído pelo oficial — mas manter os dois alinhados evita confusão no balcão, e

@@ -301,8 +301,8 @@ no lugar do conteúdo — sem navegar para outra rota. Quem for automatizar tela
 da página, não o endereço.
 **Motivo:** o guard não pode depender de rota digitada à mão (`/dashboard` também cai na troca, e isso é
 proposital). Em 16/10/2026 isso enganou um robô de auditoria: ele "passou" por todas as telas medindo a
-mesma tela de troca. Hoje `auditar-telas.mjs` e `checar-rolagem.mjs` falham de propósito quando detectam
-a tela de troca.
+mesma tela de troca. Hoje `auditar-telas.mjs`, `checar-rolagem.mjs` e `e2e-telas.mjs` falham de propósito quando detectam
+a tela de troca (este último passou a ter a guarda em 16/10/2026).
 
 ### 7.6 A suíte de banco entrou na esteira (e o runner ganhou `PSQL_SUDO`)
 **Decisão:** o `CI` passou a ter um segundo trabalho, `banco`, que sobe um **PostgreSQL 17 descartável**

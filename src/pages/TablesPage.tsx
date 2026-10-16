@@ -46,14 +46,21 @@ const VISUAL: Record<TableStatus, { faixa: string; ponto: string; rotulo: string
  */
 function ResumoCompacto({
   resumo,
+  comDinheiro,
 }: {
   resumo: { livres: number; emUso: number; atendimento: number; pendentes: number }
+  /** Só o administrador vê os dois números de dinheiro (decisão de 16/10/2026). */
+  comDinheiro: boolean
 }) {
   const itens = [
     { rotulo: 'Livres', valor: String(resumo.livres), cor: 'text-emerald-700', ponto: 'bg-emerald-500' },
     { rotulo: 'Em atendimento', valor: String(resumo.emUso), cor: 'text-amber-700', ponto: 'bg-amber-500' },
-    { rotulo: 'Consumo', valor: formatMoney(resumo.atendimento), cor: 'text-ink-900', ponto: 'bg-brand-500' },
-    { rotulo: 'A receber', valor: formatMoney(resumo.pendentes), cor: 'text-ink-900', ponto: 'bg-ink-300' },
+    ...(comDinheiro
+      ? [
+          { rotulo: 'Consumo', valor: formatMoney(resumo.atendimento), cor: 'text-ink-900', ponto: 'bg-brand-500' },
+          { rotulo: 'A receber', valor: formatMoney(resumo.pendentes), cor: 'text-ink-900', ponto: 'bg-ink-300' },
+        ]
+      : []),
   ]
   return (
     <div className="mb-4 grid grid-cols-2 gap-2 lg:hidden">
@@ -98,6 +105,18 @@ export default function TablesPage() {
   // Quem pode receber a conta: muda só o TEXTO do atalho no cartão (o destino é
   // o mesmo — a tela da mesa — e a permissão de verdade continua no banco).
   const podeReceber = profile?.role === 'admin' || profile?.role === 'manager'
+  /**
+   * Quem vê DINHEIRO.
+   *
+   * Combinado com o administrador em 16/10/2026: os TOTAIS do salão (quanto
+   * está aberto em todas as mesas, quanto há a receber) são assunto de gestão —
+   * só o administrador vê. O caixa continua vendo o valor de CADA conta, porque
+   * é ele quem recebe o pagamento na mesa; o garçom não vê valor de conta
+   * nenhum: ele anota pedido e entrega. Preço de item do cardápio continua
+   * aparecendo para todos (é o mesmo preço do menu impresso).
+   */
+  const verTotaisDoSalao = isAdmin
+  const verValoresDeConta = isAdmin || profile?.role === 'manager'
 
   const list = useMemo(() => {
     const termo = busca.trim().toLowerCase()
@@ -181,7 +200,7 @@ export default function TablesPage() {
         <ErrorBlock message={translateError(tables.error)} onRetry={() => void tables.refetch()} />
       ) : (
         <>
-          <ResumoCompacto resumo={resumo} />
+          <ResumoCompacto resumo={resumo} comDinheiro={verTotaisDoSalao} />
 
           <div className="mb-5 hidden gap-3 lg:grid lg:grid-cols-4">
             <StatTile
@@ -198,19 +217,23 @@ export default function TablesPage() {
               tom="ambar"
               detalhe="Com conta aberta agora"
             />
-            <StatTile
-              rotulo="Consumido no salão"
-              valor={formatMoney(resumo.atendimento)}
-              icone="dinheiro"
-              tom="marca"
-              detalhe="Soma das contas abertas"
-            />
-            <StatTile
-              rotulo="A receber"
-              valor={formatMoney(resumo.pendentes)}
-              icone="relogio"
-              detalhe="Saldo das contas abertas"
-            />
+            {verTotaisDoSalao && (
+              <>
+                <StatTile
+                  rotulo="Consumido no salão"
+                  valor={formatMoney(resumo.atendimento)}
+                  icone="dinheiro"
+                  tom="marca"
+                  detalhe="Soma das contas abertas"
+                />
+                <StatTile
+                  rotulo="A receber"
+                  valor={formatMoney(resumo.pendentes)}
+                  icone="relogio"
+                  detalhe="Saldo das contas abertas"
+                />
+              </>
+            )}
           </div>
 
           <div className="mb-4 flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
@@ -317,25 +340,35 @@ export default function TablesPage() {
                             {minutos >= 90 && <span className="font-semibold text-amber-700">· atenção</span>}
                           </span>
 
-                          <span className="num mt-auto text-[19px] font-semibold leading-tight text-ink-900">
-                            {formatMoney(mesa.total_cents)}
-                          </span>
+                          {verValoresDeConta ? (
+                            <>
+                              <span className="num mt-auto text-[19px] font-semibold leading-tight text-ink-900">
+                                {formatMoney(mesa.total_cents)}
+                              </span>
+                              <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11.5px]">
+                                {mesa.balance_cents > 0 ? (
+                                  <span className="font-medium text-brand-700">
+                                    falta {formatMoney(mesa.balance_cents)}
+                                  </span>
+                                ) : (
+                                  <span className="font-medium text-emerald-700">conta paga</span>
+                                )}
+                              </span>
+                            </>
+                          ) : (
+                            /* Garçom: o que ele precisa saber é o que falta
+                               SAIR da produção, não quanto está a conta. */
+                            <span className="mt-auto text-[11.5px] text-ink-500">
+                              {mesa.open_items_count} item{mesa.open_items_count === 1 ? '' : 's'} na mesa
+                            </span>
+                          )}
 
-                          <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11.5px]">
-                            {mesa.balance_cents > 0 ? (
-                              <span className="font-medium text-brand-700">
-                                falta {formatMoney(mesa.balance_cents)}
-                              </span>
-                            ) : (
-                              <span className="font-medium text-emerald-700">conta paga</span>
-                            )}
-                            {mesa.pending_kitchen_count > 0 && (
-                              <span className="inline-flex items-center gap-1 font-medium text-amber-700">
-                                <Icon nome="alerta" className="h-3.5 w-3.5" />
-                                {mesa.pending_kitchen_count} na produção
-                              </span>
-                            )}
-                          </span>
+                          {mesa.pending_kitchen_count > 0 && (
+                            <span className="inline-flex items-center gap-1 text-[11.5px] font-medium text-amber-700">
+                              <Icon nome="alerta" className="h-3.5 w-3.5" />
+                              {mesa.pending_kitchen_count} na produção
+                            </span>
+                          )}
 
                           {/* Detalhe fino só onde há largura: no celular o mesmo
                               dado está a um toque, na janela de detalhes. */}
@@ -381,6 +414,7 @@ export default function TablesPage() {
 
       <DetalhesMesa
         mesa={selecionada}
+        verValores={verValoresDeConta}
         onClose={() => setSelecionada(null)}
         onEditar={(mesa) => {
           setSelecionada(null)
@@ -422,11 +456,14 @@ function DetalhesMesa({
   onClose,
   onEditar,
   isAdmin,
+  verValores,
 }: {
   mesa: TableOverview | null
   onClose: () => void
   onEditar: (mesa: TableOverview) => void
   isAdmin: boolean
+  /** Valores da conta: caixa e administrador (o garçom não vê dinheiro). */
+  verValores: boolean
 }) {
   const navigate = useNavigate()
   const { profile } = useAuth()
@@ -483,19 +520,26 @@ function DetalhesMesa({
               </div>
             </div>
 
-            <div className="mt-4 space-y-1.5 border-t border-ink-200 pt-3 text-sm">
-              <Linha rotulo="Subtotal" valor={formatMoney(mesa.subtotal_cents)} />
-              {mesa.discount_cents > 0 && (
-                <Linha rotulo="Descontos" valor={`- ${formatMoney(mesa.discount_cents)}`} />
-              )}
-              <Linha rotulo="Total da conta" valor={formatMoney(mesa.total_cents)} destaque />
-              {mesa.paid_cents > 0 && <Linha rotulo="Já recebido" valor={formatMoney(mesa.paid_cents)} />}
-              <Linha
-                rotulo={mesa.balance_cents > 0 ? 'Falta receber' : 'Conta quitada'}
-                valor={formatMoney(mesa.balance_cents)}
-                cor={mesa.balance_cents > 0 ? 'text-brand-700' : 'text-emerald-700'}
-              />
-            </div>
+            {verValores ? (
+              <div className="mt-4 space-y-1.5 border-t border-ink-200 pt-3 text-sm">
+                <Linha rotulo="Subtotal" valor={formatMoney(mesa.subtotal_cents)} />
+                {mesa.discount_cents > 0 && (
+                  <Linha rotulo="Descontos" valor={`- ${formatMoney(mesa.discount_cents)}`} />
+                )}
+                <Linha rotulo="Total da conta" valor={formatMoney(mesa.total_cents)} destaque />
+                {mesa.paid_cents > 0 && <Linha rotulo="Já recebido" valor={formatMoney(mesa.paid_cents)} />}
+                <Linha
+                  rotulo={mesa.balance_cents > 0 ? 'Falta receber' : 'Conta quitada'}
+                  valor={formatMoney(mesa.balance_cents)}
+                  cor={mesa.balance_cents > 0 ? 'text-brand-700' : 'text-emerald-700'}
+                />
+              </div>
+            ) : (
+              <p className="mt-4 border-t border-ink-200 pt-3 text-[12px] leading-relaxed text-ink-500">
+                Os valores da conta são conferidos no caixa. Aqui você acompanha os pedidos, a produção e o
+                tempo do atendimento.
+              </p>
+            )}
           </div>
         )}
 

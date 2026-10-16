@@ -356,3 +356,32 @@ nada de rolagem lateral no celular.
 
 **Ícone da aba:** o mesmo emblema em `data:image/svg+xml` no `index.html` — sem arquivo em `public/`,
 sem rota nova, sem cache antigo de favicon para limpar.
+
+## 10. Quem vê dinheiro (16/10/2026)
+
+**Pedido do administrador:** *"os garçons e o caixa não precisa saber quanto é que eu vou receber total…
+quanto que tem aberto em todas as mesas; não precisa disso, apenas o administrador precisa."*
+
+**Decisão — três níveis de visibilidade:**
+
+1. **Totais do salão (agregado):** "Consumido no salão" e "A receber" na tela Mesas aparecem **só para o
+   administrador**. É informação de gestão: soma de todas as contas abertas.
+2. **Valores de cada conta (por mesa):** valor no cartão da mesa, "falta receber", subtotal/total na janela
+   de detalhes e os cartões *Total da conta / Recebido / Falta receber* da tela da mesa ficam com
+   **administrador e caixa**. O caixa precisa deles — é ele quem recebe o pagamento e confere a gaveta.
+3. **Garçom:** não vê valor de conta nenhum. No cartão da mesa, no lugar do valor, aparece quantos itens
+   estão na mesa; na janela de detalhes e na tela da conta aparece a explicação de que os valores são
+   conferidos no caixa. No lugar dos cartões de dinheiro, a tela da mesa mostra **Pedidos**, **Em produção**
+   e **Na mesa desde** — o que interessa a quem atende.
+
+**O que continua visível para todos:** preço de item e de pedido (é o mesmo preço do cardápio impresso, e
+o garçom precisa dele para vender e para conferir o pedido com o cliente) e o **Recibo** da mesa (é a conta
+do cliente, que ele pode pedir a qualquer momento).
+
+**Motivo de não esconder no banco:** a RLS e as permissões de escrita continuam como estavam — o que mudou
+foi a **exibição**. Decidir isso no banco exigiria dar ao garçom uma visão diferente de `orders`/`payments`
+para o mesmo pedido, o que multiplicaria as regras sem ganho de segurança real (o garçom já não consegue
+receber, descontar nem fechar conta — isso sempre foi bloqueado pela RPC). **Limite honesto:** é ocultação
+de interface, não criptografia; quem abrir as ferramentas do navegador e souber consultar a API pública
+ainda vê os números que a RLS permite ler. Se o administrador quiser bloqueio *no banco*, é uma mudança
+separada (view/coluna por papel) e precisa ser pedida explicitamente.

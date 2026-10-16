@@ -414,19 +414,26 @@ export default function TableSessionPage() {
 
       {/* Resumo da conta: o valor de CADA conta é de todo mundo — o garçom
           recebe e fecha na mesa (16/10/2026). O total do salão (soma de todas as
-          contas) continua sendo só do administrador, na tela de Mesas. */}
-      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Resumo rotulo="Total da conta" valor={formatMoney(totals.total)} detalhe={`${plural(sessionOrders.length, 'pedido', 'pedidos')} · ${plural(itensAtivos.length, 'item', 'itens')}`} icone="dinheiro" />
-        <Resumo rotulo="Recebido" valor={formatMoney(totals.paid)} detalhe={totals.change > 0 ? `troco ${formatMoney(totals.change)}` : 'sem troco registrado'} icone="check" tom="verde" />
-        <Resumo rotulo="Falta receber" valor={formatMoney(balance)} detalhe={balance > 0 ? 'registre o pagamento antes de fechar' : 'conta quitada'} icone="relogio" tom={balance > 0 ? 'marca' : 'verde'} />
-        <Resumo rotulo="Em produção" valor={String(emProducao)} detalhe="pedidos ainda não entregues" icone="raio" tom={emProducao > 0 ? 'ambar' : 'neutro'} />
-      </div>
+          contas) continua sendo só do administrador, na tela de Mesas.
 
-      <div className="grid gap-4 xl:grid-cols-[1.1fr_1fr]">
+          No celular a faixa é compacta (2×2): quatro cartões grandes empurravam
+          a conta para 7.600 px de rolagem — o garçom precisava arrastar a tela
+          meia dúzia de vezes só para ver o primeiro pedido. */}
+      <FaixaDaConta
+        pedidos={sessionOrders.length}
+        itens={itensAtivos.length}
+        total={totals.total}
+        recebido={totals.paid}
+        troco={totals.change}
+        saldo={balance}
+        emProducao={emProducao}
+      />
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
         {/* Pedidos do atendimento */}
         <Card
           title="Pedidos do atendimento"
-          descricao="Atualiza automaticamente quando alguém lança ou altera um pedido."
+          descricao="Atualiza sozinho a cada lançamento ou alteração."
           icone="historico"
           actions={<Badge tone="slate">{sessionOrders.length}</Badge>}
           padded={false}
@@ -451,10 +458,14 @@ export default function TableSessionPage() {
                   return (
                     <li
                       key={order.id}
-                      className={`overflow-hidden rounded-card border shadow-card ${
+                      className={`relative overflow-hidden rounded-card border shadow-card ${
                         order.is_cancelled ? 'border-red-200 bg-red-50/60' : 'border-ink-200 bg-white'
                       }`}
                     >
+                      <span
+                        aria-hidden
+                        className={`absolute inset-y-0 left-0 w-[3px] ${faixaDoPedido(order.status, order.is_cancelled)}`}
+                      />
                       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink-100 px-3.5 py-2.5">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-sm font-semibold text-ink-900">#{order.order_number}</span>
@@ -576,25 +587,29 @@ export default function TableSessionPage() {
                     items={cart}
                     onChange={setCart}
                     disabled={sending}
+                    empilhado
                   />
                 </div>
               </Card>
 
-              <div className="sticky bottom-20 z-10 rounded-card border border-ink-200 bg-white p-4 shadow-float lg:bottom-4">
-                <div className="mb-3 flex items-end justify-between gap-3">
-                  <div>
-                    <p className="rotulo">Prévia do pedido</p>
-                    <p className="text-xs text-ink-500">
-                      {quantidadeCart === 0
-                        ? 'Nenhum item na lista'
-                        : `${plural(quantidadeCart, 'item', 'itens')} em ${plural(cart.length, 'linha', 'linhas')}`}
-                    </p>
-                  </div>
-                  <p className="num text-xl font-semibold text-ink-900">{formatMoney(totalCart)}</p>
+              {/* No celular a barra é FINA e só aparece quando há item na lista:
+                  a versão alta ficava parada na frente do cardápio e o garçom
+                  não enxergava os produtos enquanto escolhia. No computador há
+                  espaço de sobra, então a versão completa continua. */}
+              <div
+                className={`sticky bottom-20 z-10 items-center gap-3 rounded-card border border-ink-200 bg-white p-3 shadow-float lg:bottom-4 ${
+                  cart.length === 0 ? 'hidden lg:flex' : 'flex'
+                }`}
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="num text-base font-semibold text-ink-900 lg:text-lg">{formatMoney(totalCart)}</p>
+                  <p className="truncate text-[11px] text-ink-500">
+                    {plural(quantidadeCart, 'item', 'itens')} em {plural(cart.length, 'linha', 'linhas')}
+                  </p>
                 </div>
                 <Button
-                  block
-                  size="lg"
+                  size="md"
+                  className="shrink-0 lg:h-12 lg:px-5 lg:text-base"
                   icone="seta-direita"
                   onClick={handleSendOrder}
                   loading={sending}
@@ -602,10 +617,6 @@ export default function TableSessionPage() {
                 >
                   Enviar pedido para a produção
                 </Button>
-                <p className="mt-2 flex items-center justify-center gap-1.5 text-[11px] text-ink-500">
-                  <Icon nome="cadeado" className="h-3.5 w-3.5" />
-                  O envio é idempotente: cliques repetidos não duplicam o pedido.
-                </p>
               </div>
             </>
           ) : (
@@ -900,6 +911,88 @@ export default function TableSessionPage() {
         </div>
       </Modal>
     </div>
+  )
+}
+
+/** Faixa de 3 px do cartão do pedido — a mesma linguagem da tela de Mesas. */
+function faixaDoPedido(status: OrderStatus, cancelado: boolean) {
+  if (cancelado) return 'bg-red-400'
+  const cores: Partial<Record<OrderStatus, string>> = {
+    received: 'bg-ink-300',
+    confirmed: 'bg-sky-400',
+    preparing: 'bg-amber-400',
+    ready: 'bg-emerald-500',
+    delivered_to_table: 'bg-emerald-300',
+    out_for_delivery: 'bg-sky-400',
+    delivered: 'bg-emerald-300',
+  }
+  return cores[status] ?? 'bg-ink-300'
+}
+
+/**
+ * Resumo da conta em duas versões: faixa compacta 2×2 no celular (o garçom vê
+ * tudo de um lance, sem rolar a tela) e quatro quadros no computador, onde há
+ * largura de sobra. São os MESMOS números — muda só a apresentação.
+ */
+function FaixaDaConta({
+  pedidos,
+  itens,
+  total,
+  recebido,
+  troco,
+  saldo,
+  emProducao,
+}: {
+  pedidos: number
+  itens: number
+  total: number
+  recebido: number
+  troco: number
+  saldo: number
+  emProducao: number
+}) {
+  const celulas = [
+    { rotulo: 'Total da conta', valor: formatMoney(total), cor: 'text-ink-900', ponto: 'bg-brand-500' },
+    { rotulo: 'Recebido', valor: formatMoney(recebido), cor: 'text-emerald-700', ponto: 'bg-emerald-500' },
+    {
+      rotulo: saldo > 0 ? 'Falta receber' : 'Conta quitada',
+      valor: formatMoney(saldo),
+      cor: saldo > 0 ? 'text-brand-700' : 'text-emerald-700',
+      ponto: saldo > 0 ? 'bg-brand-500' : 'bg-emerald-500',
+    },
+    {
+      rotulo: 'Em produção',
+      valor: String(emProducao),
+      cor: emProducao > 0 ? 'text-amber-700' : 'text-ink-900',
+      ponto: emProducao > 0 ? 'bg-amber-500' : 'bg-ink-300',
+    },
+  ]
+  return (
+    <>
+      <div className="mb-4 grid grid-cols-2 gap-2 lg:hidden">
+        {celulas.map((celula) => (
+          <div key={celula.rotulo} className="rounded-card border border-ink-200 bg-white px-3 py-2 shadow-card">
+            <p className="flex items-center gap-1.5 truncate text-[10px] font-semibold uppercase tracking-[0.06em] text-ink-500">
+              <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${celula.ponto}`} />
+              {celula.rotulo}
+            </p>
+            <p className={`num mt-0.5 truncate text-[17px] font-semibold leading-tight ${celula.cor}`}>{celula.valor}</p>
+          </div>
+        ))}
+        <p className="col-span-2 -mt-0.5 px-1 text-[11px] text-ink-500">
+          {plural(pedidos, 'pedido', 'pedidos')} · {plural(itens, 'item', 'itens')}
+          {troco > 0 ? ` · troco ${formatMoney(troco)}` : ''}
+          {saldo > 0 ? ' · registre o pagamento antes de fechar' : ''}
+        </p>
+      </div>
+
+      <div className="mb-4 hidden gap-3 lg:grid lg:grid-cols-4">
+        <Resumo rotulo="Total da conta" valor={formatMoney(total)} detalhe={`${plural(pedidos, 'pedido', 'pedidos')} · ${plural(itens, 'item', 'itens')}`} icone="dinheiro" />
+        <Resumo rotulo="Recebido" valor={formatMoney(recebido)} detalhe={troco > 0 ? `troco ${formatMoney(troco)}` : 'sem troco registrado'} icone="check" tom="verde" />
+        <Resumo rotulo="Falta receber" valor={formatMoney(saldo)} detalhe={saldo > 0 ? 'registre o pagamento antes de fechar' : 'conta quitada'} icone="relogio" tom={saldo > 0 ? 'marca' : 'verde'} />
+        <Resumo rotulo="Em produção" valor={String(emProducao)} detalhe="pedidos ainda não entregues" icone="raio" tom={emProducao > 0 ? 'ambar' : 'neutro'} />
+      </div>
+    </>
   )
 }
 

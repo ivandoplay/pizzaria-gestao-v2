@@ -194,7 +194,10 @@ export function Card({
     >
       {(title || actions) && (
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-ink-100 px-4 py-3.5 sm:px-5">
-          <div className="flex min-w-0 items-center gap-3">
+          {/* O bloco do título ocupa o espaço que sobra: assim o selo/contador do
+              cabeçalho fica na mesma linha do título em vez de cair sozinho
+              embaixo dele quando a descrição é comprida (celular). */}
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             {icone && (
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-interno bg-ink-100 text-ink-600">
                 <Icon nome={icone} className="h-4 w-4" />
@@ -207,7 +210,7 @@ export function Card({
               {descricao && <p className="mt-0.5 text-pequeno leading-snug text-ink-500">{descricao}</p>}
             </div>
           </div>
-          {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+          {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
         </header>
       )}
       <div className={padded ? 'flex-1 p-4 sm:p-5' : 'flex-1'}>{children}</div>

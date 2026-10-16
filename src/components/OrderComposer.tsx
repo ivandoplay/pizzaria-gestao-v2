@@ -22,6 +22,15 @@ interface Props {
   items: CartItem[]
   onChange: (items: CartItem[]) => void
   disabled?: boolean
+  /**
+   * Empilha catálogo e lista do pedido em vez de colocá-los lado a lado.
+   *
+   * Serve para quando o compositor entra numa coluna estreita (a tela da mesa
+   * no computador): o lado a lado precisa de ~900px, e sem largura o catálogo
+   * virava uma grade de 3 colunas de 70px com o nome do produto quebrado letra
+   * por letra. O conteúdo e as regras são os mesmos — muda só o arranjo.
+   */
+  empilhado?: boolean
 }
 
 /** Ícone por tipo de produto — ajuda a achar a categoria no meio do cardápio. */
@@ -46,7 +55,7 @@ function iconeDaCategoria(nome: string | null | undefined): NomeIcone {
  * oficial é sempre recalculado pelo servidor (RPC create_order) a partir do
  * catálogo — nenhum preço enviado pelo navegador é aceito.
  */
-export function OrderComposer({ menu, halfRule, items, onChange, disabled }: Props) {
+export function OrderComposer({ menu, halfRule, items, onChange, disabled, empilhado = false }: Props) {
   const [categoryId, setCategoryId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [selecionado, setSelecionado] = useState<Product | null>(null)
@@ -142,7 +151,7 @@ export function OrderComposer({ menu, halfRule, items, onChange, disabled }: Pro
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+    <div className={empilhado ? "space-y-4" : "grid gap-4 lg:grid-cols-[1fr_320px]"} data-empilhado={empilhado ? 'true' : undefined}>
       {/* Catálogo */}
       <div className="min-w-0 space-y-3">
         <SearchInput value={search} onValueChange={setSearch} placeholder="Buscar item do cardápio…" />
@@ -193,7 +202,7 @@ export function OrderComposer({ menu, halfRule, items, onChange, disabled }: Pro
                 {aviso}
               </p>
             )}
-            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-3">
+            <div className={`grid grid-cols-2 gap-2.5 sm:grid-cols-3 ${empilhado ? '' : 'xl:grid-cols-3'}`}>
             {productsOfCategory.map((product) => (
               <button
                 key={product.id}
@@ -239,7 +248,7 @@ export function OrderComposer({ menu, halfRule, items, onChange, disabled }: Pro
       </div>
 
       {/* Lista do pedido */}
-      <div className="h-fit min-w-0 rounded-card border border-ink-200 bg-white shadow-card lg:sticky lg:top-24">
+      <div className={`h-fit min-w-0 rounded-card border border-ink-200 bg-white shadow-card ${empilhado ? '' : 'lg:sticky lg:top-24'}`}>
         <header className="flex items-center justify-between gap-2 border-b border-ink-100 px-3.5 py-2.5">
           <div className="flex items-center gap-2">
             <Icon nome="sacola" className="h-4 w-4 text-ink-500" />
@@ -317,6 +326,12 @@ export function OrderComposer({ menu, halfRule, items, onChange, disabled }: Pro
               </div>
               <p className="text-[11px] leading-relaxed text-ink-500">
                 O valor final é recalculado pelo servidor no momento do envio, com o preço vigente no banco.
+              </p>
+              {/* A promessa de quem envia fica junto da lista: na barra de envio
+                  ela empurrava o botão para fora da tela no celular. */}
+              <p className="flex items-start gap-1.5 text-[11px] leading-snug text-ink-500">
+                <Icon nome="cadeado" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                O envio é idempotente: cliques repetidos não duplicam o pedido.
               </p>
             </div>
           )}

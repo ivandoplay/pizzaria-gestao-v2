@@ -13,6 +13,8 @@
  * Este robô prova o comportamento, no navegador, campo por campo:
  *
  *   1. foco inicial ao abrir o modal;
+ *   0. o caso relatado LITERALMENTE: "João" no nome, clique no Número, tecla "9",
+ *      tecla "8" — o foco e o texto não podem voltar para o nome (passos 1 a 4);
  *   2. o caso relatado: "João" no nome, depois "987654" no número, conferindo
  *      o foco e o valor a CADA tecla;
  *   3. telefone, rua, complemento, bairro, referência e observações;
@@ -222,6 +224,54 @@ if ((await modaisAbertos(page)) === 0) {
   const primeiro = await campoComFoco(page)
   if (primeiro.rotulo === 'Nome do cliente') ok('ao abrir, o foco vai para o primeiro campo (Nome do cliente)')
   else falhou(`ao abrir, o foco ficou em "${primeiro.rotulo}" em vez de "Nome do cliente"`)
+
+  // --- O cenário do relato, passo a passo (tal como o administrador descreveu)
+  //   1) digito "João" no Nome do cliente;  2) clico no Número do endereço;
+  //   3) digito "9" — o foco E o texto não podem voltar para o Nome;
+  //   4) clico de novo e digito "8" — o problema não pode se repetir.
+  const nomeCliente = localizar(page, 'Nome do cliente')
+  const numeroEndereco = localizar(page, 'Número')
+
+  await nomeCliente.click()
+  await espera(120)
+  await nomeCliente.fill('')
+  await page.keyboard.type('João', { delay: 120 })
+  await espera(150)
+  let focoAgora = await campoComFoco(page)
+  if (focoAgora.rotulo === 'Nome do cliente' && (await nomeCliente.inputValue()) === 'João') {
+    ok('cenário do relato, passo 1: "João" digitado no nome, foco no nome')
+  } else {
+    falhou(`cenário do relato, passo 1: nome "${await nomeCliente.inputValue()}", foco em "${focoAgora.rotulo}"`)
+  }
+
+  await numeroEndereco.click()
+  await espera(150)
+  focoAgora = await campoComFoco(page)
+  if (focoAgora.rotulo === 'Número') ok('cenário do relato, passo 2: o clique levou o foco para o Número')
+  else falhou(`cenário do relato, passo 2: o clique no Número deixou o foco em "${focoAgora.rotulo}"`)
+
+  await page.keyboard.type('9', { delay: 120 })
+  await espera(300)
+  focoAgora = await campoComFoco(page)
+  const nomeDepoisDo9 = await nomeCliente.inputValue()
+  const numeroCom9 = await numeroEndereco.inputValue()
+  if (focoAgora.rotulo === 'Número' && numeroCom9 === '9' && nomeDepoisDo9 === 'João') {
+    ok('cenário do relato, passo 3: o "9" ficou no Número e o "João" continuou no Nome')
+  } else {
+    falhou(`cenário do relato, passo 3: número "${numeroCom9}", nome "${nomeDepoisDo9}", foco em "${focoAgora.rotulo}"`)
+  }
+
+  await numeroEndereco.click()
+  await espera(150)
+  await page.keyboard.type('8', { delay: 120 })
+  await espera(300)
+  focoAgora = await campoComFoco(page)
+  const numeroCom98 = await numeroEndereco.inputValue()
+  if (focoAgora.rotulo === 'Número' && numeroCom98 === '98' && (await nomeCliente.inputValue()) === 'João') {
+    ok('cenário do relato, passo 4: o "8" entrou no Número ("98") e o problema não se repetiu')
+  } else {
+    falhou(`cenário do relato, passo 4: número "${numeroCom98}", foco em "${focoAgora.rotulo}"`)
+  }
 
   await preencher(page, 'Nome do cliente', 'João')
   await preencher(page, 'Telefone com DDD', '86999990000')

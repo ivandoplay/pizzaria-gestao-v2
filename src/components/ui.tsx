@@ -26,6 +26,13 @@ import {
   type SelectHTMLAttributes,
   type TextareaHTMLAttributes,
 } from 'react'
+import {
+  deveDevolverFoco,
+  deveFocarPrimeiroCampo,
+  entrarNaPilha,
+  estaNaPilhaDoTopo,
+  sairDaPilha,
+} from '../lib/focoDeModal'
 import { Icon, type NomeIcone } from './icons'
 
 // ===========================================================================
@@ -672,23 +679,41 @@ export function Modal({
   const idTitulo = useId()
   const painel = useRef<HTMLDivElement>(null)
 
+  // O `onClose` de quem usa o modal costuma ser uma função nova a cada render
+  // (`onClose={() => setX(null)}`). Se ele entrasse nas dependências do efeito,
+  // CADA TECLA digitada reiniciaria o efeito: a limpeza devolvia o foco para o
+  // campo anterior e o timer de 40 ms re-focava o primeiro campo do modal — era
+  // o que fazia o cursor voltar para o nome enquanto se digitava o número.
+  // (ver lib/focoDeModal.ts e tools/e2e-digitar.mjs)
+  const aoFechar = useRef(onClose)
+  const confirmarComEnter = useRef(enterConfirma)
+  useEffect(() => {
+    aoFechar.current = onClose
+    confirmarComEnter.current = enterConfirma
+  })
+
   useEffect(() => {
     if (!open) return
     const anterior = document.activeElement as HTMLElement | null
     const overflowAnterior = document.body.style.overflow
     document.body.style.overflow = 'hidden'
+    entrarNaPilha(idTitulo)
 
     const handler = (event: KeyboardEvent) => {
+      // Só o modal do topo responde a teclado: com dois abertos (montar a pizza
+      // dentro do pedido de delivery, por exemplo), o Escape fechava os dois.
+      if (!estaNaPilhaDoTopo(idTitulo)) return
+
       if (event.key === 'Escape') {
         event.stopPropagation()
-        onClose()
+        aoFechar.current()
         return
       }
       // Enter confirma: quem digita no computador não larga o teclado para
       // clicar. Só dispara de dentro de um campo de texto simples — e nunca
       // quando o botão principal é destrutivo (vermelho) nem em textarea,
       // onde Enter serve para quebrar linha.
-      if (event.key === 'Enter' && enterConfirma && !event.defaultPrevented) {
+      if (event.key === 'Enter' && confirmarComEnter.current && !event.defaultPrevented) {
         const alvo = event.target as HTMLElement | null
         if (alvo && alvo.tagName === 'INPUT') {
           const botoes = painel.current?.querySelectorAll<HTMLButtonElement>('footer button')
@@ -718,21 +743,40 @@ export function Modal({
     }
     window.addEventListener('keydown', handler, true)
 
-    // Coloca o foco no primeiro campo/botão assim que abre.
+    // Coloca o foco no primeiro campo/botão assim que abre — UMA vez, e só se
+    // ninguém já estiver digitando aqui dentro (campo com autoFocus, ou o
+    // operador que clicou num campo antes dos 40 ms). Depois disso, nunca mais.
     const timer = window.setTimeout(() => {
+      const podeFocar = deveFocarPrimeiroCampo({
+        noTopo: estaNaPilhaDoTopo(idTitulo),
+        focoDentroDoPainel: painel.current?.contains(document.activeElement) ?? false,
+      })
+      if (!podeFocar) return
       const alvo = painel.current?.querySelector<HTMLElement>(
         'input:not([type="hidden"]), select, textarea, button:not([data-fechar])',
       )
       alvo?.focus()
     }, 40)
 
+    // Esta limpeza roda quando o modal FECHA (a dependência é `open`) — nunca a
+    // cada render. Antes, com `onClose` nas dependências, ela rodava a cada
+    // tecla e devolvia o foco para o campo anterior no meio da digitação.
     return () => {
       window.removeEventListener('keydown', handler, true)
       document.body.style.overflow = overflowAnterior
       window.clearTimeout(timer)
-      anterior?.focus?.()
+      sairDaPilha(idTitulo)
+
+      const ativo = document.activeElement as HTMLElement | null
+      const podeDevolver = deveDevolverFoco({
+        temAnterior: Boolean(anterior),
+        anteriorConectado: anterior?.isConnected ?? false,
+        focoDentroDoPainel: painel.current?.contains(ativo) ?? false,
+        focoSolto: ativo === null || ativo === document.body,
+      })
+      if (podeDevolver) anterior?.focus?.()
     }
-  }, [open, onClose, enterConfirma])
+  }, [open, idTitulo])
 
   if (!open) return null
 

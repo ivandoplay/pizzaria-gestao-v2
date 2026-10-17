@@ -84,7 +84,7 @@ Execução final: **372 asserções, todas aprovadas** — 11 arquivos numerados
 
 ---
 
-## 3. Testes da aplicação — resultado: **56/56**
+## 3. Testes da aplicação — resultado: **70/70**
 
 `npm test` (Vitest, sem ambiente de navegador):
 
@@ -95,6 +95,7 @@ Execução final: **372 asserções, todas aprovadas** — 11 arquivos numerados
 | `src/lib/errors.test.ts` | 5 | tradução de códigos do banco, códigos desconhecidos, mensagens do Supabase |
 | `src/lib/supabase.test.ts` | 3 | importar o módulo não cria cliente (regressão do WebSocket em Node), `CONFIGURACAO_PENDENTE` sem env e fuso padrão |
 | `src/lib/senha.test.ts` | 13 | troca de senha: senha atual obrigatória, mínimo de 8 caracteres, senha só de espaços, nova igual à atual, repetição diferente, nível de força (fraca/razoável/forte) e lista de senhas óbvias |
+| `src/lib/focoDeModal.test.ts` | 14 | foco e teclado dos modais (regressão da correção de 16/10/2026): pilha de modais (só o **topo** responde a teclado, fechar o de cima devolve o teclado para o de baixo, fechar fora de ordem não deixa fantasma), foco inicial (só quando o modal é o do topo **e** ninguém já está digitando dentro dele), devolução do foco (só quando ele ficou solto ou preso num campo que saiu da tela — nunca roubando o foco de outro modal) e **2 testes que leem `src/components/ui.tsx` como texto** e travam o defeito: o efeito de abertura do `Modal` não pode listar `onClose` nas dependências e tem de ler o `onClose` mais recente por `ref` |
 | `src/lib/fila.test.ts` | 8 | fila de prontos: só entra pedido `ready` de salão com conta aberta; nada de delivery, cancelado ou já entregue; ordem pelo `ready_at` (e não pelo horário do pedido), sem depender da ordem que o banco devolveu; pedido sem horário confiável vai para o fim sem sumir; detalhes do item (tamanho, sabores, adicionais, observação) sem repetir sabor único nem inventar detalhe de item simples |
 
 `pricing.ts` merece destaque: é a **prévia** do navegador espelhando o cálculo do banco. Se ela divergir,
@@ -119,6 +120,7 @@ os testes travam esse alinhamento.
 | `node tools/e2e-telas.mjs <URL>` | entra com os 3 perfis, percorre as telas de cada um, confere os bloqueios de permissão, executa o percurso do salão (abrir mesa, montar pedido, conferir conta — **sem gravar nada**), confere que `Enter` confirma o cadastro e **não** confirma ação destrutiva, detecta erro de console/rede e salva capturas em `artifacts/e2e/`. `PERFIL=admin` roda só um perfil | **0 falhas** (local e site publicado) |
 | `node tools/teste-login.mjs <URL>` | entrar com cada perfil, recarregar com sessão salva, abrir `/login` conectado, trocar de conta, **sessão velha/corrompida no navegador** (o caso que trava o operador) e login pelo celular | **0 falhas** |
 
+| `PZ_ADMIN_PASSWORD=… node tools/e2e-digitar.mjs <URL>` | **digitação com foco** (regressão de 16/10/2026, o defeito que trocava o texto de campo): digita **tecla por tecla** “João”/“987654” em cada campo do pedido de delivery (nome, telefone, rua, número, complemento, bairro, referência, observações), alterna vários campos em sequência, confere o mapa de valores do formulário, prende o **Tab/Shift+Tab** (91 controles), abre um modal dentro do modal (busca de sabor) e fecha/abre 3×; no controle de caixa digita decimal (“1234,56”) e prova que `Enter` não dispara ação destrutiva; em Funcionários testa campo com `autoFocus` e **Escape**. Falha se algum caractere cair em outro campo ou sumir | **0 falhas, 0 avisos** (16/10/2026, `localhost`, antes: 16 falhas e 2 avisos) |
 | `node tools/auditar-telas.mjs <URL>` | varre **todas as rotas de todos os perfis** no celular (390px) e no computador (1440px) — inclusive `/pedidos-prontos`: rolagem lateral, alvos de toque abaixo de 44px, erro de console, tela sem título, esqueleto preso, e salva captura de cada tela em `artifacts/auditoria/`. Se a conta cair na tela de troca obrigatória, **falha com o motivo** em vez de medir a tela errada | **0 falhas, 0 avisos** |
 | `node tools/preparar-contas-robo.mjs <URL> "login=Senha"` | deixa uma conta de apoio pronta pelo caminho do sistema: cria pela tela de funcionários (se não existir), reativa, gera senha temporária pelo botão “Senha”, confirma que a troca obrigatória aparece e conclui a troca, provando no fim que a senha definitiva entra direto. Nenhuma senha fica no repositório | **0 falhas** (`robo.caixa`, `robo.garcom`) |
 | `node tools/e2e-fila.mjs <URL>` | ciclo da **fila de prontos**: o garçom abre a mesa e lança um pedido com observação, o caixa avança Confirmado → Em preparação → Pronto, o garçom confere o cartão na fila e confirma a entrega; o robô verifica que o cartão sai da lista **pelo servidor** e que o pedido não volta para a fila | **0 falhas** (local: mesa 12 / pedido #39; publicado: mesa 11 / pedido #41) |
@@ -185,7 +187,7 @@ no meio do movimento.
    por dois navegadores ao mesmo tempo.
 2. **Os robôs de navegador rodam à mão; a suíte de banco está na esteira.** As telas são varridas por
    Playwright (`auditar-telas`, `checar-rolagem`, `e2e-telas`, `teste-login`, `teste-troca-senha`,
-   `e2e-fila`) rodando **à mão** contra o site publicado, com as senhas no ambiente — não há execução
+   `e2e-fila`, `e2e-digitar`) rodando **à mão** contra o site publicado, com as senhas no ambiente — não há execução
    agendada. **Desde 16/10/2026 a suíte de banco (00–11 + concorrência) roda sozinha na esteira**, em
    um PostgreSQL 17 descartável (trabalho `banco` do `CI`), junto com tipos, testes unitários e build.
 3. **Edge Function deployada, mas fora da suíte de banco** — `admin-create-employee` roda no projeto

@@ -114,13 +114,14 @@ trilha de auditoria somente-adição.
 | Suíte do banco (00–11), local | `bash tools/run-sql-tests.sh` | **372 asserções aprovadas**, 0 falhas |
 | Suíte do banco (00–08), **no Supabase real** (etapa de 15/10) | `tools/supabase-cloud-sql.sh` | **nenhuma falha** (falha em qualquer asserção aborta o arquivo); o `09` roda no banco local e, na nuvem, a validação é a migração aplicada + smoke + robôs |
 | Concorrência real (07) | idem (duas conexões em paralelo) | **verde**: abertura dupla bloqueada, clique duplo → 1 pagamento, fechamento duplo → recusado |
-| Testes unitários | `npm test` (Vitest) | **56/56** |
+| Testes unitários | `npm test` (Vitest) | **70/70** |
 | Tipos | `npm run typecheck` | **exit 0** |
 | Build de produção | `npx vite build` | **exit 0** (chunk principal 493 kB / 142 kB gzip + 1 chunk por tela) |
 | Interface em navegador real | `node tools/e2e-telas.mjs <URL>` (Playwright, contra o **site publicado**) | **0 falhas**: login dos 3 perfis, 11 telas do administrador, percurso completo do salão, bloqueio de permissão conferido, nenhum erro de console/rede |
 | Troca obrigatória de senha | `node tools/teste-troca-senha.mjs <URL>` (Playwright, contra o **site publicado**) | **0 falhas**: senha temporária não abre o sistema (nem pela rota), validações da troca, senha antiga deixa de funcionar, evento na auditoria e conta de teste desativada |
 | Fechamento seguro (garçom recebe e fecha) | `PZ_GARCOM_LOGIN=… PZ_CAIXA_LOGIN=… node tools/e2e-garcom-recebe.mjs <URL>` (Playwright, celular 390×844, **local e site publicado**) | **0 falhas, 9 passos**: o garçom vê o valor da conta, o fechamento é **recusado** com pedido em andamento (motivo explicado na tela), o caixa conduz a produção até "Pronto", o garçom entrega pela fila, a pendência zera, ele recebe em dinheiro e **fecha** a conta — mesa de volta aos livres |
 | Fila de pedidos prontos | `node tools/e2e-fila.mjs <URL>` (Playwright, contra o **site publicado**) | **0 falhas**: mesa aberta pelo garçom, pedido lançado com observação, produção avançada pelo caixa até “Pronto”, cartão conferido na fila (mesa, número, item, observação, selo e tempo de espera), entrega confirmada, histórico com “Entregue à mesa” e pedido fora da fila depois |
+| Digitação com foco (regressão) | `PZ_ADMIN_PASSWORD=… node tools/e2e-digitar.mjs <URL>` (Playwright, **local**) | **0 falhas, 0 avisos** (antes da correção: 16 falhas e 2 avisos) — digitação tecla por tecla em todos os campos, troca de campos, Tab preso, modal dentro do modal, Escape, decimais no caixa |
 | Auditoria de telas | `node tools/auditar-telas.mjs <URL>` (Playwright, 3 perfis × celular e computador, 46 leituras de tela) | **0 falhas, 0 avisos** — nenhuma rolagem lateral e nenhum alvo de toque abaixo de 44px no celular |
 | Conferência do deploy | `bash tools/smoke-deploy.sh <URL> admin '<senha>'` | **tudo certo** (rotas, cabeçalhos, variáveis no bundle, ausência de credencial privilegiada, login real) |
 | Esteira automática — aplicação | GitHub Actions → `CI`, trabalho `verificar` (`npm ci`, `tsc -b`, Vitest, `vite build`) | **sucesso** (16/10/2026) |
@@ -376,6 +377,26 @@ deixam abertas pelo caminho do sistema (por padrão só lista). Com ele, as 6 co
 foram fechadas — a nuvem ficou sem nenhuma mesa aberta, com tudo registrado na auditoria. Antes × depois em
 `fila-antes-e-depois.png`; decisões em [`IDENTIDADE.md`](IDENTIDADE.md) §9.
 
+**Sexta, fim do dia — digitação corrigida (16/10/2026):** o relato do administrador era preciso:
+digitando “João” no **Nome do cliente** e clicando em **Número do endereço**, o cursor e o texto voltavam
+para o nome. A causa **não estava em nenhuma tela de formulário** — estava no `Modal` compartilhado
+(`src/components/ui.tsx`): o efeito de foco dependia de `onClose`, e cada tela passa
+`onClose={() => setX(null)}`, uma função **nova a cada render**. Com isso o efeito se reiniciava **a cada
+tecla digitada**: a limpeza devolvia o foco para o elemento anterior e o `setTimeout` de 40 ms re-focava o
+primeiro campo do modal. Medido com automação antes da correção: **5 teclas ⇒ 10 escritas em
+`document.body.style` e 10 eventos de foco**, alternando `BUTTON` ⇄ “Nome do cliente”, com o valor final
+“9” em vez de “98765”. Depois: **0 escritas, 0 eventos de foco, “98765” correto**.
+
+A correção é no componente único (nenhuma tela foi remendada): o efeito passa a depender só de
+`[open, idTitulo]`, os callbacks (`onClose`, confirmação por `Enter`) são lidos por `ref` sempre
+atualizada, os modais entram numa **pilha** (só o do topo responde a teclado — antes o `Escape` com dois
+modais abertos fechava os dois), o foco inicial só acontece se o modal está no topo e ninguém já está
+digitando dentro dele, e a devolução do foco ao fechar só ocorre quando ele ficou solto. As regras puras
+foram para `src/lib/focoDeModal.ts`, com 14 testes — dois deles leem o `ui.tsx` como texto e impedem que
+`onClose` volte para as dependências. Nasceu o robô `tools/e2e-digitar.mjs` (digita tecla por tecla em
+todos os campos, alterna campos, prende Tab, abre modal dentro do modal, testa `Escape` e decimal no
+caixa): antes **16 falhas / 2 avisos**, depois **0 / 0**. Ver [`TESTES.md`](TESTES.md) §3.2.
+
 **Onde mexer depois:** os primitivos ficam em `src/components/ui.tsx`; as cores, sombras e animações em
 `tailwind.config.js`; os ícones em `src/components/icons.tsx`. Trocar a identidade visual da pizzaria é editar
 esses três arquivos — nenhuma tela tem cor fixa.
@@ -455,7 +476,7 @@ publicada, Realtime ativo e banco limpo (seção 5.2); código publicado no GitH
 |---|---|
 | Código (banco + servidor + interface) | completo para o escopo definido |
 | Migrações, RLS, RPCs, views, Realtime | validados localmente (suíte 00–11) **e na nuvem** (as 12 migrações aplicadas no projeto real) |
-| Testes | executados, verdes (372 asserções SQL + concorrência real — na esteira e local —, 56 unitários, robôs de navegador contra o site publicado) |
+| Testes | executados, verdes (372 asserções SQL + concorrência real — na esteira e local —, 70 unitários, robôs de navegador contra o site publicado) |
 | Build | verde |
 | GitHub | **publicado** (`ivandoplay/pizzaria-gestao-v2`, repositório público) |
 | Supabase | **configurado e verificado na nuvem** (migrações, RLS, Realtime, Edge Function, 3 perfis, fluxo ponta a ponta) |

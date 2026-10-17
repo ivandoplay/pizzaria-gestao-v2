@@ -211,9 +211,13 @@ export function AppLayout() {
   const grupos: ItemNav['grupo'][] = ['operacao', 'gestao', 'sistema']
   const itensMobile = items.filter((item) => item.mobile).slice(0, 4)
 
-  function ConteudoSidebar() {
-    return (
-      <>
+  // JSX pronto — e NÃO um componente declarado aqui dentro. Um componente
+  // criado dentro do AppLayout nasce de novo a cada render, então o React
+  // desmonta e monta a barra inteira (perdendo o foco de qualquer controle
+  // dela e refazendo o trabalho à toa). O mesmo defeito de ciclo de vida do
+  // modal de foco (ver lib/focoDeModal.ts).
+  const conteudoSidebar = (
+    <>
         <div className="flex items-center gap-3 px-4 py-5">
           <Logo />
           <div className="min-w-0">
@@ -296,14 +300,13 @@ export function AppLayout() {
           </div>
         </div>
       </>
-    )
-  }
+  )
 
   return (
     <div className="papel-da-tela flex min-h-screen">
       {/* Menu lateral fixo (desktop) */}
       <aside className="lateral fixed inset-y-0 left-0 z-40 hidden w-[248px] flex-col border-r border-black/20 lg:flex">
-        <ConteudoSidebar />
+        {conteudoSidebar}
       </aside>
 
       {/* Menu lateral deslizante (tablet/celular) */}
@@ -315,7 +318,7 @@ export function AppLayout() {
             aria-label="Fechar menu"
           />
           <aside className="lateral animate-slide-in-left absolute inset-y-0 left-0 flex w-[264px] max-w-[85vw] flex-col border-r border-black/30">
-            <ConteudoSidebar />
+            {conteudoSidebar}
           </aside>
         </div>
       )}

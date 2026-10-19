@@ -50,6 +50,7 @@ Esta página registra **o que foi corrigido, onde, como foi testado e o que aind
 | A26 | P3 | Virada do dia segue `business_settings.timezone` (fecha a pendência do A10) | `lib/fuso.ts`, `format.ts`, `DashboardPage`, `HistoryPage`, `ReportsPage` | `c707091` | `format.test.ts` (+3 casos) |
 | A27 | P2 | Histórico filtrável por **forma de pagamento** (seção 5.5 do prompt mestre, que faltava) | `0023_historico_por_forma_pagamento.sql`, `HistoryPage.tsx`, `api.ts` | `8ff083a` + `b499e11` | `22_historico_e_cliente.sql` (9 asserções) |
 | A28 | P2 | Delivery reconhece **cliente recorrente pelo telefone** e reaproveita o endereço (seção 8.1) | `DeliveryPage.tsx`, `api.ts` (`findCustomerByPhone`) | `8ff083a` + `b499e11` | `22_historico_e_cliente.sql` + `tools/e2e-recorrente.mjs` (verde no site publicado) |
+| A29 | P2 | Relatório financeiro filtrável por **categoria** e **forma de pagamento** (seção 13) | `0024_relatorio_por_forma_pagamento.sql`, `ReportsPage.tsx`, `api.ts` | `12a6801` | `23_relatorio_por_forma.sql` + `tools/e2e-relatorios.mjs` (verde) |
 
 ## 3. Decisões tomadas (e limites honestos)
 

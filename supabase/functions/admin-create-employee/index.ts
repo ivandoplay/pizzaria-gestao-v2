@@ -92,13 +92,20 @@ Deno.serve(async (request: Request) => {
 
   const { data: profile, error: profileError } = await admin
     .from('profiles')
-    .select('id, role, is_active, full_name')
+    .select('id, role, is_active, full_name, must_change_password')
     .eq('auth_user_id', caller.user.id)
     .maybeSingle()
 
   if (profileError) return fail(`Falha ao validar o operador: ${profileError.message}`, 500)
   if (!profile) return fail('FORBIDDEN: não existe funcionário vinculado a este usuário.', 403)
   if (!profile.is_active) return fail('FORBIDDEN: o acesso deste funcionário está desativado.', 403)
+  // Quem entrou com senha temporária não opera nada — nem aqui. Sem esta
+  // checagem, a conta criada com a senha temporária (que o administrador
+  // conhece) podia criar outro administrador por chamada direta e escapar da
+  // troca obrigatória (revisão de 19/10/2026, achado R1).
+  if (profile.must_change_password) {
+    return fail('PASSWORD_CHANGE_REQUIRED: troque a senha temporária antes de gerenciar funcionários.', 403)
+  }
   if (profile.role !== 'admin') return fail('FORBIDDEN: somente administradores gerenciam funcionários.', 403)
 
   let payload: Record<string, unknown>

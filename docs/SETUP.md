@@ -2,7 +2,7 @@
 
 Este é o passo a passo para preparar o ambiente (banco → administrador → Edge Function → Vercel).
 
-> **Neste projeto as seções 1 a 5 já foram executadas** — projeto na org *Pizzaria* com as 23 migrações
+> **Neste projeto as seções 1 a 5 já foram executadas** — projeto na org *Pizzaria* com as 24 migrações
 > aplicadas, administrador criado, Edge Function publicada e Realtime ativo (detalhes em
 > [`ENTREGA.md`](ENTREGA.md), seção 5). Este guia serve para conferir o que foi feito, reproduzir em
 > outro projeto ou recuperar o ambiente.

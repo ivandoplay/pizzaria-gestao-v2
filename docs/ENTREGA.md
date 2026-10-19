@@ -72,7 +72,7 @@ o que ainda depende de configuração manual e quais são as limitações.
 
 ## 2. Migrações e tabelas
 
-23 migrações versionadas em `supabase/migrations/` (**25 tabelas**), aplicadas em ordem:
+24 migrações versionadas em `supabase/migrations/` (**25 tabelas**), aplicadas em ordem:
 
 | Migração | Conteúdo |
 |---|---|
@@ -124,7 +124,7 @@ trilha de auditoria somente-adição.
 
 | Verificação | Comando | Resultado |
 |---|---|---|
-| Suíte do banco (00–22), local | `bash tools/run-sql-tests.sh` | **453 asserções aprovadas**, 0 falhas |
+| Suíte do banco (00–23), local | `bash tools/run-sql-tests.sh` | **460 asserções aprovadas**, 0 falhas |
 | Suíte do banco (00–08), **no Supabase real** (etapa de 15/10) | `tools/supabase-cloud-sql.sh` | **nenhuma falha** (falha em qualquer asserção aborta o arquivo); o `09` roda no banco local e, na nuvem, a validação é a migração aplicada + smoke + robôs |
 | Concorrência real (07) | idem (duas conexões em paralelo) | **verde**: abertura dupla bloqueada, clique duplo → 1 pagamento, fechamento duplo → recusado |
 | Testes unitários | `npm test` (Vitest) | **91/91** |

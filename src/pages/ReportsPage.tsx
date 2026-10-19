@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import * as api from '../lib/api'
-import { useProfiles } from '../lib/hooks'
+import { useMenu, usePaymentMethods, useProfiles } from '../lib/hooks'
 import { useFusoOperacao } from '../lib/fuso'
 import {
   Button,
@@ -41,6 +41,8 @@ export default function ReportsPage() {
   const [to, setTo] = useState(() => todayInputValue(fuso))
   const [atalho, setAtalho] = useState<Atalho>('hoje')
   const [serviceMode, setServiceMode] = useState<'' | 'dine_in' | 'delivery'>('')
+  const [categoryId, setCategoryId] = useState('')
+  const [methodId, setMethodId] = useState('')
   const [employeeId, setEmployeeId] = useState('')
   const [bucket, setBucket] = useState<Bucket>('day')
 
@@ -49,15 +51,19 @@ export default function ReportsPage() {
     [from, fuso, to],
   )
   const employees = useProfiles(true)
+  const menu = useMenu()
+  const metodos = usePaymentMethods(false)
 
   const summary = useQuery({
-    queryKey: ['report-summary', range, serviceMode, employeeId],
+    queryKey: ['report-summary', range, serviceMode, employeeId, categoryId, methodId],
     queryFn: () =>
       api.getFinancialSummary({
         from: range.from,
         to: range.to,
         serviceMode: serviceMode || null,
         employeeId: employeeId || null,
+        categoryId: categoryId || null,
+        methodId: methodId || null,
       }),
   })
 
@@ -226,6 +232,26 @@ export default function ReportsPage() {
                 {(employees.data ?? []).map((profile) => (
                   <option key={profile.id} value={profile.id}>
                     {profile.full_name} ({ROLE_LABELS[profile.role]})
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Categoria" hint="Pedidos que contenham a categoria.">
+              <Select value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
+                <option value="">Todas as categorias</option>
+                {(menu.data?.categories ?? []).map((categoria) => (
+                  <option key={categoria.id} value={categoria.id}>
+                    {categoria.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Forma de pagamento" hint="Pedidos com recebimento confirmado nessa forma.">
+              <Select value={methodId} onChange={(event) => setMethodId(event.target.value)}>
+                <option value="">Todas as formas</option>
+                {(metodos.data ?? []).map((metodo) => (
+                  <option key={metodo.id} value={metodo.id}>
+                    {metodo.label}
                   </option>
                 ))}
               </Select>

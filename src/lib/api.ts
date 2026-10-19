@@ -594,6 +594,8 @@ export async function getFinancialSummary(params: {
   serviceMode?: 'dine_in' | 'delivery' | null
   employeeId?: string | null
   categoryId?: string | null
+  /** Forma de pagamento confirmada (seção 13: relatório filtrável por forma). */
+  methodId?: string | null
 }): Promise<FinancialSummary> {
   const { data, error } = await supabase.rpc('get_financial_summary', {
     p_from: params.from,
@@ -601,6 +603,7 @@ export async function getFinancialSummary(params: {
     p_service_mode: params.serviceMode ?? null,
     p_employee_id: params.employeeId ?? null,
     p_category_id: params.categoryId ?? null,
+    p_method_id: params.methodId ?? null,
   })
   return unwrap(data as FinancialSummary, error)
 }

@@ -8,7 +8,7 @@ Esta página registra **o que foi corrigido, onde, como foi testado e o que aind
 | Item | Estado |
 |---|---|
 | Código (frontend + migrações + Edge Function) | corrigido, commitado e **publicado** (`main` = `f9e2ce7`) |
-| Suíte de banco local (PostgreSQL 17) | **453 asserções aprovadas** + teste de concorrência |
+| Suíte de banco local (PostgreSQL 17) | **460 asserções aprovadas** + teste de concorrência |
 | TypeScript / Vitest / build | **0 erros / 91 testes / build OK** |
 | Produção (Supabase) | **migrações 0013–0022 aplicadas** em 19/10 (verificado no catálogo) |
 | Deploy (Vercel) | **publicado** em 19/10 (`5d1aa0a` → `2e4b640`; smoke e login dos 3 perfis OK) |
@@ -95,8 +95,8 @@ cliente já agrupava as invalidações em 350 ms.
 npx tsc -b                     → 0 erros
 npx vitest run                 → 91 testes, 9 arquivos, todos aprovados
 npm run build                  → OK
-bash tools/run-sql-tests.sh    → 23 migrações + 21 arquivos + concorrência
-                               → 453 asserções aprovadas
+bash tools/run-sql-tests.sh    → 24 migrações + 21 arquivos + concorrência
+                               → 460 asserções aprovadas
 ```
 
 **Não executados:** robôs Playwright de tela (`tools/e2e-*.mjs`, `auditar-telas.mjs`) e smoke de produção.

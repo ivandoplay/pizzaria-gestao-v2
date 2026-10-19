@@ -500,7 +500,7 @@ export function PaymentModal({
                         <span className="block text-[11px] text-red-600">motivo: {payment.reverse_reason}</span>
                       )}
                     </span>
-                    {payment.status === 'confirmed' && (
+                    {payment.status === 'confirmed' && isManager && (
                       <Button
                         size="sm"
                         variant="ghost"

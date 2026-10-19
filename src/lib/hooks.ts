@@ -137,6 +137,17 @@ export function useBusinessHours() {
 // ===========================================================================
 /** Tabelas observadas pelo Realtime e o "balde" de cache que cada uma invalida. */
 const REALTIME_BUCKETS: { table: string; bucket: string }[] = [
+  // Cardápio: mudou preço/produto no administrador, todos os aparelhos veem.
+  { table: 'products', bucket: 'catalog' },
+  { table: 'product_variants', bucket: 'catalog' },
+  { table: 'product_sizes', bucket: 'catalog' },
+  { table: 'categories', bucket: 'catalog' },
+  { table: 'modifier_groups', bucket: 'catalog' },
+  { table: 'modifier_options', bucket: 'catalog' },
+  { table: 'product_modifier_groups', bucket: 'catalog' },
+  // Configuração e formas de pagamento mudam a operação de quem está logado.
+  { table: 'business_settings', bucket: 'settings' },
+  { table: 'payment_methods', bucket: 'settings' },
   { table: 'restaurant_tables', bucket: 'tables' },
   { table: 'table_sessions', bucket: 'tables' },
   { table: 'orders', bucket: 'orders' },
@@ -177,6 +188,11 @@ export function useRealtimeSync(enabled = true) {
         void queryClient.invalidateQueries({ queryKey: ['orders'] })
         void queryClient.invalidateQueries({ queryKey: ['order-items'] })
         queue.current.delete('payments')
+      }
+      if (has('settings')) {
+        void queryClient.invalidateQueries({ queryKey: qk.settings })
+        void queryClient.invalidateQueries({ queryKey: qk.paymentMethods })
+        queue.current.delete('settings')
       }
       if (has('cash')) {
         void queryClient.invalidateQueries({ queryKey: qk.cashSession })

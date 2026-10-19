@@ -29,7 +29,26 @@ export default function CashierHomePage() {
   })
 
   if (tables.isLoading && !tables.data) return <LoadingBlock label="Carregando o painel do caixa…" linhas={5} />
-  if (tables.error) return <ErrorBlock message={translateError(tables.error)} onRetry={() => void tables.refetch()} />
+
+  /**
+   * A tela depende de quatro consultas. Antes só o erro de `tables` era
+   * mostrado; falha em caixa/pedidos/delivery virava “zero” silencioso, que
+   * parece operação vazia e não erro (achado A11).
+   */
+  const erro = tables.error ?? cash.error ?? openOrders.error ?? deliveries.error
+  if (erro) {
+    return (
+      <ErrorBlock
+        message={translateError(erro)}
+        onRetry={() => {
+          void tables.refetch()
+          void cash.refetch()
+          void openOrders.refetch()
+          void deliveries.refetch()
+        }}
+      />
+    )
+  }
 
   const mesas = tables.data ?? []
   const livres = mesas.filter((mesa) => mesa.status === 'available')

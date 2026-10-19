@@ -58,7 +58,7 @@ export default function ReportsPage() {
 
   const series = useQuery({
     queryKey: ['report-series', range, bucket, serviceMode],
-    queryFn: () => api.getSalesSeries(range.from, range.to, bucket),
+    queryFn: () => api.getSalesSeries(range.from, range.to, bucket, serviceMode || null),
   })
 
   const products = useQuery({

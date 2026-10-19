@@ -653,11 +653,18 @@ export async function getFinancialSummary(params: {
   return unwrap(data as FinancialSummary, error)
 }
 
-export async function getSalesSeries(from: string, to: string, bucket: 'day' | 'week' | 'month' = 'day') {
+export async function getSalesSeries(
+  from: string,
+  to: string,
+  bucket: 'day' | 'week' | 'month' = 'day',
+  serviceMode?: 'dine_in' | 'delivery' | null,
+) {
   const { data, error } = await supabase.rpc('get_sales_series', {
     p_from: from,
     p_to: to,
     p_bucket: bucket,
+    // A RPC já aceitava o filtro; faltava mandar (achado A20).
+    p_service_mode: serviceMode || null,
   })
   if (error) throw new ApiError(error.message)
   return (data ?? []) as SalesSeriesPoint[]

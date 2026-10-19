@@ -29,6 +29,7 @@ import { Icon } from '../components/icons'
 import { duracaoDesde, formatDateTime, formatMoney, formatPhone, formatTime, parseMoneyToCents } from '../lib/format'
 import { useChaveIdempotente } from '../lib/idempotencia'
 import { translateError } from '../lib/errors'
+import { valoresRecibo } from '../lib/recibo'
 import { ORDER_STATUS_LABELS, type CartItem, type OrderOverview, type OrderStatus } from '../lib/types'
 
 const PROXIMO_PASSO: Record<string, { status: OrderStatus; label: string } | undefined> = {
@@ -336,6 +337,7 @@ export default function DeliveryPage() {
   /** Comanda de entrega: o entregador precisa do endereço completo e do valor. */
   function imprimirComanda(order: OrderOverview) {
     const enderecoCompleto = enderecos.data?.[order.id]
+    const valores = valoresRecibo([order])
     api.printReceipt({
       title: 'Comanda de entrega',
       subtitle: `Pedido #${order.order_number} · ${order.customer_name_snapshot ?? ''}`,
@@ -351,11 +353,14 @@ export default function DeliveryPage() {
         },
         { label: 'Bairro', value: order.delivery_neighborhood ?? '—' },
         { label: 'Referência', value: enderecoCompleto?.reference ?? '—' },
-        { label: 'Itens', value: formatMoney(order.subtotal_cents) },
-        { label: 'Taxa de entrega', value: formatMoney(order.delivery_fee_cents) },
-        { label: 'Total', value: formatMoney(order.total_cents), emphasis: true },
-        { label: 'Já pago', value: formatMoney(order.paid_cents) },
-        { label: 'Cobrar na entrega', value: formatMoney(order.balance_cents), emphasis: true },
+        // Somados a partir do pedido: subtotal - desconto + taxa = total.
+        // Sem a linha do desconto, a comanda não fechava quando havia desconto.
+        { label: 'Itens', value: formatMoney(valores.subtotal) },
+        ...(valores.desconto > 0 ? [{ label: 'Desconto', value: `- ${formatMoney(valores.desconto)}` }] : []),
+        { label: 'Taxa de entrega', value: formatMoney(valores.taxa) },
+        { label: 'Total', value: formatMoney(valores.total), emphasis: true },
+        { label: 'Já pago', value: formatMoney(valores.recebido) },
+        { label: 'Cobrar na entrega', value: formatMoney(valores.saldo), emphasis: true },
       ],
       items: [],
       footer: order.delivery_notes ? `Observações: ${order.delivery_notes}` : 'Conferir o endereço antes de sair.',

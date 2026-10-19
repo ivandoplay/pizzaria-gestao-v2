@@ -16,6 +16,7 @@ import {
 import * as api from '../lib/api'
 import { OrderComposer, type MenuData } from '../components/OrderComposer'
 import { useChaveIdempotente } from '../lib/idempotencia'
+import { linhasRecibo } from '../lib/recibo'
 import { PaymentModal } from '../components/PaymentPanel'
 import { DiscountDialog } from '../components/DiscountDialog'
 import {
@@ -290,8 +291,6 @@ export default function TableSessionPage() {
   function imprimirRecibo(order?: OrderOverview) {
     const itens = order ? items.filter((item) => item.order_id === order.id && !item.is_cancelled) : itensAtivos
     const pedidos = order ? [order] : sessionOrders
-    const recebido = pedidos.reduce((soma, pedido) => soma + pedido.paid_cents, 0)
-    const total = pedidos.reduce((soma, pedido) => soma + pedido.total_cents, 0)
     const recebimentos = (payments.data ?? []).filter(
       (payment) => payment.status === 'confirmed' && pedidos.some((pedido) => pedido.id === payment.order_id),
     )
@@ -300,18 +299,17 @@ export default function TableSessionPage() {
     api.printReceipt({
       title: 'Recibo do cliente',
       subtitle: `${tableRow?.name ?? `Mesa ${tableRow?.number ?? ''}`} · atendimento aberto em ${formatTime(tableRow?.opened_at)}`,
+      // Os valores saem SEMPRE dos pedidos que vão no papel (`pedidos`):
+      // imprimir um pedido não pode mostrar o subtotal da conta inteira.
       lines: [
         { label: 'Pedidos', value: pedidos.map((pedido) => `#${pedido.order_number}`).join(', ') },
-        { label: 'Subtotal', value: formatMoney(totals.subtotal) },
-        ...(totals.discount > 0 ? [{ label: 'Desconto', value: `- ${formatMoney(totals.discount)}` }] : []),
-        { label: 'Total', value: formatMoney(total), emphasis: true },
-        { label: 'Recebido', value: formatMoney(recebido) },
-        { label: 'Saldo a pagar', value: formatMoney(Math.max(total - recebido, 0)), emphasis: true },
-        ...(troco > 0 ? [{ label: 'Troco entregue', value: formatMoney(troco) }] : []),
-        ...recebimentos.map((payment) => ({
-          label: `Pgto. ${nomeMetodo(payment.method_id)}`,
-          value: formatMoney(payment.amount_cents),
-        })),
+        ...linhasRecibo(pedidos, {
+          trocoCents: troco,
+          pagamentos: recebimentos.map((payment) => ({
+            rotulo: nomeMetodo(payment.method_id),
+            valorCents: payment.amount_cents,
+          })),
+        }),
       ],
       items: itens.map((item) => itemParaImpressao(item)),
       footer: 'Documento não fiscal. Obrigado pela preferência!',

@@ -8,7 +8,7 @@ Esta página registra **o que foi corrigido, onde, como foi testado e o que aind
 | Item | Estado |
 |---|---|
 | Código (frontend + migrações + Edge Function) | corrigido e commitado em `main` local |
-| Suíte de banco local (PostgreSQL 17) | **425 asserções aprovadas** + teste de concorrência |
+| Suíte de banco local (PostgreSQL 17) | **426 asserções aprovadas** + teste de concorrência |
 | TypeScript / Vitest / build | **0 erros / 88 testes / build OK** |
 | Produção (Supabase) | **NÃO recebeu as migrações 0013–0020** |
 | Deploy (Vercel) | **NÃO publicado** |
@@ -84,7 +84,7 @@ npx tsc -b                     → 0 erros
 npx vitest run                 → 88 testes, 9 arquivos, todos aprovados
 npm run build                  → OK
 bash tools/run-sql-tests.sh    → 20 migrações + 19 arquivos + concorrência
-                               → 425 asserções aprovadas
+                               → 426 asserções aprovadas
 ```
 
 **Não executados:** robôs Playwright de tela (`tools/e2e-*.mjs`, `auditar-telas.mjs`) e smoke de produção.

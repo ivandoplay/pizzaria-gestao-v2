@@ -145,6 +145,21 @@ begin
   perform tests.eq_int((select paid_cents from public.orders where id = v_order.id), 2000,
     'com a configuração ligada, duas formas diferentes somam no pedido');
 
+  -- Pedido que já estava dividido antes de desligar a configuração continua
+  -- aceitando recebimento (não se trava uma conta em andamento).
+  perform tests.logout();
+  perform tests.login('ana.admin');
+  update public.business_settings set split_payment_enabled = false where id;
+  perform tests.logout();
+  perform tests.login('carlos.caixa');
+  perform public.register_payment(v_order.id, 'debit_card', 500, null, false, null,
+                                  '00000000-0000-0000-0000-0000000000f7'::uuid);
+  perform tests.eq_int((select paid_cents from public.orders where id = v_order.id), 2500,
+    'pedido já dividido continua recebendo com a configuração desligada');
+
+  perform tests.logout();
+  perform tests.login('ana.admin');
+  update public.business_settings set split_payment_enabled = true where id;
   perform tests.logout();
 end
 $$;

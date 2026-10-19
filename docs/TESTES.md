@@ -52,7 +52,7 @@ O contador de asserções lê as mensagens `NOTICE: OK` emitidas por `tests.ok/e
 
 ## 2. Suíte do banco (00–11) — resultado: **VERDE**
 
-Execução final (após a auditoria de 17/10): **425 asserções, todas aprovadas** — 19 arquivos numerados (00–19) mais o teste de concorrência
+Execução final (após a auditoria de 17/10): **426 asserções, todas aprovadas** — 19 arquivos numerados (00–19) mais o teste de concorrência
 (`07`) —, sem `ERROR` e sem `ASSERT FALHOU`.
 
 | Arquivo | O que testa | Asserções notáveis |

@@ -445,13 +445,21 @@ begin
 
   -- Sem configuração lida (linha ausente), não interfere.
   if coalesce(v_enabled, true) is false then
-    if exists (
-      select 1
-        from public.payments p
-       where p.order_id = new.order_id
-         and p.status = 'confirmed'
-         and p.method_id <> new.method_id
-    ) then
+    -- Bloqueia quando o pedido já está recebendo em UMA forma e a nova é outra.
+    -- Pedido que já nasceu dividido (antes de a configuração ser desligada)
+    -- continua aceitando as formas que já usava — desligar a configuração não
+    -- pode travar uma conta em andamento.
+    if (select count(distinct p.method_id)
+          from public.payments p
+         where p.order_id = new.order_id
+           and p.status = 'confirmed') = 1
+       and not exists (
+         select 1
+           from public.payments p
+          where p.order_id = new.order_id
+            and p.status = 'confirmed'
+            and p.method_id = new.method_id
+       ) then
       raise exception 'SPLIT_PAYMENT_DISABLED: o pagamento dividido está desativado; use uma única forma de pagamento neste pedido'
         using errcode = '22023';
     end if;

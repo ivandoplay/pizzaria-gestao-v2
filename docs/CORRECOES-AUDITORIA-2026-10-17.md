@@ -7,16 +7,16 @@ Esta página registra **o que foi corrigido, onde, como foi testado e o que aind
 
 | Item | Estado |
 |---|---|
-| Código (frontend + migrações + Edge Function) | corrigido e commitado em `main` local |
+| Código (frontend + migrações + Edge Function) | corrigido, commitado e **publicado** (`main` = `f9e2ce7`) |
 | Suíte de banco local (PostgreSQL 17) | **444 asserções aprovadas** + teste de concorrência |
 | TypeScript / Vitest / build | **0 erros / 91 testes / build OK** |
-| Produção (Supabase) | **NÃO recebeu as migrações 0013–0020** |
-| Deploy (Vercel) | **NÃO publicado** |
-| Limpeza dos dados de teste em produção | **NÃO executada** (sem credencial nesta sessão) |
-| Push para o GitHub | **NÃO executado** (sem credencial nesta sessão) |
+| Produção (Supabase) | **migrações 0013–0022 aplicadas** em 19/10 (verificado no catálogo) |
+| Deploy (Vercel) | **publicado** em 19/10 (`5d1aa0a` → `2e4b640`; smoke e login dos 3 perfis OK) |
+| Limpeza dos dados de teste em produção | **executada** em 19/10 (ver §6) |
+| Push para o GitHub | **feito** (`ivandoplay/pizzaria-gestao-v2`) |
 
-> Nada aqui foi declarado pronto em produção. Enquanto as migrações não forem aplicadas no Supabase
-> e o build não for publicado, o site em produção continua com o comportamento auditado.
+> **Atualização de 19/10/2026:** a produção recebeu as migrações, o build foi publicado e os dados de
+> teste foram limpos. As seções §5 e §6 registram a ordem executada e o que foi encontrado.
 
 ## 2. Matriz de correções
 
@@ -112,3 +112,20 @@ estas correções — o que seria um falso “passou”.
    parcial; conferir “a receber” sem cancelados; conferir preço em lote; conferir troca de senha.
 5. Limpeza de dados de teste (pedido #46 da mesa 12, cancelados #45/#24, mesa 11) — somente com credencial
    administrativa e com o SQL revisado.
+
+
+## 6. Limpeza da produção (19/10/2026)
+
+Executada com backup lógico prévio em `~/backups_supabase/2026-10-19/` (25 tabelas em JSON).
+
+| O que | Como | Resultado |
+|---|---|---|
+| Contas abertas (#46/#48/#50/#52/#54 da mesa 12, #49 da 11) | `tools/limpar-contas-teste.mjs` com `PZ_FECHAR=sim` — pelo caminho normal do sistema (caixa recebe, garçom entrega, fecha) | 0 mesas abertas |
+| Pedido #51 | fechado pelo próprio robô na rodada em que provou o recebimento em partes | quitado |
+| 9 pedidos de 16/10 fechados **sem pagamento** (antes da migração 0012), R$ 121,00 fantasma em “pendente” | `supabase/manual/2026-10-19-limpeza-dados-teste.sql` — cancelamento com motivo e autoria, nada apagado | “a receber” do painel = R$ 0,00 |
+| Pedidos #56–#58 (demonstração criada só para a revisão visual das telas) | `supabase/manual/2026-10-19-limpeza-demonstracao-delivery.sql` | 0 delivery aberto |
+| Mesa 11 | conferida sessão por sessão (10 sessões, todas `closed`, nenhum pedido em aberto) | nada a corrigir |
+
+Estado final da base: **0 mesas abertas, 0 contas em aberto, 0 pedidos fechados com saldo, 51 pedidos no
+histórico (14 cancelados — 2 de antes + 9 da baixa + 3 da demonstração)**. O turno de caixa segue aberto de
+propósito: é o turno real da operação e quem fecha é o responsável no balcão.

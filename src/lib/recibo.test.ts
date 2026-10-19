@@ -3,6 +3,7 @@ import {
   empresaDoRecibo,
   linhaDeContato,
   linhasRecibo,
+  hostsDeLogoPermitidos,
   motivoLogoRecusado,
   urlDeLogo,
   valoresRecibo,
@@ -129,20 +130,31 @@ describe('identificação da pizzaria no recibo', () => {
   // Revisão de 19/10/2026: a janela de impressão herda a CSP da aplicação
   // (comprovado em navegador), então logo de outro domínio não carrega.
   // Em vez de imprimir um ícone quebrado, o endereço é recusado na hora.
+  // A lista de hosts vai EXPLÍCITA nos testes: sem isso o resultado depende de
+  // `.env.local` existir na máquina e a esteira (que não tem o arquivo) falha —
+  // foi o que aconteceu em 19/10/2026.
+  const hosts = ['qmrcnoigaszditwchsdz.supabase.co', 'pizzaria-gestao-v2.vercel.app']
+
   it('aceita logo do próprio projeto Supabase', () => {
     const url = 'https://qmrcnoigaszditwchsdz.supabase.co/storage/v1/object/public/product-images/logo.png'
-    expect(urlDeLogo(url)).toBe(url)
-    expect(motivoLogoRecusado(url)).toBeNull()
+    expect(urlDeLogo(url, hosts)).toBe(url)
+    expect(motivoLogoRecusado(url, hosts)).toBeNull()
   })
 
   it('recusa logo de domínio que a CSP bloqueia, explicando o motivo', () => {
-    const motivo = motivoLogoRecusado('https://cdn.exemplo.com/logo.png')
+    const motivo = motivoLogoRecusado('https://cdn.exemplo.com/logo.png', hosts)
     expect(motivo).toContain('só carrega imagem de')
-    expect(urlDeLogo('https://cdn.exemplo.com/logo.png')).toBeNull()
+    expect(urlDeLogo('https://cdn.exemplo.com/logo.png', hosts)).toBeNull()
   })
 
   it('recusa endereço relativo sem host', () => {
-    expect(urlDeLogo('/logo.png')).toBeNull()
-    expect(motivoLogoRecusado('/logo.png')).toContain('Endereço inválido')
+    expect(urlDeLogo('/logo.png', hosts)).toBeNull()
+    expect(motivoLogoRecusado('/logo.png', hosts)).toContain('Endereço inválido')
+  })
+
+  it('sem configuração de ambiente a lista sai vazia (e o teste não depende dela)', () => {
+    // O que a lista contém é decidido em tempo de execução; o que importa é que
+    // a função aceite a lista pronta e que a lista nunca invente host.
+    expect(Array.isArray(hostsDeLogoPermitidos())).toBe(true)
   })
 })

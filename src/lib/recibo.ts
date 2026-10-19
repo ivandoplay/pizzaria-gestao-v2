@@ -162,7 +162,7 @@ export function linhaDeContato(empresa: EmpresaRecibo | undefined): string | nul
  * Antes desta checagem a tela aceitava qualquer URL, e o operador só descobria
  * que o logo não saía depois de imprimir.
  */
-function hostsPermitidos(): string[] {
+export function hostsDeLogoPermitidos(): string[] {
   const hosts: string[] = []
   const supabase = (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? ''
   try {
@@ -174,8 +174,17 @@ function hostsPermitidos(): string[] {
   return hosts
 }
 
-/** Motivo pelo qual o logo seria recusado no papel — `null` quando está tudo certo. */
-export function motivoLogoRecusado(logoUrl: string | null | undefined): string | null {
+/**
+ * Motivo pelo qual o logo seria recusado no papel — `null` quando está tudo certo.
+ *
+ * `hosts` existe para o teste ser determinístico: sem ele, o resultado dependeria
+ * de `.env.local` existir na máquina (foi assim que a esteira ficou vermelha em
+ * 19/10/2026 — local passava, CI não).
+ */
+export function motivoLogoRecusado(
+  logoUrl: string | null | undefined,
+  hosts: string[] = hostsDeLogoPermitidos(),
+): string | null {
   const url = (logoUrl ?? '').trim()
   if (!url) return null
   let parsed: URL
@@ -187,7 +196,7 @@ export function motivoLogoRecusado(logoUrl: string | null | undefined): string |
   if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
     return 'Só endereços http(s) podem ser impressos.'
   }
-  const permitidos = hostsPermitidos()
+  const permitidos = hosts
   if (permitidos.length > 0 && !permitidos.includes(parsed.host)) {
     return `O papel só carrega imagem de ${permitidos.join(' ou ')} — envie o arquivo para o Storage do sistema e cole o link de lá.`
   }
@@ -201,8 +210,11 @@ export function motivoLogoRecusado(logoUrl: string | null | undefined): string |
  * herdaria a CSP e mostraria o ícone quebrado), mas o recibo continua saindo
  * com nome, endereço e telefone.
  */
-export function urlDeLogo(logoUrl: string | null | undefined): string | null {
+export function urlDeLogo(
+  logoUrl: string | null | undefined,
+  hosts: string[] = hostsDeLogoPermitidos(),
+): string | null {
   const url = (logoUrl ?? '').trim()
   if (!url) return null
-  return motivoLogoRecusado(url) === null ? new URL(url).toString() : null
+  return motivoLogoRecusado(url, hosts) === null ? new URL(url).toString() : null
 }

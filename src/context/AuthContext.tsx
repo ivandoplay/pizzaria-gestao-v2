@@ -34,44 +34,76 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const sessaoAnterior = useRef<string | null>(null)
   /** Ordem das cargas de perfil — ver src/lib/cargaDePerfil.ts (achado F1). */
   const guarda = useRef(criarGuardaDePerfil())
+  /**
+   * Última sessão autenticada conhecida, atualizada de forma SÍNCRONA.
+   *
+   * Serve para duas coisas: (1) um evento atrasado "sem sessão" da
+   * inicialização do Auth não pode derrubar quem acabou de entrar; (2) duas
+   * cargas do MESMO usuário (login + evento do Auth) reaproveitam a mesma
+   * consulta em vez de competirem.
+   */
+  const sessaoRef = useRef<Session | null>(null)
+  const cargaEmVoo = useRef<{ id: string; promessa: Promise<void> } | null>(null)
 
-  const loadProfile = useCallback(async (currentSession: Session | null) => {
-    const id = currentSession?.user?.id ?? null
-    const ticket = guarda.current.iniciar(id)
-
-    if (!id) {
-      setProfile(null)
-      setBlockedReason(null)
-      sessaoAnterior.current = null
-      return
-    }
-
-    try {
-      const found = await api.fetchMyProfile(id)
-      // Resposta de uma sessão que já não é a atual: descartar em silêncio.
-      // Sem isto, a conta anterior podia sobrescrever a tela da conta nova.
-      if (!guarda.current.deveAplicar(ticket, id)) return
-      if (!found) {
+  const carregarPerfil = useCallback((id: string, ticket: number): Promise<void> => {
+    return (async () => {
+      try {
+        const found = await api.fetchMyProfile(id)
+        // Resposta de uma sessão que já não é a atual: descartar em silêncio.
+        // Sem isto, a conta anterior podia sobrescrever a tela da conta nova.
+        if (!guarda.current.deveAplicar(ticket, id)) return
+        if (!found) {
+          setProfile(null)
+          setBlockedReason(
+            'Sua conta existe, mas ainda não foi vinculada a um funcionário ativo. Contate o administrador.',
+          )
+          return
+        }
+        if (!found.is_active) {
+          setProfile(null)
+          setBlockedReason('Seu acesso está desativado. Contate o administrador.')
+          return
+        }
+        setProfile(found)
+        setBlockedReason(null)
+        sessaoAnterior.current = id
+      } catch {
+        if (!guarda.current.deveAplicar(ticket, id)) return
         setProfile(null)
-        setBlockedReason(
-          'Sua conta existe, mas ainda não foi vinculada a um funcionário ativo. Contate o administrador.',
-        )
-        return
+        setBlockedReason('Não foi possível carregar seu perfil. Verifique a conexão e tente de novo.')
       }
-      if (!found.is_active) {
-        setProfile(null)
-        setBlockedReason('Seu acesso está desativado. Contate o administrador.')
-        return
-      }
-      setProfile(found)
-      setBlockedReason(null)
-      sessaoAnterior.current = id
-    } catch {
-      if (!guarda.current.deveAplicar(ticket, id)) return
-      setProfile(null)
-      setBlockedReason('Não foi possível carregar seu perfil. Verifique a conexão e tente de novo.')
-    }
+    })()
   }, [])
+
+  const loadProfile = useCallback(
+    (currentSession: Session | null): Promise<void> => {
+      const id = currentSession?.user?.id ?? null
+
+      // Sem sessão: só limpa se realmente não há sessão autenticada conhecida.
+      // (O evento inicial do Auth pode chegar depois do login, com `null`.)
+      if (!id) {
+        if (sessaoRef.current) return Promise.resolve()
+        guarda.current.iniciar(null)
+        sessaoAnterior.current = null
+        setProfile(null)
+        setBlockedReason(null)
+        return Promise.resolve()
+      }
+
+      // Mesma conta já carregando: devolve a consulta em andamento. Sem isso,
+      // o login e o evento do Auth disputariam a mesma carga e a tela podia
+      // navegar antes de o perfil chegar.
+      if (cargaEmVoo.current?.id === id) return cargaEmVoo.current.promessa
+
+      const ticket = guarda.current.iniciar(id)
+      const promessa = carregarPerfil(id, ticket)
+      cargaEmVoo.current = { id, promessa }
+      return promessa.finally(() => {
+        if (cargaEmVoo.current?.promessa === promessa) cargaEmVoo.current = null
+      })
+    },
+    [carregarPerfil],
+  )
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -91,6 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(null)
         setBlockedReason(null)
       }
+      if (novaSessao) sessaoRef.current = novaSessao
       setSession(novaSessao)
       try {
         await loadProfile(novaSessao)
@@ -145,6 +178,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(
     async (login: string, password: string) => {
       const data = await api.signIn(login, password)
+      // Registra a sessão antes de qualquer coisa: um evento atrasado do Auth
+      // não pode ser interpretado como "não há sessão" durante o login.
+      if (data.session) sessaoRef.current = data.session
       setSession(data.session ?? null)
       await loadProfile(data.session ?? null)
       if (data.session?.user) void api.markLogin()
@@ -170,6 +206,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(null)
         setSession(null)
         sessaoAnterior.current = null
+        sessaoRef.current = null
+        cargaEmVoo.current = null
         guarda.current.iniciar(null)
         // Sai pela rotina com prazo: se o servidor não responder, o aparelho é
         // limpo e o operador volta para a tela de entrada de qualquer forma.

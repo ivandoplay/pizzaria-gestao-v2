@@ -48,6 +48,16 @@ describe('ordem das cargas de perfil', () => {
     expect(guarda.deveAplicar(ticket, 'usuario-B')).toBe(false)
   })
 
+  it('o AuthContext não derruba o login por evento atrasado nem duplica a consulta', () => {
+    // Regressão de 19/10/2026: o evento inicial do Auth (sem sessão) chegava
+    // depois do login e limpava o perfil recém-carregado — o operador caía em
+    // "Você já está conectado" sem entrar. E login + evento do Auth disparavam
+    // duas consultas do mesmo perfil, e a perdedora vencia a corrida.
+    expect(fonteAuth).toContain('sessaoRef')
+    expect(fonteAuth).toContain('cargaEmVoo')
+    expect(fonteAuth).toMatch(/if \(sessaoRef\.current\) return Promise\.resolve\(\)/)
+  })
+
   it('o AuthContext usa a guarda antes de gravar o perfil', () => {
     // Trava a regressão no código de verdade: sem estas duas chamadas, a
     // condição de corrida volta a existir mesmo com a guarda testada acima.

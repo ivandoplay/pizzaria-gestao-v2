@@ -6,8 +6,6 @@ import type {
   CashSession,
   CashSessionOverview,
   Category,
-  Customer,
-  CustomerAddress,
   DeliveryFeeZone,
   FinancialSummary,
   ModifierGroup,
@@ -524,42 +522,6 @@ export async function closeDeliveryAccount(orderId: string, options?: { force?: 
 // ===========================================================================
 // CLIENTES / DELIVERY
 // ===========================================================================
-export async function upsertCustomer(
-  customer: { name: string; phone: string; email?: string; notes?: string },
-  address?: Record<string, string | undefined> | null,
-) {
-  const { data, error } = await supabase.rpc('upsert_customer', {
-    p_customer: customer,
-    p_address: address ?? null,
-  })
-  return unwrap(data as { customer_id: string; address_id: string | null }, error)
-}
-
-export async function searchCustomers(term: string): Promise<(Customer & { addresses: CustomerAddress[] })[]> {
-  const digits = term.replace(/\D/g, '')
-  let query = supabase
-    .from('customers')
-    .select('*, customer_addresses(*)')
-    .eq('is_active', true)
-    .order('name')
-    .limit(20)
-
-  if (digits.length >= 3) {
-    query = query.like('phone_digits', `%${digits}%`)
-  } else if (term.trim().length >= 2) {
-    query = query.ilike('name', `%${term.trim()}%`)
-  } else {
-    return []
-  }
-
-  const { data, error } = await query
-  if (error) throw new ApiError(error.message)
-  return (data ?? []).map((c) => {
-    const row = c as Customer & { customer_addresses: CustomerAddress[] }
-    return { ...row, addresses: row.customer_addresses ?? [] }
-  })
-}
-
 // ===========================================================================
 // CAIXA
 // ===========================================================================
@@ -571,16 +533,6 @@ export async function fetchOpenCashSession(): Promise<CashSessionOverview | null
     .maybeSingle()
   if (error) throw new ApiError(error.message)
   return (data as CashSessionOverview | null) ?? null
-}
-
-export async function fetchCashSessions(limit = 30): Promise<CashSessionOverview[]> {
-  const { data, error } = await supabase
-    .from('cash_session_overview')
-    .select('*')
-    .order('opened_at', { ascending: false })
-    .limit(limit)
-  if (error) throw new ApiError(error.message)
-  return (data ?? []) as CashSessionOverview[]
 }
 
 export async function fetchCashMovements(sessionId: string): Promise<CashMovement[]> {
@@ -751,11 +703,6 @@ export async function getOrdersPage(params: {
     cancel_reason: string | null
     total_count: number
   }[]
-}
-
-export async function getOperationalSummary() {
-  const { data, error } = await supabase.rpc('get_operational_summary', { p_at: new Date().toISOString() })
-  return unwrap(data, error) as unknown as Record<string, unknown>
 }
 
 // ===========================================================================

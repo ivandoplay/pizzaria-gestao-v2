@@ -188,6 +188,10 @@ Atualizado em **16/10/2026**, depois da correção do fechamento seguro (a mesa 
   (exige duas conexões simultâneas); ele foi executado localmente e está verde.
 - **Edge Function `admin-create-employee` publicada e verificada no ar:** sem token → HTTP 401; com
   token de admin → cria funcionário, recusa login duplicado e redefine senha gerando senha temporária.
+  Republicada em 19/10/2026 pela CLI (`supabase functions deploy admin-create-employee`), agora com a
+  recusa de quem está com senha temporária — conferido em produção: flag ligada → HTTP 403
+  `PASSWORD_CHANGE_REQUIRED`; flag desligada com perfil de garçom → HTTP 403 `FORBIDDEN`.
+  O `supabase/config.toml` do repositório guarda só o ref do projeto e o `verify_jwt` da função.
 - **Administrador criado**: `admin@pizzaria.local` (login `admin`, perfil `admin` ativo). O trigger do
   banco cria todo perfil **inativo** por segurança; ele foi ativado explicitamente.
 - **Teste de fumaça com login real:** token emitido pelo Auth, leitura de `profiles` via PostgREST

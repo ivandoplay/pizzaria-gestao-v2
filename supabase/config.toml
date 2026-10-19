@@ -1,0 +1,8 @@
+# Configuração mínima do projeto Supabase (usada pela CLI para funções e
+# migrações). Não guarda segredo: o ref do projeto é público.
+project_id = "qmrcnoigaszditwchsdz"
+
+[functions.admin-create-employee]
+# A própria função valida o JWT do chamador e confere o perfil no banco; o
+# portão do gateway fica ligado (o padrão do Supabase) como defesa extra.
+verify_jwt = true

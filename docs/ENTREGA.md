@@ -3,6 +3,20 @@
 Documento de fechamento (seção 19 do prompt): o que foi implementado, o que foi realmente testado,
 o que ainda depende de configuração manual e quais são as limitações.
 
+> **Este documento é cronológico.** As seções 4 e 5 registram execuções com a data em que aconteceram;
+> os números da linha do tempo não são atualizados retroativamente. O **estado atual**, conferido em
+> **19/10/2026**, é o da tabela abaixo — e é ele que vale quando os dois divergirem.
+
+| Item | Estado em 19/10/2026 |
+|---|---|
+| Migrações | **28** arquivos (`0001`…`0028`), todos aplicados no projeto Supabase |
+| Tabelas / views / políticas | 25 tabelas (RLS + FORCE), 4 views `security_invoker`, 44 políticas |
+| Funções em `public` | 26 (14 operacionais, 8 de relatório, troca de senha e auxiliares) |
+| Suíte do banco | **494 asserções**, `00`…`26` + concorrência, verde |
+| Testes de aplicação | **121** (Vitest), verde |
+| Realtime | **22 tabelas** publicadas |
+| Site publicado | `https://pizzaria-gestao-v2.vercel.app` — verificado pelos robôs em 19/10/2026 |
+
 ---
 
 ## 1. Funcionalidades implementadas
@@ -127,10 +141,10 @@ trilha de auditoria somente-adição.
 
 | Verificação | Comando | Resultado |
 |---|---|---|
-| Suíte do banco (00–25), local | `bash tools/run-sql-tests.sh` | **478 asserções aprovadas**, 0 falhas |
+| Suíte do banco (00–26), local | `bash tools/run-sql-tests.sh` | **494 asserções aprovadas**, 0 falhas (19/10/2026) |
 | Suíte do banco (00–08), **no Supabase real** (etapa de 15/10) | `tools/supabase-cloud-sql.sh` | **nenhuma falha** (falha em qualquer asserção aborta o arquivo); o `09` roda no banco local e, na nuvem, a validação é a migração aplicada + smoke + robôs |
 | Concorrência real (07) | idem (duas conexões em paralelo) | **verde**: abertura dupla bloqueada, clique duplo → 1 pagamento, fechamento duplo → recusado |
-| Testes unitários | `npm test` (Vitest) | **91/91** |
+| Testes unitários | `npm test` (Vitest) | **121/121** (19/10/2026) |
 | Tipos | `npm run typecheck` | **exit 0** |
 | Build de produção | `npx vite build` | **exit 0** (chunk principal 493 kB / 142 kB gzip + 1 chunk por tela) |
 | Interface em navegador real | `node tools/e2e-telas.mjs <URL>` (Playwright, contra o **site publicado**) | **0 falhas**: login dos 3 perfis, 11 telas do administrador, percurso completo do salão, bloqueio de permissão conferido, nenhum erro de console/rede |
@@ -140,8 +154,8 @@ trilha de auditoria somente-adição.
 | Digitação com foco (regressão) | `PZ_ADMIN_PASSWORD=… node tools/e2e-digitar.mjs <URL>` (Playwright, **local**) | **0 falhas, 0 avisos** (antes da correção: 16 falhas e 2 avisos) — **cenário do relato literal** (“João” no nome → clique no Número → “9” → “8”, conferindo foco e valores), digitação tecla por tecla em todos os campos, troca de campos, Tab preso, modal dentro do modal, Escape, decimais no caixa **no preview local e no site publicado** |
 | Auditoria de telas | `node tools/auditar-telas.mjs <URL>` (Playwright, 3 perfis × celular e computador, 46 leituras de tela) | **0 falhas, 0 avisos** — nenhuma rolagem lateral e nenhum alvo de toque abaixo de 44px no celular |
 | Conferência do deploy | `bash tools/smoke-deploy.sh <URL> admin '<senha>'` | **tudo certo** (rotas, cabeçalhos, variáveis no bundle, ausência de credencial privilegiada, login real) |
-| Esteira automática — aplicação | GitHub Actions → `CI`, trabalho `verificar` (`npm ci`, `tsc -b`, Vitest, `vite build`) | **sucesso** (16/10/2026) |
-| Esteira automática — banco | GitHub Actions → `CI`, trabalho `banco` (PostgreSQL 17 descartável + `tools/run-sql-tests.sh`: migrações, suíte 00–25, concorrência) | **sucesso** (16/10/2026) |
+| Esteira automática — aplicação | GitHub Actions → `CI`, trabalho `verificar` (`npm ci`, `tsc -b`, Vitest, `vite build`) | **sucesso** (histórico do repositório) |
+| Esteira automática — banco | GitHub Actions → `CI`, trabalho `banco` (PostgreSQL 17 descartável + `tools/run-sql-tests.sh`: migrações, suíte 00–26, concorrência) | **sucesso** (histórico do repositório) |
 
 Detalhes, valores esperados e limitações em [`TESTES.md`](TESTES.md).
 
@@ -165,8 +179,9 @@ Atualizado em **16/10/2026**, depois da correção do fechamento seguro (a mesa 
   para `backups_supabase/` (dados em JSON + estrutura em SQL + instruções de restauração).
 - Schema `public` anterior removido (com a sua autorização) e as **9 migrações aplicadas em ordem**
   em 14/10 (a `0010`, da fila de prontos, foi aplicada em 16/10),
-  seguidas do `seed_structure.sql`. Catálogo conferido: **25 tabelas, 4 views, 23 funções, RLS e
-  FORCE RLS nas 25 tabelas** e 19 tabelas publicadas no Realtime.
+  seguidas do `seed_structure.sql`. Catálogo conferido em 19/10/2026: **25 tabelas, 4 views, 26 funções,
+  RLS e FORCE RLS nas 25 tabelas** e **22 tabelas publicadas no Realtime** (as 19 anteriores + zonas de
+  entrega, horários e perfis, da migração `0028`).
 - **Suíte de testes executada contra o banco real** (00 → 06): **nenhuma falha**. Em seguida os dados de
   teste foram removidos, as migrações reaplicadas e o banco ficou limpo (0 pedidos, 0 clientes, 0
   atendimentos — apenas o administrador). O teste de concorrência (07) não roda pela API de consulta

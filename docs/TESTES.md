@@ -8,7 +8,7 @@ que emula o ambiente Supabase. Nada aqui é estimativa.
 ## 1. Como rodar
 
 ```bash
-# ── Banco (recria o banco, aplica migrações + seed + suíte 00..25) ──
+# ── Banco (recria o banco, aplica migrações + seed + suíte 00..26) ──
 bash tools/run-sql-tests.sh
 
 # ── Aplicação ──
@@ -22,8 +22,8 @@ A esteira **CI** (`.github/workflows/ci.yml`) roda dois trabalhos:
 1. **aplicação** — a cada push no `main`, pull request e execução manual:
    `npm ci` → `typecheck` → `test` → `build`;
 2. **banco** — sobe um **PostgreSQL 17 descartável** no próprio executor e roda
-   `tools/run-sql-tests.sh` inteiro: shim, as 26 migrações, seed e a suíte
-   `00`…`25` + o teste de concorrência com conexões paralelas de verdade.
+   `tools/run-sql-tests.sh` inteiro: shim, as 28 migrações, seed e a suíte
+   `00`…`26` + o teste de concorrência com conexões paralelas de verdade.
 
 Só o que depende de **segredo ou de produção** continua rodando à mão: os robôs de
 navegador contra o Supabase real e o `smoke-deploy.sh` — de propósito, para que
@@ -38,10 +38,10 @@ um pull request de terceiros não toque em dados de produção.
    `PGUSER` e `PGPASSWORD` definidos;
 2. aplica `tools/local_pg_shim.sql` (emula `auth.uid()`, `auth.role()`, roles
    `anon`/`authenticated`/`service_role`, `supabase_realtime`, extensões);
-3. aplica as 26 migrações em ordem;
+3. aplica as 28 migrações em ordem;
 4. aplica `supabase/seed/seed_structure.sql`;
 5. aplica `supabase/tests/00_setup.sql` (infra de teste + fixtures);
-6. roda os arquivos numerados `01`…`25` em ordem e, no fim, `07_concurrency.sh` (script bash com conexões paralelas de verdade — por isso o `07` não está no laço: ele abre conexões concorrentes e é executado sozinho).
+6. roda os arquivos numerados `01`…`26` em ordem e, no fim, `07_concurrency.sh` (script bash com conexões paralelas de verdade — por isso o `07` não está no laço: ele abre conexões concorrentes e é executado sozinho).
 
 O contador de asserções lê as mensagens `NOTICE: OK` emitidas por `tests.ok/eq_int/eq_text/eq_bool`.
 
@@ -50,9 +50,9 @@ O contador de asserções lê as mensagens `NOTICE: OK` emitidas por `tests.ok/e
 
 ---
 
-## 2. Suíte do banco (00–25) — resultado: **VERDE**
+## 2. Suíte do banco (00–26) — resultado: **VERDE**
 
-Execução final (após a auditoria de 19/10): **478 asserções, todas aprovadas** — 25 arquivos numerados (00–25) mais o teste de concorrência
+Execução final (revisão de 19/10): **494 asserções, todas aprovadas** — 26 arquivos numerados (00–26) mais o teste de concorrência
 (`07`) —, sem `ERROR` e sem `ASSERT FALHOU`.
 
 | Arquivo | O que testa | Asserções notáveis |
@@ -92,7 +92,7 @@ Execução final (após a auditoria de 19/10): **478 asserções, todas aprovada
 
 ---
 
-## 3. Testes da aplicação — resultado: **113/113**
+## 3. Testes da aplicação — resultado: **121/121**
 
 `npm test` (Vitest, sem ambiente de navegador):
 
@@ -100,6 +100,7 @@ Execução final (após a auditoria de 19/10): **478 asserções, todas aprovada
 |---|---|---|
 | `src/lib/pricing.test.ts` | 11 | preço simples, meio a meio (`highest`/`average`), arredondamento, adicionais por unidade, bordas de entrada |
 | `src/lib/format.test.ts` | 25 | BRL com NBSP, `parseMoneyToCents` (vírgula/ponto), datas com fuso `America/Fortaleza`, `duracaoDesde` (tempo de mesa/pedido), `plural` (1 pedido / 2 pedidos), `newClientUuid`, CSV |
+| `src/lib/cargaDePerfil.test.ts` | 5 | ordem das cargas de perfil (resposta fora de ordem não sobrescreve a sessão atual; logout invalida) e trava a regressão no `AuthContext` |
 | `src/lib/errors.test.ts` | 5 | tradução de códigos do banco, mensagens do Supabase, falha de rede e — desde a auditoria de 19/10 — **texto cru do banco não vaza** para a tela (mensagem genérica + código) |
 | `src/lib/telefone.test.ts` | 7 | telefone do cliente recorrente: máscara, código do país 55, DDD 55 que **não** é código de país, comparação e busca exata/parcial |
 | `src/lib/caixa.test.ts` | 5 | conferência do turno: soma por forma, só dinheiro entra na gaveta, forma desconhecida fica fora, valores zerados ignorados |

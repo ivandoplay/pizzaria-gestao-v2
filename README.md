@@ -16,15 +16,17 @@ Idioma da interface: **português do Brasil**. Moeda: **BRL**. Fuso: **America/F
 |---|---|---|
 | Administrador | `admin` | Tudo: cardápio, funcionários, configurações, relatórios, auditoria, fechamento forçado e desconto até o teto configurado (sempre auditado). |
 | Caixa (gerente) | `manager` | Operação do dia: mesas, pedidos, delivery, recebimentos, fechamento de contas, turno de caixa, histórico, painel operacional. |
-| Garçom | `waiter` | Abre mesa, lança pedido, acompanha status e usa a tela **Pedidos prontos** para marcar o pedido pronto como **entregue na mesa**. Não recebe, não desconta, não cancela. |
+| Garçom | `waiter` | Abre mesa, lança pedido, acompanha status, marca pedido pronto como **entregue na mesa**, **vê o valor da conta, recebe e fecha a conta quitada** (decisão de 16/10/2026). Não desconta, não estorna, não cancela, não abre/fecha caixa. |
 
 O perfil é validado **no banco** a cada chamada (`app_private.require_role`), não no navegador.
 Esconder botão não é controle de acesso.
 
 Conta criada ou com senha redefinida pelo administrador entra com **senha temporária** e, no primeiro
 acesso, vê **uma única tela**: definir a senha definitiva. Enquanto `profiles.must_change_password`
-estiver marcada, nenhuma rota, menu ou atalho abre — o portão fica no app e a baixa da flag é feita por
-`public.complete_password_change()` (que só age sobre o próprio perfil e registra o evento na auditoria).
+estiver marcada, nenhuma rota, menu ou atalho abre — e, desde a revisão de 19/10/2026 (migração `0027`),
+a flag também fecha **leitura e escrita diretas nas tabelas** (RLS), não só as RPCs. A baixa da flag é
+feita por `public.complete_password_change()`, que só age sobre o próprio perfil e registra o evento na
+auditoria — e continua funcionando com a flag ligada, porque é o caminho de saída.
 
 ## 2. O que o sistema faz
 
@@ -49,8 +51,8 @@ estiver marcada, nenhuma rota, menu ou atalho abre — o portão fica no app e a
 | Camada | Tecnologia |
 |---|---|
 | Front-end | React 18, TypeScript 5.6, Vite 5, TailwindCSS 3, React Router 6, TanStack Query 5, `@supabase/supabase-js` 2 |
-| Testes de UI/lógica | Vitest (25 testes) |
-| Banco | PostgreSQL (Supabase) com RLS, triggers, views e 23 funções RPC (14 operacionais + 8 de relatório + a troca obrigatória de senha) |
+| Testes de UI/lógica | Vitest (121 testes) |
+| Banco | PostgreSQL (Supabase) com RLS, triggers, views e 26 funções em `public` (14 operacionais + 8 de relatório + troca de senha e auxiliares de acesso) |
 | Autenticação | Supabase Auth — e-mail interno `login@pizzaria.local` gerado a partir do login digitado |
 | Tempo real | Supabase Realtime (canal `painel-sync`, debounce de 350 ms) |
 | Server-side privilegiado | Edge Function `admin-create-employee` (criar funcionário/redefinir senha) |
@@ -73,7 +75,7 @@ Comandos:
 npm run dev        # servidor de desenvolvimento
 npm run build      # tsc -b && vite build  → dist/
 npm run preview    # serve o build de produção
-npm test           # Vitest (25 testes)
+npm test           # Vitest (121 testes)
 npm run typecheck  # tsc -b
 ```
 
@@ -95,6 +97,22 @@ As migrações ficam em `supabase/migrations/` e são aplicadas **em ordem**:
 | `20260101000010_fila_pedidos_prontos.sql` | Fila de pedidos prontos: a view `order_overview` passa a expor **`ready_at`** (horário em que o pedido ficou pronto) e **`session_status`**; `advance_order_status` confere **sessão da mesa e conta encerrada dentro da transação** no caminho `delivered_to_table`. Nenhuma função nova: continuam 23. |
 | `20260101000011_garcom_recebe_e_fecha.sql` | Dinheiro sob a regra do administrador (16/10/2026): `register_payment` e `close_table_account` passam a autorizar o papel **`waiter`** — o garçom vê o valor da conta, **recebe** (o valor entra no turno de caixa aberto) e **fecha** a conta quitada. Nenhuma política de RLS nem GRANT mudou; continuam exclusivos do administrador/caixa: fechar com saldo pendente, estornar, descontar e o agregado do salão. |
 | `20260101000012_fechamento_seguro_e_caixa.sql` | Fechamento seguro (16/10/2026): `close_table_account` **recusa** fechar a conta com pedido em andamento (`ORDERS_IN_PROGRESS`) — antes a mesa era liberada e o pedido ficava impossível de entregar. O fechamento excepcional (administrador + justificativa) cancela os pendentes com histórico e auditoria (`on_session_close`) e devolve `orders_cancelled_on_close`; pendente com dinheiro recebido exige estorno (`PAYMENT_REFUND_REQUIRED`). Cria `cash_session_is_open()` para admin/gerente/garçom — o garçom sabe se há turno aberto sem ver valor de caixa. |
+| `20260101000013_precos_em_lote.sql` | `set_product_prices()` atômica: lote de preços tudo-ou-nada (achado A3). |
+| `20260101000014_ultimo_acesso.sql` | `touch_last_login()` registra o último acesso sem abrir UPDATE em `profiles` (A5). |
+| `20260101000015_configs_com_efeito.sql` | Pedido mínimo de delivery e pagamento dividido aplicados no servidor (A6). |
+| `20260101000016_cancelar_item_com_pagamento.sql` | Cancelar item que deixaria o total abaixo do recebido → `PAYMENT_REFUND_REQUIRED` (A8). |
+| `20260101000017_saldo_de_cancelado.sql` | Pedido cancelado não tem saldo a receber (A9). |
+| `20260101000018_realtime_cardapio.sql` | Cardápio e configurações publicados no Realtime (A18). |
+| `20260101000019_execute_somente_autenticado.sql` | `EXECUTE` retirado de `PUBLIC`/`anon` (A15). |
+| `20260101000020_senha_obrigatoria_no_servidor.sql` | `must_change_password` bloqueia as RPCs no servidor (A16). |
+| `20260101000021_desconto_abaixo_do_pago.sql` | Desconto não passa por baixo do valor já recebido (A8). |
+| `20260101000022_fechar_caixa_idempotente.sql` | Fechamento de caixa idempotente por conteúdo (A2). |
+| `20260101000023_historico_por_forma_pagamento.sql` | Histórico com filtro por forma de pagamento confirmada (seção 5.5). |
+| `20260101000024_relatorio_por_forma_pagamento.sql` | Resumo financeiro com filtro por forma de pagamento e categoria (seção 13). |
+| `20260101000025_mesa_com_conta_aberta.sql` | Gatilho recusa desativar mesa com conta aberta e excluir mesa com histórico (seção 4.7). |
+| `20260101000026_correcoes_da_auditoria.sql` | Garçom lê recebimentos do salão; garçom não recebe delivery; `anon` sem privilégio; `search_path` fixo (auditoria de 19/10: B3, B8, B7, B12). |
+| `20260101000027_senha_pendente_no_acesso.sql` | Senha temporária fecha também a leitura/escrita direta nas tabelas (revisão de 20/10: R1). |
+| `20260101000028_tempo_real_zonas_horarios_perfis.sql` | Zonas de entrega, horários e perfis publicados no Realtime (revisão de 20/10: F2). |
 
 Seeds:
 
@@ -115,18 +133,18 @@ para o seed e a remoção, então as listas nunca ficam desencontradas).
 
 | Suíte | O que cobre | Resultado |
 |---|---|---|
-| `supabase/tests/00_setup.sql` … `11_fechamento_seguro.sql` | 372 asserções no PostgreSQL: RLS, privilégios, permissões por perfil, cardápio, mesas/pedidos, caixa/pagamentos, delivery, relatórios, auditoria, troca obrigatória de senha, fila de prontos, dinheiro do garçom e fechamento seguro | **verde** (local) |
+| `supabase/tests/00_setup.sql` … `26_senha_pendente_no_acesso.sql` | **494 asserções** no PostgreSQL: RLS, privilégios, permissões por perfil, cardápio, mesas/pedidos, caixa/pagamentos, delivery, relatórios, auditoria, troca obrigatória de senha (inclusive leitura/escrita direta), fila de prontos, dinheiro do garçom, fechamento seguro, mesa com conta aberta e cliente recorrente | **verde** (local, 19/10/2026) |
 | `supabase/tests/07_concurrency.sh` | Concorrência real com duas conexões simultâneas (abertura de mesa, clique duplo de pagamento, fechamento duplo) | **verde** |
-| Vitest (`npm test`) | Regras de preço espelhadas do banco, formatação BRL/datas/durações/plural, tradução de erros, criação sob demanda do cliente Supabase, regras da troca de senha e regras da fila de prontos | **56/56** |
+| Vitest (`npm test`) | Preço espelhado do banco, formatação BRL/datas/durações/plural, tradução de erros, cliente Supabase sob demanda, troca de senha, fila de prontos, recibo, telefone do cliente, conferência de caixa e ordem das cargas de perfil | **121/121** (19/10/2026) |
 | `npm run typecheck` | TypeScript em modo estrito, sem emissão | **exit 0** |
-| `npm run build` | Build de produção com cada tela em um chunk próprio | **exit 0** (principal 493 kB / 142 kB gzip + chunks por tela) |
-| GitHub Actions (`CI`) — aplicação | A cada push no `main`, pull request e execução manual: `npm ci` → `tsc -b` → Vitest → `vite build` | **sucesso** (16/10/2026) |
-| GitHub Actions (`CI`) — banco | PostgreSQL 17 descartável no próprio executor: `tools/run-sql-tests.sh` (migrações + suíte 00–11 + concorrência com conexões paralelas) | **sucesso** (16/10/2026) |
+| `npm run build` | Build de produção com cada tela em um chunk próprio | **exit 0** (19/10/2026; principal 493 kB / 142 kB gzip + chunks por tela) |
+| GitHub Actions (`CI`) — aplicação | A cada push no `main`, pull request e execução manual: `npm ci` → `tsc -b` → Vitest → `vite build` | **sucesso** (verificado no GitHub a cada push) |
+| GitHub Actions (`CI`) — banco | PostgreSQL 17 descartável no próprio executor: `tools/run-sql-tests.sh` (migrações + arquivos numerados `00`…`26` + concorrência com conexões paralelas) | **sucesso** (verificado no GitHub a cada push) |
 
 Reproduza tudo com:
 
 ```bash
-bash tools/run-sql-tests.sh   # recria o banco, aplica migrações + seeds e roda 00–11
+bash tools/run-sql-tests.sh   # recria o banco, aplica migrações + seeds e roda 00–26
 npm test && npm run build
 ```
 

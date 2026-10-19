@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { linhaDeContato, urlDeLogo, type EmpresaRecibo } from './recibo'
 import type {
   BusinessSettings,
   CartItem,
@@ -894,9 +895,14 @@ export interface ReceiptData {
   lines: { label: string; value: string; emphasis?: boolean }[]
   items: { description: string; details: string[]; qty: number; unit: string; total: string }[]
   footer?: string
+  /** Identificação da pizzaria (achado B4): nome, endereço, telefone, logo. */
+  empresa?: EmpresaRecibo
 }
 
 export function printReceipt(data: ReceiptData) {
+  const empresa = data.empresa
+  const logo = urlDeLogo(empresa?.logoUrl)
+  const contato = linhaDeContato(empresa)
   const html = `<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8" />
 <title>${data.title}</title>
@@ -913,7 +919,10 @@ export function printReceipt(data: ReceiptData) {
   .footer { text-align: center; font-size: 10px; margin-top: 8px; white-space: pre-line; }
 </style></head>
 <body>
-  <h1>${escapeHtml(data.title)}</h1>
+  ${logo ? `<img src="${escapeHtml(logo)}" alt="" style="max-width:180px;display:block;margin:0 auto 4px" />` : ''}
+  <h1>${escapeHtml(empresa?.nome ?? data.title)}</h1>
+  ${contato ? `<div class="sub">${escapeHtml(contato)}</div>` : ''}
+  ${empresa?.nome ? `<div class="sub bold">${escapeHtml(data.title)}</div>` : ''}
   ${data.subtitle ? `<div class="sub">${escapeHtml(data.subtitle)}</div>` : ''}
   <hr />
   ${data.lines.map((l) => `<div class="line ${l.emphasis ? 'bold' : ''}"><span>${escapeHtml(l.label)}</span><span>${escapeHtml(l.value)}</span></div>`).join('')}
@@ -929,6 +938,7 @@ export function printReceipt(data: ReceiptData) {
     .join('')}
   <hr />
   ${data.footer ? `<div class="footer">${escapeHtml(data.footer)}</div>` : ''}
+  ${empresa?.rodape ? `<div class="footer">${escapeHtml(empresa.rodape)}</div>` : ''}
   <div class="footer">Documento não fiscal • emitido pelo sistema</div>
 </body></html>`
 

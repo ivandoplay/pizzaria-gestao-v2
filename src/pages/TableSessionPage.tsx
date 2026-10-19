@@ -16,7 +16,7 @@ import {
 import * as api from '../lib/api'
 import { OrderComposer, type MenuData } from '../components/OrderComposer'
 import { useChaveIdempotente } from '../lib/idempotencia'
-import { linhasRecibo } from '../lib/recibo'
+import { empresaDoRecibo, linhasRecibo } from '../lib/recibo'
 import { PaymentModal } from '../components/PaymentPanel'
 import { DiscountDialog } from '../components/DiscountDialog'
 import {
@@ -275,6 +275,7 @@ export default function TableSessionPage() {
     const itensDoPedido = items.filter((item) => item.order_id === order.id && !item.is_cancelled)
     api.printReceipt({
       title: 'Comanda de produção',
+      empresa: empresaDoRecibo(settings.data),
       subtitle: `${tableRow?.name ?? `Mesa ${tableRow?.number ?? ''}`} · pedido #${order.order_number}`,
       lines: [
         { label: 'Abertura', value: formatDateTime(tableRow?.opened_at ?? order.created_at) },
@@ -298,6 +299,7 @@ export default function TableSessionPage() {
 
     api.printReceipt({
       title: 'Recibo do cliente',
+      empresa: empresaDoRecibo(settings.data),
       subtitle: `${tableRow?.name ?? `Mesa ${tableRow?.number ?? ''}`} · atendimento aberto em ${formatTime(tableRow?.opened_at)}`,
       // Os valores saem SEMPRE dos pedidos que vão no papel (`pedidos`):
       // imprimir um pedido não pode mostrar o subtotal da conta inteira.

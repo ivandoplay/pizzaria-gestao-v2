@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext'
-import { useCashMovements, useOpenCashSession } from '../lib/hooks'
+import { useCashMovements, useOpenCashSession, useSettings } from '../lib/hooks'
 import * as api from '../lib/api'
 import {
   Badge,
@@ -23,6 +23,7 @@ import { Icon } from '../components/icons'
 import { formatDateTime, formatMoney, parseMoneyToCents, plural } from '../lib/format'
 import { useChaveIdempotente } from '../lib/idempotencia'
 import { translateError } from '../lib/errors'
+import { empresaDoRecibo } from '../lib/recibo'
 import { CASH_CATEGORY_LABELS } from '../lib/types'
 
 type CategoriaMovimento = 'change_fund' | 'withdrawal' | 'expense' | 'adjustment'
@@ -40,6 +41,7 @@ export default function CashControlPage() {
   const queryClient = useQueryClient()
   const { profile, isAdmin } = useAuth()
   const session = useOpenCashSession()
+  const settings = useSettings()
   const movements = useCashMovements(session.data?.id)
 
   const [openingAmount, setOpeningAmount] = useState('0,00')
@@ -149,6 +151,7 @@ export default function CashControlPage() {
       // Comprovante do fechamento: útil para assinar e arquivar no balcão.
       api.printReceipt({
         title: 'Fechamento de caixa',
+        empresa: empresaDoRecibo(settings.data),
         subtitle: `${session.data.opened_by_name ?? ''} · turno iniciado em ${formatDateTime(session.data.opened_at)}`,
         lines: [
           { label: 'Fundo de troco', value: formatMoney(closed.opening_amount_cents ?? session.data.opening_amount_cents) },

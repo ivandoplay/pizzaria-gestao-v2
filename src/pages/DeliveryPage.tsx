@@ -29,7 +29,7 @@ import { Icon } from '../components/icons'
 import { duracaoDesde, formatDateTime, formatMoney, formatPhone, formatTime, parseMoneyToCents } from '../lib/format'
 import { useChaveIdempotente } from '../lib/idempotencia'
 import { translateError } from '../lib/errors'
-import { valoresRecibo } from '../lib/recibo'
+import { empresaDoRecibo, valoresRecibo } from '../lib/recibo'
 import { ORDER_STATUS_LABELS, type CartItem, type OrderOverview, type OrderStatus } from '../lib/types'
 
 const PROXIMO_PASSO: Record<string, { status: OrderStatus; label: string } | undefined> = {
@@ -340,6 +340,7 @@ export default function DeliveryPage() {
     const valores = valoresRecibo([order])
     api.printReceipt({
       title: 'Comanda de entrega',
+      empresa: empresaDoRecibo(settings.data),
       subtitle: `Pedido #${order.order_number} · ${order.customer_name_snapshot ?? ''}`,
       lines: [
         { label: 'Telefone', value: formatPhone(order.customer_phone_snapshot) },

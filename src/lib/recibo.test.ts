@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { linhasRecibo, valoresRecibo, type PedidoParaRecibo } from './recibo'
+import {
+  empresaDoRecibo,
+  linhaDeContato,
+  linhasRecibo,
+  urlDeLogo,
+  valoresRecibo,
+  type PedidoParaRecibo,
+} from './recibo'
 
 const pedido = (over: Partial<PedidoParaRecibo> = {}): PedidoParaRecibo => ({
   subtotal_cents: 0,
@@ -78,5 +85,44 @@ describe('recibo impresso', () => {
       { label: 'Recebido', value: 'R$ 0,00' },
       { label: 'Saldo a pagar', value: 'R$ 0,00', emphasis: true },
     ])
+  })
+})
+
+
+describe('identificação da pizzaria no recibo', () => {
+  it('sem configuração, o papel continua como antes', () => {
+    expect(empresaDoRecibo(null)).toBeUndefined()
+    expect(empresaDoRecibo(undefined)).toBeUndefined()
+    expect(empresaDoRecibo({})).toBeUndefined()
+  })
+
+  it('leva nome, endereço, telefone, logo e rodapé das configurações', () => {
+    const empresa = empresaDoRecibo({
+      trade_name: 'Pizzaria do Bairro',
+      address_line: 'Rua Grande, 412 — Centro',
+      phone: '(86) 98811-0001',
+      logo_url: 'https://exemplo.supabase.co/storage/v1/object/public/product-images/logo.png',
+      receipt_footer_text: 'Obrigado pela preferência!',
+    })
+    expect(empresa).toMatchObject({
+      nome: 'Pizzaria do Bairro',
+      endereco: 'Rua Grande, 412 — Centro',
+      telefone: '(86) 98811-0001',
+      rodape: 'Obrigado pela preferência!',
+    })
+    expect(linhaDeContato(empresa)).toBe('Rua Grande, 412 — Centro · (86) 98811-0001')
+  })
+
+  it('campo em branco não vira linha nem separador solto', () => {
+    const empresa = empresaDoRecibo({ trade_name: '  Pizzaria X  ', address_line: '   ', phone: null })
+    expect(empresa?.nome).toBe('Pizzaria X')
+    expect(linhaDeContato(empresa)).toBeNull()
+  })
+
+  it('só aceita logo http(s) no papel', () => {
+    expect(urlDeLogo('https://exemplo.com/logo.png')).toBe('https://exemplo.com/logo.png')
+    expect(urlDeLogo('javascript:alert(1)')).toBeNull()
+    expect(urlDeLogo('data:image/png;base64,AAAA')).toBeNull()
+    expect(urlDeLogo(null)).toBeNull()
   })
 })

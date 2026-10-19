@@ -90,3 +90,68 @@ export function linhasRecibo(
     { label: 'Saldo a pagar', value: formatMoney(valores.saldo), emphasis: true },
   ]
 }
+
+
+// ============================================================================
+// Identificação da pizzaria no papel (achado B4 da auditoria de 19/10/2026)
+// ============================================================================
+
+export interface EmpresaRecibo {
+  nome: string | null
+  endereco: string | null
+  telefone: string | null
+  logoUrl: string | null
+  rodape: string | null
+}
+
+/**
+ * Converte o que está salvo em `business_settings` no cabeçalho do recibo.
+ *
+ * A tela de Configurações promete que esses dados "aparecem no topo dos
+ * comprovantes" — esta função é o que faz a promessa valer. Campos vazios viram
+ * `null` para não imprimir linha em branco nem separador solto.
+ */
+export function empresaDoRecibo(
+  config:
+    | {
+        trade_name?: string | null
+        address_line?: string | null
+        phone?: string | null
+        logo_url?: string | null
+        receipt_footer_text?: string | null
+      }
+    | null
+    | undefined,
+): EmpresaRecibo | undefined {
+  if (!config) return undefined
+
+  const limpar = (valor?: string | null) => {
+    const texto = (valor ?? '').trim()
+    return texto.length > 0 ? texto : null
+  }
+
+  const empresa: EmpresaRecibo = {
+    nome: limpar(config.trade_name),
+    endereco: limpar(config.address_line),
+    telefone: limpar(config.phone),
+    logoUrl: limpar(config.logo_url),
+    rodape: limpar(config.receipt_footer_text),
+  }
+
+  const temAlgo = Object.values(empresa).some((valor) => valor !== null)
+  return temAlgo ? empresa : undefined
+}
+
+/** Endereço e telefone na mesma linha, sem separador sobrando. */
+export function linhaDeContato(empresa: EmpresaRecibo | undefined): string | null {
+  const partes = [empresa?.endereco, empresa?.telefone].filter(
+    (parte): parte is string => Boolean(parte),
+  )
+  return partes.length > 0 ? partes.join(' · ') : null
+}
+
+/** Só aceita logo http(s) — nada de esquema estranho indo para o papel. */
+export function urlDeLogo(logoUrl: string | null | undefined): string | null {
+  const url = (logoUrl ?? '').trim()
+  return /^https?:\/\//i.test(url) ? url : null
+}

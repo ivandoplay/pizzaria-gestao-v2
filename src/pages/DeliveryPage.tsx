@@ -25,7 +25,8 @@ import {
   useToast,
 } from '../components/ui'
 import { Icon } from '../components/icons'
-import { duracaoDesde, formatDateTime, formatMoney, formatPhone, formatTime, newClientUuid, parseMoneyToCents } from '../lib/format'
+import { duracaoDesde, formatDateTime, formatMoney, formatPhone, formatTime, parseMoneyToCents } from '../lib/format'
+import { useChaveIdempotente } from '../lib/idempotencia'
 import { translateError } from '../lib/errors'
 import { ORDER_STATUS_LABELS, type CartItem, type OrderOverview, type OrderStatus } from '../lib/types'
 
@@ -123,6 +124,17 @@ export default function DeliveryPage() {
       )
   }, [lista, filtro, busca])
 
+  /**
+   * Chave de idempotência do pedido de delivery: acompanha o CONTEÚDO
+   * (cliente + endereço + itens). Repetir o envio depois de uma resposta
+   * perdida devolve o mesmo pedido; mudar qualquer dado cria um pedido novo.
+   */
+  const assinaturaDoPedido = useMemo(
+    () => JSON.stringify({ cliente, endereco, cart }),
+    [cliente, endereco, cart],
+  )
+  const { chave: chaveDoPedido, renovar: renovarChaveDoPedido } = useChaveIdempotente(assinaturaDoPedido)
+
   const resumo = useMemo(() => {
     const abertos = lista.filter((order) => !['delivered', 'cancelled'].includes(order.status))
     const emRota = lista.filter((order) => order.status === 'out_for_delivery')
@@ -172,10 +184,11 @@ export default function DeliveryPage() {
             modifier_option_ids: item.modifier_option_ids,
           })),
         },
-        newClientUuid(),
+        chaveDoPedido,
       )
 
       toast.success(`Pedido #${order.order_number} registrado para entrega.`)
+      renovarChaveDoPedido()
       setCart([])
       setCliente({ nome: '', telefone: '' })
       setEndereco({ rua: '', numero: '', complemento: '', bairro: '', referencia: '', observacoes: '' })

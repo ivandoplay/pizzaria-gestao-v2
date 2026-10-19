@@ -20,7 +20,8 @@ import {
   useToast,
 } from '../components/ui'
 import { Icon } from '../components/icons'
-import { formatDateTime, formatMoney, newClientUuid, parseMoneyToCents, plural } from '../lib/format'
+import { formatDateTime, formatMoney, parseMoneyToCents, plural } from '../lib/format'
+import { useChaveIdempotente } from '../lib/idempotencia'
 import { translateError } from '../lib/errors'
 import { CASH_CATEGORY_LABELS } from '../lib/types'
 
@@ -49,6 +50,25 @@ export default function CashControlPage() {
   const [closingForm, setClosingForm] = useState<null | { counted: string; note: string; varianceReason: string }>(null)
   const [busy, setBusy] = useState(false)
 
+  /**
+   * Chaves de idempotência presas à OPERAÇÃO, não ao clique: se a resposta se
+   * perder, repetir o mesmo conteúdo reencontra o lançamento já gravado em vez
+   * de criar outro. A chave só é renovada depois do sucesso.
+   */
+  const assinaturaAbertura = `${openingAmount}|${openingNote.trim()}`
+  const { chave: chaveAbertura, renovar: renovarAbertura } = useChaveIdempotente(assinaturaAbertura)
+  const assinaturaMovimento = movementForm
+    ? [
+        session.data?.id ?? '',
+        movementForm.kind,
+        movementForm.category,
+        movementForm.amount,
+        movementForm.description.trim(),
+        movementForm.reason.trim(),
+      ].join('|')
+    : ''
+  const { chave: chaveMovimento, renovar: renovarMovimento } = useChaveIdempotente(assinaturaMovimento)
+
   useEffect(() => {
     if (session.data) {
       setOpeningAmount((session.data.opening_amount_cents / 100).toFixed(2).replace('.', ','))
@@ -63,8 +83,9 @@ export default function CashControlPage() {
   async function handleOpen() {
     setBusy(true)
     try {
-      await api.startCashSession(parseMoneyToCents(openingAmount), openingNote.trim() || null, newClientUuid())
+      await api.startCashSession(parseMoneyToCents(openingAmount), openingNote.trim() || null, chaveAbertura)
       toast.success(`Caixa aberto com ${formatMoney(parseMoneyToCents(openingAmount))} de fundo de troco.`)
+      renovarAbertura()
       setOpeningNote('')
       await refresh()
     } catch (error) {
@@ -90,11 +111,12 @@ export default function CashControlPage() {
         amountCents: valor,
         description: movementForm.description.trim() || undefined,
         reason: movementForm.reason.trim() || undefined,
-        clientUuid: newClientUuid(),
+        clientUuid: chaveMovimento,
       })
       toast.success(
         `${movementForm.kind === 'in' ? 'Entrada' : 'Saída'} de ${formatMoney(valor)} registrada no turno.`,
       )
+      renovarMovimento()
       setMovementForm(null)
       await refresh()
     } catch (error) {

@@ -72,7 +72,7 @@ o que ainda depende de configuração manual e quais são as limitações.
 
 ## 2. Migrações e tabelas
 
-10 migrações versionadas em `supabase/migrations/` (**25 tabelas**), aplicadas em ordem:
+22 migrações versionadas em `supabase/migrations/` (**25 tabelas**), aplicadas em ordem:
 
 | Migração | Conteúdo |
 |---|---|
@@ -86,6 +86,18 @@ o que ainda depende de configuração manual e quais são as limitações.
 | `0008_reports` | 8 funções de relatório/indicadores |
 | `0009_troca_senha_obrigatoria` | `public.complete_password_change()` — baixa a própria flag de senha temporária, idempotente, com auditoria (23 funções no total) |
 | `0010_fila_pedidos_prontos` | fila de prontos: `order_overview` expõe `ready_at` e `session_status`; `advance_order_status` confere sessão da mesa e conta encerrada na transação, só no caminho de entrega. Sem tabela e sem função nova |
+| `0011_garcom_recebe_e_fecha` | garçom passa a ver o valor da conta, receber e fechar (decisão de 16/10) |
+| `0012_fechamento_seguro_e_caixa` | fechamento só com pedidos entregues; `cash_session_is_open()` para o salão |
+| `0013_precos_em_lote` | `set_product_prices()` atômica (achado A3) |
+| `0014_ultimo_acesso` | `touch_last_login()` sem abrir UPDATE em `profiles` (A5) |
+| `0015_configs_com_efeito` | pedido mínimo e pagamento dividido aplicados no servidor (A6) |
+| `0016_cancelar_item_com_pagamento` | `PAYMENT_REFUND_REQUIRED` ao cancelar item com valor recebido (A8) |
+| `0017_saldo_de_cancelado` | cancelado não tem saldo a receber (A9) |
+| `0018_realtime_cardapio` | cardápio e configurações publicados no Realtime (A18) |
+| `0019_execute_somente_autenticado` | EXECUTE retirado de `PUBLIC`/`anon` (A15) |
+| `0020_senha_obrigatoria_no_servidor` | `must_change_password` bloqueia RPC no servidor (A16) |
+| `0021_desconto_abaixo_do_pago` | desconto não passa por baixo do valor recebido (A8) |
+| `0022_fechar_caixa_idempotente` | fechamento de caixa idempotente por conteúdo (A2) |
 
 Convenções do banco: dinheiro em **centavos inteiros**; índices únicos parciais garantindo uma sessão
 aberta por mesa e um turno aberto; `client_uuid unique` para idempotência; snapshots históricos;
@@ -111,10 +123,10 @@ trilha de auditoria somente-adição.
 
 | Verificação | Comando | Resultado |
 |---|---|---|
-| Suíte do banco (00–11), local | `bash tools/run-sql-tests.sh` | **372 asserções aprovadas**, 0 falhas |
+| Suíte do banco (00–21), local | `bash tools/run-sql-tests.sh` | **444 asserções aprovadas**, 0 falhas |
 | Suíte do banco (00–08), **no Supabase real** (etapa de 15/10) | `tools/supabase-cloud-sql.sh` | **nenhuma falha** (falha em qualquer asserção aborta o arquivo); o `09` roda no banco local e, na nuvem, a validação é a migração aplicada + smoke + robôs |
 | Concorrência real (07) | idem (duas conexões em paralelo) | **verde**: abertura dupla bloqueada, clique duplo → 1 pagamento, fechamento duplo → recusado |
-| Testes unitários | `npm test` (Vitest) | **70/70** |
+| Testes unitários | `npm test` (Vitest) | **91/91** |
 | Tipos | `npm run typecheck` | **exit 0** |
 | Build de produção | `npx vite build` | **exit 0** (chunk principal 493 kB / 142 kB gzip + 1 chunk por tela) |
 | Interface em navegador real | `node tools/e2e-telas.mjs <URL>` (Playwright, contra o **site publicado**) | **0 falhas**: login dos 3 perfis, 11 telas do administrador, percurso completo do salão, bloqueio de permissão conferido, nenhum erro de console/rede |

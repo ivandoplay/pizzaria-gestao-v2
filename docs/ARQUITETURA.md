@@ -79,7 +79,10 @@ conta) e é fechado por `close_delivery_account`.
 
 ## 3. Regras de negócio (RPCs)
 
-14 funções em `20260101000007_rpc.sql`, 8 de relatório em `0008` e 1 de senha em `0009` (23 no total; a migração `0010` reforça `advance_order_status` sem criar função). Todas:
+14 funções em `20260101000007_rpc.sql`, 8 de relatório em `0008`, 1 de senha em `0009` e as funções
+acrescentadas nas migrações **0013** (`set_product_prices`), **0014** (`touch_last_login`) e **0019–0022**
+(reforços de permissão, senha obrigatória, desconto e fechamento de caixa). As migrações `0010`, `0011`,
+`0012`, `0015`–`0018`, `0021` e `0022` atualizam funções existentes. Todas:
 
 - validam o perfil com `app_private.require_role(...)` (erro `FORBIDDEN`, SQLSTATE 42501);
 - são `security definer` com `search_path` fixo;

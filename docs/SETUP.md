@@ -2,7 +2,7 @@
 
 Este é o passo a passo para preparar o ambiente (banco → administrador → Edge Function → Vercel).
 
-> **Neste projeto as seções 1 a 5 já foram executadas** — projeto na org *Pizzaria* com as 10 migrações
+> **Neste projeto as seções 1 a 5 já foram executadas** — projeto na org *Pizzaria* com as 22 migrações
 > aplicadas, administrador criado, Edge Function publicada e Realtime ativo (detalhes em
 > [`ENTREGA.md`](ENTREGA.md), seção 5). Este guia serve para conferir o que foi feito, reproduzir em
 > outro projeto ou recuperar o ambiente.
@@ -42,6 +42,20 @@ supabase/migrations/20260101000005_operations.sql
 supabase/migrations/20260101000006_rls.sql
 supabase/migrations/20260101000007_rpc.sql
 supabase/migrations/20260101000008_reports.sql
+supabase/migrations/20260101000009_troca_senha_obrigatoria.sql
+supabase/migrations/20260101000010_fila_pedidos_prontos.sql
+supabase/migrations/20260101000011_garcom_recebe_e_fecha.sql
+supabase/migrations/20260101000012_fechamento_seguro_e_caixa.sql
+supabase/migrations/20260101000013_precos_em_lote.sql
+supabase/migrations/20260101000014_ultimo_acesso.sql
+supabase/migrations/20260101000015_configs_com_efeito.sql
+supabase/migrations/20260101000016_cancelar_item_com_pagamento.sql
+supabase/migrations/20260101000017_saldo_de_cancelado.sql
+supabase/migrations/20260101000018_realtime_cardapio.sql
+supabase/migrations/20260101000019_execute_somente_autenticado.sql
+supabase/migrations/20260101000020_senha_obrigatoria_no_servidor.sql
+supabase/migrations/20260101000021_desconto_abaixo_do_pago.sql
+supabase/migrations/20260101000022_fechar_caixa_idempotente.sql
 ```
 
 Se preferir a CLI: `supabase link --project-ref SEU_REF` e `supabase db push`.
@@ -247,7 +261,7 @@ grep -rn "service_role\|eyJhbGciOi" --include="*.ts" --include="*.tsx" --include
 
 ## 9. Checklist final antes de operar
 
-- [ ] Migrações 0001–0008 aplicadas na ordem.
+- [ ] Migrações 0001–0022 aplicadas na ordem.
 - [ ] Conferência da seção 2.1 retornou 25/25/25.
 - [ ] Seed estrutural aplicado (mesas, formas de pagamento, horários) — **sem** o seed de demonstração.
 - [ ] Administrador criado e login funcionando.

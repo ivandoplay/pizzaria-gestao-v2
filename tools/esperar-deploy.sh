@@ -47,7 +47,11 @@ const b = await chromium.launch()
 try {
   const p = await b.newPage()
   await p.goto(`${base}/login`, { waitUntil: 'domcontentloaded', timeout: 20000 })
-  await p.waitForTimeout(1500)
+  // A tela é carregada sob demanda: esperar um tempo fixo dava leitura vazia
+  // ("não consegui ler") quando o bundle demorava. Espera o texto aparecer.
+  await p
+    .waitForFunction(() => /versão [0-9a-f]{7}/.test(document.body.innerText), undefined, { timeout: 15000 })
+    .catch(() => {})
   const texto = await p.locator('body').innerText()
   const m = texto.match(/versão ([0-9a-f]{7})/)
   process.stdout.write(m ? m[1] : '')

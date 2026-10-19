@@ -20,7 +20,7 @@ describe('tradução de erros do banco para pt-BR', () => {
 
   it('reconhece o código mesmo com o texto do banco antes da mensagem', () => {
     expect(translateError('ERROR: PAYMENT_REFUND_REQUIRED: estorne antes de cancelar (SQLSTATE 55006)')).toBe(
-      'Estorne os recebimentos antes de cancelar este pedido.',
+      'Estorne os recebimentos antes de cancelar ou reduzir este pedido.',
     )
   })
 

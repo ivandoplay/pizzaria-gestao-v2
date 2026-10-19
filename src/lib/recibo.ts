@@ -150,8 +150,59 @@ export function linhaDeContato(empresa: EmpresaRecibo | undefined): string | nul
   return partes.length > 0 ? partes.join(' · ') : null
 }
 
-/** Só aceita logo http(s) — nada de esquema estranho indo para o papel. */
+/**
+ * Endereços de onde o papel pode carregar imagem.
+ *
+ * O recibo é impresso numa janela criada por `window.open` + `document.write`,
+ * e essa janela HERDA a Content-Security-Policy da aplicação (comportamento
+ * confirmado em navegador na revisão de 19/10/2026: uma imagem de outro domínio
+ * é bloqueada com violação de `img-src`). Por isso a lista aqui é a mesma do
+ * `vercel.json`: o próprio projeto Supabase e a origem do app.
+ *
+ * Antes desta checagem a tela aceitava qualquer URL, e o operador só descobria
+ * que o logo não saía depois de imprimir.
+ */
+function hostsPermitidos(): string[] {
+  const hosts: string[] = []
+  const supabase = (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? ''
+  try {
+    if (supabase) hosts.push(new URL(supabase).host)
+  } catch {
+    // URL inválida na configuração: simplesmente não entra na lista.
+  }
+  if (typeof window !== 'undefined' && window.location?.host) hosts.push(window.location.host)
+  return hosts
+}
+
+/** Motivo pelo qual o logo seria recusado no papel — `null` quando está tudo certo. */
+export function motivoLogoRecusado(logoUrl: string | null | undefined): string | null {
+  const url = (logoUrl ?? '').trim()
+  if (!url) return null
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    return 'Endereço inválido: use o link completo, começando com https://'
+  }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    return 'Só endereços http(s) podem ser impressos.'
+  }
+  const permitidos = hostsPermitidos()
+  if (permitidos.length > 0 && !permitidos.includes(parsed.host)) {
+    return `O papel só carrega imagem de ${permitidos.join(' ou ')} — envie o arquivo para o Storage do sistema e cole o link de lá.`
+  }
+  return null
+}
+
+/**
+ * URL que pode ir para o papel — ou `null` quando seria bloqueada.
+ *
+ * Um logo hospedado fora dos domínios permitidos não é impresso (a janela
+ * herdaria a CSP e mostraria o ícone quebrado), mas o recibo continua saindo
+ * com nome, endereço e telefone.
+ */
 export function urlDeLogo(logoUrl: string | null | undefined): string | null {
   const url = (logoUrl ?? '').trim()
-  return /^https?:\/\//i.test(url) ? url : null
+  if (!url) return null
+  return motivoLogoRecusado(url) === null ? new URL(url).toString() : null
 }

@@ -22,6 +22,7 @@ import {
 } from '../components/ui'
 import { formatMoney, parseMoneyToCents } from '../lib/format'
 import { translateError } from '../lib/errors'
+import { motivoLogoRecusado } from '../lib/recibo'
 import { ROLE_LABELS, type BusinessSettings, type DeliveryFeeZone, type PaymentMethod } from '../lib/types'
 
 const TIMEZONES = [
@@ -72,6 +73,13 @@ export default function SettingsPage() {
 
   async function saveSettings() {
     if (!draft) return
+    // Logo de domínio não permitido sairia em branco no papel (a janela de
+    // impressão herda a CSP). Melhor barrar aqui, com o motivo na tela.
+    const problemaLogo = motivoLogoRecusado(draft.logo_url)
+    if (problemaLogo) {
+      toast.error(problemaLogo)
+      return
+    }
     setBusy(true)
     try {
       await api.saveSettings({
@@ -158,7 +166,12 @@ export default function SettingsPage() {
               ))}
             </Select>
           </Field>
-          <Field label="URL do logo" className="sm:col-span-2" hint="Opcional — imagem hospedada no Supabase Storage.">
+          <Field
+            label="URL do logo"
+            className="sm:col-span-2"
+            hint="Opcional — imagem hospedada no Storage do próprio sistema."
+            error={motivoLogoRecusado(draft.logo_url) ?? undefined}
+          >
             <Input value={draft.logo_url ?? ''} onChange={(event) => setDraft({ ...draft, logo_url: event.target.value })} />
           </Field>
           <Field label="Rodapé do comprovante" className="sm:col-span-3">

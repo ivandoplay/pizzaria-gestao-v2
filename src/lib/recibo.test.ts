@@ -3,6 +3,7 @@ import {
   empresaDoRecibo,
   linhaDeContato,
   linhasRecibo,
+  motivoLogoRecusado,
   urlDeLogo,
   valoresRecibo,
   type PedidoParaRecibo,
@@ -120,9 +121,28 @@ describe('identificação da pizzaria no recibo', () => {
   })
 
   it('só aceita logo http(s) no papel', () => {
-    expect(urlDeLogo('https://exemplo.com/logo.png')).toBe('https://exemplo.com/logo.png')
     expect(urlDeLogo('javascript:alert(1)')).toBeNull()
     expect(urlDeLogo('data:image/png;base64,AAAA')).toBeNull()
     expect(urlDeLogo(null)).toBeNull()
+  })
+
+  // Revisão de 19/10/2026: a janela de impressão herda a CSP da aplicação
+  // (comprovado em navegador), então logo de outro domínio não carrega.
+  // Em vez de imprimir um ícone quebrado, o endereço é recusado na hora.
+  it('aceita logo do próprio projeto Supabase', () => {
+    const url = 'https://qmrcnoigaszditwchsdz.supabase.co/storage/v1/object/public/product-images/logo.png'
+    expect(urlDeLogo(url)).toBe(url)
+    expect(motivoLogoRecusado(url)).toBeNull()
+  })
+
+  it('recusa logo de domínio que a CSP bloqueia, explicando o motivo', () => {
+    const motivo = motivoLogoRecusado('https://cdn.exemplo.com/logo.png')
+    expect(motivo).toContain('só carrega imagem de')
+    expect(urlDeLogo('https://cdn.exemplo.com/logo.png')).toBeNull()
+  })
+
+  it('recusa endereço relativo sem host', () => {
+    expect(urlDeLogo('/logo.png')).toBeNull()
+    expect(motivoLogoRecusado('/logo.png')).toContain('Endereço inválido')
   })
 })

@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { linhaDeContato, urlDeLogo, type EmpresaRecibo } from './recibo'
+import { buscaPorTelefone, telefoneComparavel, telefonesIguais } from './telefone'
 import type {
   BusinessSettings,
   CartItem,
@@ -738,17 +739,35 @@ export type ClienteRecorrente = {
 }
 
 export async function findCustomerByPhone(phone: string): Promise<ClienteRecorrente | null> {
-  const digits = phone.replace(/\D/g, '')
-  if (digits.length < 10) return null
+  const busca = buscaPorTelefone(phone)
+  if (!busca) return null
 
-  // Compara só os dígitos dos dois lados: o caixa digita com ou sem máscara.
-  const { data, error } = await supabase
+  const colunas =
+    'id, name, phone, notes, customer_addresses(street, number, complement, neighborhood, reference, delivery_notes, is_default, created_at)'
+
+  // Caminho normal: igualdade em `phone_digits` (só dígitos, sem código do país),
+  // que é a coluna indexada por `customers_phone_digits_key`. Antes a busca era
+  // `ilike('%…%')` em `phone`, que varria a tabela e falhava com telefone salvo
+  // entre parênteses e hífen.
+  let { data, error } = await supabase
     .from('customers')
-    .select('id, name, phone, notes, customer_addresses(street, number, complement, neighborhood, reference, delivery_notes, is_default, created_at)')
-    .ilike('phone', `%${digits.slice(-9)}%`)
-    .order('created_at', { ascending: false })
-    .limit(5)
+    .select(colunas)
+    .eq('phone_digits', busca.exato)
+    .limit(1)
   if (error) throw new ApiError(error.message)
+
+  if ((data ?? []).length === 0) {
+    // Segunda tentativa, só para quem digitou o número sem o DDD: procura pelo
+    // final do telefone. Não usa índice — por isso é o caminho raro.
+    const parcial = await supabase
+      .from('customers')
+      .select(colunas)
+      .like('phone_digits', `%${busca.parcial}`)
+      .order('created_at', { ascending: false })
+      .limit(5)
+    if (parcial.error) throw new ApiError(parcial.error.message)
+    data = parcial.data
+  }
 
   const candidatos = (data ?? []) as {
     id: string
@@ -767,8 +786,11 @@ export async function findCustomerByPhone(phone: string): Promise<ClienteRecorre
     }[]
   }[]
 
-  // O `ilike` pode trazer telefones parecidos; confirma pelos dígitos completos.
-  const cliente = candidatos.find((c) => c.phone.replace(/\D/g, '') === digits)
+  // Prioriza o telefone inteiro (sem código do país); se veio da tentativa
+  // parcial, aceita o que termina igual ao que foi digitado.
+  const cliente =
+    candidatos.find((c) => telefonesIguais(c.phone, busca.exato)) ??
+    candidatos.find((c) => telefoneComparavel(c.phone).endsWith(busca.parcial))
   if (!cliente) return null
 
   const enderecos = [...(cliente.customer_addresses ?? [])].sort(

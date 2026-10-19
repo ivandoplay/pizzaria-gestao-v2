@@ -106,6 +106,26 @@ if (opcoes > 1) {
   falhou('o seletor de categoria não trouxe categorias do cardápio')
 }
 
+console.log('\n== 4) o CSV exportado registra os filtros aplicados')
+await seletorCategoria.selectOption('')
+await seletorForma.selectOption('cash')
+await espera(2500)
+const [download] = await Promise.all([
+  page.waitForEvent('download', { timeout: 20_000 }).catch(() => null),
+  page.getByRole('button', { name: 'Exportar resumo' }).click(),
+])
+if (!download) {
+  falhou('clicar em "Exportar resumo" não gerou download')
+} else {
+  const caminho = await download.path()
+  const conteudo = caminho ? await (await import('node:fs/promises')).readFile(caminho, 'utf8') : ''
+  const temCategoria = /Categoria;/.test(conteudo)
+  const temForma = /Forma de pagamento;/.test(conteudo)
+  const linhaForma = (conteudo.match(/Forma de pagamento;([^\r\n]*)/) ?? [])[1]
+  if (temCategoria && temForma) ok(`CSV traz "Categoria" e "Forma de pagamento" (${linhaForma})`)
+  else falhou('CSV exportado não registra os filtros de categoria/forma de pagamento')
+}
+
 await navegador.close()
 console.log('')
 if (falhas.length === 0) {

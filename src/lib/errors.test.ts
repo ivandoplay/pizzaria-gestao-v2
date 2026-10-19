@@ -12,6 +12,12 @@ describe('tradução de erros do banco para pt-BR', () => {
       'Esta mesa já possui um atendimento aberto. Atualize a tela.',
     )
     expect(translateError('REASON_REQUIRED: informe o motivo')).toBe('Informe o motivo desta operação.')
+    expect(translateError('TABLE_HAS_OPEN_ACCOUNT: feche a conta')).toBe(
+      'Esta mesa tem conta aberta: feche o atendimento antes de desativá-la.',
+    )
+    expect(translateError('TABLE_HAS_HISTORY: mesa usada')).toBe(
+      'Esta mesa já tem atendimentos registrados. Desative em vez de excluir.',
+    )
     expect(translateError('PAYMENT_METHOD_INVALID: pix')).toBe('Forma de pagamento inválida ou desativada.')
     expect(translateError('MODIFIER_REQUIRED: grupo Borda')).toBe(
       'Há um grupo de adicionais obrigatório sem escolha.',

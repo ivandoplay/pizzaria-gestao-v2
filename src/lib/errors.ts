@@ -15,6 +15,14 @@ const MESSAGES: { code: string; message: string }[] = [
   { code: 'FORBIDDEN', message: 'Seu perfil não tem permissão para esta operação.' },
   { code: 'TABLE_ALREADY_OPEN', message: 'Esta mesa já possui um atendimento aberto. Atualize a tela.' },
   { code: 'TABLE_INACTIVE', message: 'Esta mesa está desativada.' },
+  {
+    code: 'TABLE_HAS_OPEN_ACCOUNT',
+    message: 'Esta mesa tem conta aberta: feche o atendimento antes de desativá-la.',
+  },
+  {
+    code: 'TABLE_HAS_HISTORY',
+    message: 'Esta mesa já tem atendimentos registrados. Desative em vez de excluir.',
+  },
   { code: 'TABLE_NOT_FOUND', message: 'Mesa não encontrada.' },
   { code: 'TABLE_SESSION_NOT_FOUND', message: 'Atendimento não encontrado. Atualize a tela.' },
   { code: 'TABLE_SESSION_CLOSED', message: 'Este atendimento já foi encerrado.' },

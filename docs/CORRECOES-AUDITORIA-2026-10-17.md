@@ -8,7 +8,7 @@ Esta página registra **o que foi corrigido, onde, como foi testado e o que aind
 | Item | Estado |
 |---|---|
 | Código (frontend + migrações + Edge Function) | corrigido, commitado e **publicado** (`main` = `f9e2ce7`) |
-| Suíte de banco local (PostgreSQL 17) | **460 asserções aprovadas** + teste de concorrência |
+| Suíte de banco local (PostgreSQL 17) | **469 asserções aprovadas** + teste de concorrência |
 | TypeScript / Vitest / build | **0 erros / 91 testes / build OK** |
 | Produção (Supabase) | **migrações 0013–0022 aplicadas** em 19/10 (verificado no catálogo) |
 | Deploy (Vercel) | **publicado** em 19/10 (`5d1aa0a` → `2e4b640`; smoke e login dos 3 perfis OK) |
@@ -50,6 +50,7 @@ Esta página registra **o que foi corrigido, onde, como foi testado e o que aind
 | A26 | P3 | Virada do dia segue `business_settings.timezone` (fecha a pendência do A10) | `lib/fuso.ts`, `format.ts`, `DashboardPage`, `HistoryPage`, `ReportsPage` | `c707091` | `format.test.ts` (+3 casos) |
 | A27 | P2 | Histórico filtrável por **forma de pagamento** (seção 5.5 do prompt mestre, que faltava) | `0023_historico_por_forma_pagamento.sql`, `HistoryPage.tsx`, `api.ts` | `8ff083a` + `b499e11` | `22_historico_e_cliente.sql` (9 asserções) |
 | A28 | P2 | Delivery reconhece **cliente recorrente pelo telefone** e reaproveita o endereço (seção 8.1) | `DeliveryPage.tsx`, `api.ts` (`findCustomerByPhone`) | `8ff083a` + `b499e11` | `22_historico_e_cliente.sql` + `tools/e2e-recorrente.mjs` (verde no site publicado) |
+| A30 | P2 | Mesa com conta aberta só era protegida na tela — desativação e exclusão passam a ser recusadas pelo banco (seção 4.7) | `0025_mesa_com_conta_aberta.sql`, `errors.ts` | `pendente` | `24_mesa_com_conta_aberta.sql` (falha sem o gatilho, passa com ele) |
 | A29 | P2 | Relatório financeiro filtrável por **categoria** e **forma de pagamento** (seção 13) | `0024_relatorio_por_forma_pagamento.sql`, `ReportsPage.tsx`, `api.ts` | `12a6801` | `23_relatorio_por_forma.sql` + `tools/e2e-relatorios.mjs` (verde: filtros + CSV com os filtros) |
 
 ## 3. Decisões tomadas (e limites honestos)
@@ -96,8 +97,8 @@ cliente já agrupava as invalidações em 350 ms.
 npx tsc -b                     → 0 erros
 npx vitest run                 → 91 testes, 9 arquivos, todos aprovados
 npm run build                  → OK
-bash tools/run-sql-tests.sh    → 24 migrações + 21 arquivos + concorrência
-                               → 460 asserções aprovadas
+bash tools/run-sql-tests.sh    → 25 migrações + 24 arquivos + concorrência
+                               → 469 asserções aprovadas
 ```
 
 **Não executados:** robôs Playwright de tela (`tools/e2e-*.mjs`, `auditar-telas.mjs`) e smoke de produção.

@@ -343,7 +343,9 @@ export async function fetchOrders(filters: {
   if (filters.statuses?.length) query = query.in('status', filters.statuses)
   if (filters.serviceMode) query = query.eq('service_mode', filters.serviceMode)
   if (filters.sessionId) query = query.eq('table_session_id', filters.sessionId)
-  if (filters.openOnly) query = query.is('account_closed_at', null)
+  // “Em aberto” = sem fechamento E não cancelado. Pedido cancelado não é conta
+  // a receber (achado A9) — a visão também devolve saldo 0 para ele.
+  if (filters.openOnly) query = query.is('account_closed_at', null).neq('status', 'cancelled')
   query = query.limit(filters.limit ?? 100)
   const { data, error } = await query
   if (error) throw new ApiError(error.message)

@@ -4,6 +4,7 @@ import { Icon, type NomeIcone } from './icons'
 import type { CartItem, Category, ModifierGroup, ModifierOption, Product, ProductSize, ProductVariant } from '../lib/types'
 import { formatMoney, newClientUuid } from '../lib/format'
 import { cartSubtotalPreview, computeItemPreview } from '../lib/pricing'
+import { alternarSabor } from '../lib/sabores'
 
 export interface MenuData {
   categories: Category[]
@@ -432,14 +433,7 @@ function ProductModal({
 
   function toggleFlavor(flavorId: string) {
     setErro(null)
-    setFlavorIds((current) => {
-      if (current.includes(flavorId)) return current.filter((id) => id !== flavorId)
-      if (current.length + 1 >= maxFlavors) {
-        // mantém apenas o último escolhido (meio a meio = 1 sabor adicional)
-        return [...current.slice(-(maxFlavors - 2)), flavorId]
-      }
-      return [...current, flavorId]
-    })
+    setFlavorIds((current) => alternarSabor(current, flavorId, maxFlavors))
   }
 
   function toggleOption(group: ModifierGroup, optionId: string) {

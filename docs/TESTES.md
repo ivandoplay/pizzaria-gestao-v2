@@ -92,7 +92,7 @@ Execução final (após a auditoria de 19/10): **478 asserções, todas aprovada
 
 ---
 
-## 3. Testes da aplicação — resultado: **101/101**
+## 3. Testes da aplicação — resultado: **113/113**
 
 `npm test` (Vitest, sem ambiente de navegador):
 
@@ -101,6 +101,8 @@ Execução final (após a auditoria de 19/10): **478 asserções, todas aprovada
 | `src/lib/pricing.test.ts` | 11 | preço simples, meio a meio (`highest`/`average`), arredondamento, adicionais por unidade, bordas de entrada |
 | `src/lib/format.test.ts` | 25 | BRL com NBSP, `parseMoneyToCents` (vírgula/ponto), datas com fuso `America/Fortaleza`, `duracaoDesde` (tempo de mesa/pedido), `plural` (1 pedido / 2 pedidos), `newClientUuid`, CSV |
 | `src/lib/errors.test.ts` | 5 | tradução de códigos do banco, mensagens do Supabase, falha de rede e — desde a auditoria de 19/10 — **texto cru do banco não vaza** para a tela (mensagem genérica + código) |
+| `src/lib/telefone.test.ts` | 7 | telefone do cliente recorrente: máscara, código do país 55, DDD 55 que **não** é código de país, comparação e busca exata/parcial |
+| `src/lib/caixa.test.ts` | 5 | conferência do turno: soma por forma, só dinheiro entra na gaveta, forma desconhecida fica fora, valores zerados ignorados |
 | `src/lib/recibo.test.ts` | 10 | totais do recibo por escopo (conta inteira x pedido), troco, formas de pagamento e — desde 19/10 — identificação da pizzaria (nome, endereço, telefone, rodapé; campo vazio não vira linha; logo só http/https) |
 | `src/lib/sabores.test.ts` | 6 | regra de meio a meio na interface: limites por tamanho, sabor repetido, sabor indisponível |
 | `src/lib/pagamento.test.ts` | 6 | prévia de pagamento: soma das parcelas, saldo restante, troco e bloqueio de valor acima do saldo |

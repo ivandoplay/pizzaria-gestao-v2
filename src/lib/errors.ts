@@ -83,7 +83,7 @@ const MESSAGES: { code: string; message: string }[] = [
   { code: 'ADDRESS_INVALID', message: 'Endereço incompleto: informe rua, número e bairro.' },
   { code: 'DELIVERY_ZONE_INVALID', message: 'Zona de entrega inválida.' },
   { code: 'NOT_DELIVERY_ORDER', message: 'Este pedido não é de delivery.' },
-  { code: 'PAYMENT_REFUND_REQUIRED', message: 'Estorne os recebimentos antes de cancelar este pedido.' },
+  { code: 'PAYMENT_REFUND_REQUIRED', message: 'Estorne os recebimentos antes de cancelar ou reduzir este pedido.' },
   { code: 'LAST_ADMIN', message: 'Não é possível desativar o último administrador ativo.' },
   { code: 'SELF_ROLE_CHANGE', message: 'Não é permitido alterar a própria função.' },
   { code: 'INVALID_FEE', message: 'Taxa inválida.' },

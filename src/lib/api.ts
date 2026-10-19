@@ -214,6 +214,16 @@ export async function upsertVariant(patch: { product_id: string; size_id: string
   return unwrap(data as ProductVariant, error)
 }
 
+/**
+ * Salva o preço de vários tamanhos em UMA transação (migração 0013).
+ * Campo em branco não entra na lista; preço zero é recusado pelo banco; o
+ * `is_available` de cada tamanho é preservado.
+ */
+export async function setProductPrices(productId: string, prices: { size_id: string; price_cents: number }[]) {
+  const { data, error } = await supabase.rpc('set_product_prices', { p_product_id: productId, p_prices: prices })
+  return unwrap(data as number, error)
+}
+
 export async function fetchModifierGroups(): Promise<ModifierGroup[]> {
   const { data, error } = await supabase.from('modifier_groups').select('*').order('sort_order')
   if (error) throw new ApiError(error.message)

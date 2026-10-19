@@ -464,15 +464,35 @@ function PricesModal({
 
   async function save() {
     if (!product) return
+
+    // Só entra no lote o que o operador realmente mudou. Campo em branco
+    // significa “manter o preço atual” — nunca R$ 0,00 (achado A3).
+    const alteracoes: { size_id: string; price_cents: number }[] = []
+    for (const size of sizes) {
+      const raw = (values[size.id] ?? '').trim()
+      if (!raw) continue
+      const cents = parseMoneyToCents(raw)
+      if (cents <= 0) {
+        toast.error(
+          `Informe um preço maior que zero em ${size.name} — ou deixe o campo em branco para manter o atual.`,
+        )
+        return
+      }
+      const atualCents = variants.find((item) => item.size_id === size.id)?.price_cents ?? null
+      if (atualCents === cents) continue
+      alteracoes.push({ size_id: size.id, price_cents: cents })
+    }
+
+    if (alteracoes.length === 0) {
+      toast.info('Nenhum preço foi alterado.')
+      return
+    }
+
     setBusy(true)
     try {
-      for (const size of sizes) {
-        const raw = values[size.id]
-        if (raw === undefined) continue
-        const cents = parseMoneyToCents(raw)
-        await api.upsertVariant({ product_id: product.id, size_id: size.id, price_cents: cents, is_available: true })
-      }
-      toast.success('Preços atualizados.')
+      // Uma transação no banco: ou todos os preços entram, ou nenhum entra.
+      const atualizados = await api.setProductPrices(product.id, alteracoes)
+      toast.success(atualizados === 1 ? '1 preço atualizado.' : `${atualizados} preços atualizados.`)
       onSaved()
     } catch (error) {
       toast.error(translateError(error))
@@ -504,17 +524,19 @@ function PricesModal({
           {sizes.map((size) => {
             const atual = current(size.id)
             const digitado = values[size.id] ?? ''
-            const mudou = atual !== digitado.trim()
+            const mudou = digitado.trim() !== '' && atual !== digitado.trim()
             return (
               <Field
                 key={size.id}
                 label={size.name}
                 hint={
-                  mudou
-                    ? `Mudando de ${atual ? `R$ ${atual}` : 'sem preço'} para R$ ${digitado || '0,00'}`
-                    : size.kind === 'pizza'
-                      ? `até ${size.max_flavors} sabor(es) · atual R$ ${atual || '—'}`
-                      : `atual R$ ${atual || '—'}`
+                  digitado.trim() === ''
+                    ? `Em branco mantém o preço atual${atual ? ` (R$ ${atual})` : ' — sem preço cadastrado'}`
+                    : mudou
+                      ? `Mudando de ${atual ? `R$ ${atual}` : 'sem preço'} para R$ ${digitado.trim()}`
+                      : size.kind === 'pizza'
+                        ? `até ${size.max_flavors} sabor(es) · atual R$ ${atual || '—'}`
+                        : `atual R$ ${atual || '—'}`
                 }
               >
                 <div className="flex items-center gap-2">
@@ -530,7 +552,8 @@ function PricesModal({
             )
           })}
           <Callout tom="info">
-            Preços novos valem apenas para pedidos futuros. Deixar um campo com o valor atual mantém o preço como está.
+            Preços novos valem apenas para pedidos futuros. Deixar um campo em branco mantém o preço atual — e salvar
+            não reativa um tamanho que esteja escondido.
           </Callout>
         </div>
       )}

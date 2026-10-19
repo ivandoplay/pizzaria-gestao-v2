@@ -67,6 +67,14 @@ const MESSAGES: { code: string; message: string }[] = [
   { code: 'INVALID_SERVICE_MODE', message: 'Modalidade de pedido inválida.' },
   { code: 'DINE_IN_DISABLED', message: 'O atendimento no salão está desativado nas configurações.' },
   { code: 'DELIVERY_DISABLED', message: 'O delivery está desativado nas configurações.' },
+  {
+    code: 'DELIVERY_MINIMUM_NOT_MET',
+    message: 'O pedido está abaixo do mínimo para delivery configurado. Adicione mais itens.',
+  },
+  {
+    code: 'SPLIT_PAYMENT_DISABLED',
+    message: 'O pagamento dividido está desativado. Use a mesma forma de pagamento já usada neste pedido.',
+  },
   { code: 'CUSTOMER_REQUIRED', message: 'Informe os dados do cliente.' },
   { code: 'CUSTOMER_NOT_FOUND', message: 'Cliente não encontrado.' },
   { code: 'CUSTOMER_NAME_INVALID', message: 'Informe o nome do cliente.' },

@@ -106,6 +106,9 @@ export default function DeliveryPage() {
   }, [endereco.bairro, settings.data?.default_delivery_fee_cents, zones.data])
 
   const cartSubtotal = cart.reduce((soma, item) => soma + item.preview.unit_price_cents * item.quantity, 0)
+  /** Configuração com efeito no servidor (migração 0015). 0 = sem mínimo. */
+  const pedidoMinimo = settings.data?.min_delivery_order_cents ?? 0
+  const abaixoDoMinimo = pedidoMinimo > 0 && cartSubtotal < pedidoMinimo
 
   const filtrados = useMemo(() => {
     const termo = busca.trim().toLowerCase()
@@ -149,6 +152,14 @@ export default function DeliveryPage() {
   async function criarPedido() {
     if (cart.length === 0) {
       toast.error('Adicione ao menos um item ao pedido.')
+      return
+    }
+    if (abaixoDoMinimo) {
+      toast.error(
+        `O pedido mínimo para delivery é ${formatMoney(pedidoMinimo)} em itens. Faltam ${formatMoney(
+          pedidoMinimo - cartSubtotal,
+        )}.`,
+      )
       return
     }
     if (!cliente.nome.trim() || cliente.telefone.replace(/\D/g, '').length < 10) {
@@ -677,7 +688,12 @@ export default function DeliveryPage() {
             <Button variant="secondary" onClick={() => setShowNew(false)} disabled={busy}>
               Cancelar
             </Button>
-            <Button icone="check" onClick={criarPedido} loading={busy} disabled={cart.length === 0}>
+            <Button
+              icone="check"
+              onClick={criarPedido}
+              loading={busy}
+              disabled={cart.length === 0 || abaixoDoMinimo}
+            >
               Registrar pedido · {formatMoney(cartSubtotal + taxaDoBairro)}
             </Button>
           </>
@@ -777,6 +793,12 @@ export default function DeliveryPage() {
               <span className="font-medium text-ink-700">Total estimado</span>
               <span className="num text-lg font-semibold text-ink-900">{formatMoney(cartSubtotal + taxaDoBairro)}</span>
             </div>
+            {abaixoDoMinimo && (
+              <Callout tom="atencao" titulo="Abaixo do pedido mínimo">
+                Esta pizzaria exige {formatMoney(pedidoMinimo)} em itens para delivery. Faltam{' '}
+                <strong>{formatMoney(pedidoMinimo - cartSubtotal)}</strong> — a taxa de entrega não conta para o mínimo.
+              </Callout>
+            )}
             <p className="mt-1.5 text-[11px] text-ink-500">
               O valor oficial é confirmado pelo servidor com os preços vigentes do cardápio e a taxa do bairro.
             </p>

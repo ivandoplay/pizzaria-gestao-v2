@@ -14,6 +14,7 @@ import {
   useOpenCashSession,
   usePaymentMethods,
   usePayments,
+  useSettings,
 } from '../lib/hooks'
 import type { Payment } from '../lib/types'
 
@@ -70,6 +71,7 @@ export function PaymentModal({
   const toast = useToast()
   const queryClient = useQueryClient()
   const methods = usePaymentMethods(true)
+  const settings = useSettings()
   const cashSession = useOpenCashSession()
   const payments = usePayments([orderId])
 
@@ -82,11 +84,22 @@ export function PaymentModal({
   const [estorno, setEstorno] = useState<Payment | null>(null)
   const [motivoEstorno, setMotivoEstorno] = useState('')
 
-  const activeMethods = useMemo(() => methods.data ?? [], [methods.data])
-  const selectedMethod = activeMethods.find((method) => method.id === methodId) ?? activeMethods[0] ?? null
-
   const confirmed = (payments.data ?? []).filter((payment) => payment.status === 'confirmed')
   const estornados = (payments.data ?? []).filter((payment) => payment.status === 'reversed')
+
+  const activeMethods = useMemo(() => methods.data ?? [], [methods.data])
+  /**
+   * Configuração `split_payment_enabled` (migração 0015): desligada, o pedido
+   * aceita uma única forma de pagamento. O banco é quem recusa; aqui a tela já
+   * mostra só a forma que o pedido começou a usar.
+   */
+  const metodoUnicoPermitido =
+    settings.data?.split_payment_enabled === false ? confirmed[0]?.method_id ?? null : null
+  const metodosDisponiveis = metodoUnicoPermitido
+    ? activeMethods.filter((method) => method.id === metodoUnicoPermitido)
+    : activeMethods
+  const selectedMethod =
+    metodosDisponiveis.find((method) => method.id === methodId) ?? metodosDisponiveis[0] ?? null
   const changeTotal = confirmed.reduce((soma, payment) => soma + payment.change_cents, 0)
   // Saldo calculado UMA vez, a partir dos valores crus do pedido. Antes, a
   // tela recebia o saldo e subtraía o pago de novo (cobrava a menos).
@@ -115,7 +128,7 @@ export function PaymentModal({
   const assinaturaDoRecebimento = `${selectedMethod?.id ?? ''}|${amountCents}|${tenderedCents ?? ''}|${isPrepaid}|${note.trim()}`
   const { chave: chaveDoRecebimento, renovar: renovarChaveDoRecebimento } = useChaveIdempotente(assinaturaDoRecebimento)
 
-  const semMetodo = !methods.isLoading && activeMethods.length === 0
+  const semMetodo = !methods.isLoading && metodosDisponiveis.length === 0
   /**
    * A gaveta (sessão de caixa) é lida só por caixa e administrador — RLS.
    * Para quem NÃO lê (garçom), "sem dado" não significa "caixa fechado": ele
@@ -280,7 +293,21 @@ export function PaymentModal({
             </Callout>
           )}
 
-          {semMetodo && (
+          {metodoUnicoPermitido && activeMethods.length > 0 && metodosDisponiveis.length === 0 && (
+            <Callout tom="erro" titulo="Forma de pagamento do pedido está desativada">
+              O primeiro recebimento deste pedido foi em uma forma que não está mais ativa. Reative a forma em{' '}
+              <strong>Configurações</strong> ou estorne o recebimento para usar outra.
+            </Callout>
+          )}
+
+          {metodoUnicoPermitido && metodosDisponiveis.length > 0 && (
+            <Callout tom="info" titulo="Uma única forma de pagamento">
+              O pagamento dividido está desativado nas configurações. Este pedido já começou a ser recebido em{' '}
+              <strong>{nomeMetodo(metodoUnicoPermitido)}</strong> — as próximas parcelas usam a mesma forma.
+            </Callout>
+          )}
+
+          {semMetodo && !metodoUnicoPermitido && (
             <Callout tom="erro" titulo="Nenhuma forma de pagamento ativa">
               Ative ao menos uma forma de pagamento em <strong>Configurações</strong> para poder receber.
             </Callout>
@@ -308,7 +335,7 @@ export function PaymentModal({
             <>
               <Field label="Forma de pagamento" obrigatorio>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {activeMethods.map((method) => {
+                  {metodosDisponiveis.map((method) => {
                     const ativo = selectedMethod?.id === method.id
                     return (
                       <button

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   addDaysInputValue,
   dayBounds,
@@ -10,6 +10,7 @@ import {
   newClientUuid,
   parseMoneyToCents,
   plural,
+  todayInputValue,
 } from './format'
 
 /** O Intl usa espaço não separável entre "R$" e o valor — normalizamos na comparação. */
@@ -76,6 +77,37 @@ describe('utilidades', () => {
   it('addDaysInputValue devolve datas no formato do campo de calendário', () => {
     expect(addDaysInputValue(0)).toMatch(/^\d{4}-\d{2}-\d{2}$/)
     expect(addDaysInputValue(7) > addDaysInputValue(0)).toBe(true)
+  })
+})
+
+describe('data padrão do campo (fuso de Fortaleza)', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('não pula para o dia seguinte depois das 21h', () => {
+    // 01:30 UTC de 18/10 = 22:30 de 17/10 em Fortaleza.
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-18T01:30:00Z'))
+    expect(todayInputValue()).toBe('2026-10-17')
+    expect(addDaysInputValue(0)).toBe('2026-10-17')
+    expect(addDaysInputValue(1)).toBe('2026-10-18')
+    expect(addDaysInputValue(-1)).toBe('2026-10-16')
+  })
+
+  it('vira o dia civil à meia-noite de Fortaleza (03:00 UTC)', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-18T02:59:00Z'))
+    expect(todayInputValue()).toBe('2026-10-17')
+    vi.setSystemTime(new Date('2026-10-18T03:00:00Z'))
+    expect(todayInputValue()).toBe('2026-10-18')
+  })
+
+  it('respeita o fuso pedido explicitamente', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-18T01:30:00Z'))
+    expect(todayInputValue('America/Sao_Paulo')).toBe('2026-10-17')
+    expect(todayInputValue('UTC')).toBe('2026-10-18')
   })
 })
 

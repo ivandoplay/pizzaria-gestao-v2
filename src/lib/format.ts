@@ -149,14 +149,41 @@ function zonedTimeToUtc(y: number, m: number, d: number, h: number, min: number,
   return new Date(utcGuess - offset)
 }
 
-export function todayInputValue(): string {
-  const now = new Date()
-  return new Date(now.toLocaleString('en-US', { timeZone: TIMEZONE })).toISOString().slice(0, 10)
+/**
+ * Data civil (AAAA-MM-DD) no fuso da pizzaria.
+ *
+ * O jeito antigo — `new Date(now.toLocaleString('en-US', { timeZone })).toISOString()`
+ * — interpreto o relógio de parede como se fosse UTC e lia a data de volta em
+ * UTC. Depois das 21h em Fortaleza (00h UTC do dia seguinte) o campo “De” nascia
+ * com a data de AMANHÃ (achado A10).
+ */
+function partesDaDataCivil(date: Date, timeZone: string) {
+  const partes = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date)
+  const get = (tipo: string) => Number(partes.find((parte) => parte.type === tipo)?.value ?? 0)
+  return { ano: get('year'), mes: get('month'), dia: get('day') }
 }
 
-export function addDaysInputValue(days: number): string {
-  const now = new Date(Date.now() + days * 86400000)
-  return new Date(now.toLocaleString('en-US', { timeZone: TIMEZONE })).toISOString().slice(0, 10)
+function dataCivilParaInput({ ano, mes, dia }: { ano: number; mes: number; dia: number }) {
+  return `${String(ano).padStart(4, '0')}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`
+}
+
+export function todayInputValue(timeZone: string = TIMEZONE): string {
+  return dataCivilParaInput(partesDaDataCivil(new Date(), timeZone))
+}
+
+/**
+ * Soma dias de CALENDÁRIO no fuso pedido. A conta é feita em UTC sobre a data
+ * civil já convertida — assim nem fuso nem horário de verão mudam o dia.
+ */
+export function addDaysInputValue(days: number, timeZone: string = TIMEZONE): string {
+  const { ano, mes, dia } = partesDaDataCivil(new Date(), timeZone)
+  const alvo = new Date(Date.UTC(ano, mes - 1, dia) + days * 86400000)
+  return dataCivilParaInput({ ano: alvo.getUTCFullYear(), mes: alvo.getUTCMonth() + 1, dia: alvo.getUTCDate() })
 }
 
 /** Gera um UUID v4 para idempotência das operações críticas. */

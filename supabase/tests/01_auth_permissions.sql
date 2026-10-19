@@ -10,13 +10,19 @@ do $$
 begin
   perform tests.login_anon();
 
-  perform tests.eq_int((select count(*) from public.products), 0,
+  -- Desde a 0026 o `anon` não tem sequer privilégio de leitura: a resposta é
+  -- "permission denied", e não uma lista vazia. O resultado para o visitante é
+  -- o mesmo (nada), com a porta mais fechada.
+  perform tests.expect_denied(
+    $sql$select count(*) from public.products$sql$,
     'anon não enxerga o cardápio');
 
-  perform tests.eq_int((select count(*) from public.table_overview), 0,
+  perform tests.expect_denied(
+    $sql$select count(*) from public.table_overview$sql$,
     'anon não enxerga o mapa de mesas');
 
-  perform tests.eq_int((select count(*) from public.orders), 0,
+  perform tests.expect_denied(
+    $sql$select count(*) from public.orders$sql$,
     'anon não enxerga pedidos');
 
   perform tests.expect_denied(

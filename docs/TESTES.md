@@ -22,7 +22,7 @@ A esteira **CI** (`.github/workflows/ci.yml`) roda dois trabalhos:
 1. **aplicação** — a cada push no `main`, pull request e execução manual:
    `npm ci` → `typecheck` → `test` → `build`;
 2. **banco** — sobe um **PostgreSQL 17 descartável** no próprio executor e roda
-   `tools/run-sql-tests.sh` inteiro: shim, as 22 migrações, seed e a suíte
+   `tools/run-sql-tests.sh` inteiro: shim, as 23 migrações, seed e a suíte
    `00`…`09` + o teste de concorrência com conexões paralelas de verdade.
 
 Só o que depende de **segredo ou de produção** continua rodando à mão: os robôs de
@@ -38,7 +38,7 @@ um pull request de terceiros não toque em dados de produção.
    `PGUSER` e `PGPASSWORD` definidos;
 2. aplica `tools/local_pg_shim.sql` (emula `auth.uid()`, `auth.role()`, roles
    `anon`/`authenticated`/`service_role`, `supabase_realtime`, extensões);
-3. aplica as 22 migrações em ordem;
+3. aplica as 23 migrações em ordem;
 4. aplica `supabase/seed/seed_structure.sql`;
 5. aplica `supabase/tests/00_setup.sql` (infra de teste + fixtures);
 6. roda `01`…`06`, depois `08`, `09`, `10` e `11` e, no fim, `07_concurrency.sh` (script bash com conexões paralelas de verdade).
@@ -52,7 +52,7 @@ O contador de asserções lê as mensagens `NOTICE: OK` emitidas por `tests.ok/e
 
 ## 2. Suíte do banco (00–11) — resultado: **VERDE**
 
-Execução final (após a auditoria de 17/10): **444 asserções, todas aprovadas** — 21 arquivos numerados (00–21) mais o teste de concorrência
+Execução final (após a auditoria de 17/10): **453 asserções, todas aprovadas** — 22 arquivos numerados (00–22) mais o teste de concorrência
 (`07`) —, sem `ERROR` e sem `ASSERT FALHOU`.
 
 | Arquivo | O que testa | Asserções notáveis |

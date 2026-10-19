@@ -672,6 +672,8 @@ export async function getOrdersPage(params: {
   serviceMode?: string | null
   tableNumber?: number | null
   search?: string | null
+  /** Forma de pagamento confirmada (seção 5.5: histórico filtrável por forma). */
+  methodId?: string | null
   limit?: number
   offset?: number
 }) {
@@ -684,6 +686,7 @@ export async function getOrdersPage(params: {
     p_search: params.search ?? null,
     p_limit: params.limit ?? 50,
     p_offset: params.offset ?? 0,
+    p_method_id: params.methodId ?? null,
   })
   if (error) throw new ApiError(error.message)
   return (data ?? []) as {
@@ -703,6 +706,88 @@ export async function getOrdersPage(params: {
     cancel_reason: string | null
     total_count: number
   }[]
+}
+
+/**
+ * Cliente recorrente pelo telefone (seção 8.1 do prompt mestre).
+ *
+ * O caixa digita o telefone e o sistema devolve nome e endereço já usados em
+ * entregas anteriores, para não obrigar a redigitar a cada pedido. É leitura
+ * sujeita à RLS: `customers` e `customer_addresses` só são visíveis para
+ * administrador e caixa (`is_manager()`), nunca para o garçom nem para anônimo.
+ *
+ * Devolve `null` quando o telefone não tem pedido anterior — não é erro.
+ */
+export type ClienteRecorrente = {
+  id: string
+  name: string
+  phone: string
+  notas: string | null
+  endereco: {
+    street: string
+    number: string
+    complement: string | null
+    neighborhood: string
+    reference: string | null
+    notes: string | null
+  } | null
+}
+
+export async function findCustomerByPhone(phone: string): Promise<ClienteRecorrente | null> {
+  const digits = phone.replace(/\D/g, '')
+  if (digits.length < 10) return null
+
+  // Compara só os dígitos dos dois lados: o caixa digita com ou sem máscara.
+  const { data, error } = await supabase
+    .from('customers')
+    .select('id, name, phone, notes, customer_addresses(street, number, complement, neighborhood, reference, notes, is_default, created_at)')
+    .ilike('phone', `%${digits.slice(-9)}%`)
+    .order('created_at', { ascending: false })
+    .limit(5)
+  if (error) throw new ApiError(error.message)
+
+  const candidatos = (data ?? []) as {
+    id: string
+    name: string
+    phone: string
+    notes: string | null
+    customer_addresses: {
+      street: string
+      number: string
+      complement: string | null
+      neighborhood: string
+      reference: string | null
+      notes: string | null
+      is_default: boolean
+      created_at: string
+    }[]
+  }[]
+
+  // O `ilike` pode trazer telefones parecidos; confirma pelos dígitos completos.
+  const cliente = candidatos.find((c) => c.phone.replace(/\D/g, '') === digits)
+  if (!cliente) return null
+
+  const enderecos = [...(cliente.customer_addresses ?? [])].sort(
+    (a, b) => Number(b.is_default) - Number(a.is_default) || a.created_at.localeCompare(b.created_at),
+  )
+  const endereco = enderecos[0]
+
+  return {
+    id: cliente.id,
+    name: cliente.name,
+    phone: cliente.phone,
+    notas: cliente.notes,
+    endereco: endereco
+      ? {
+          street: endereco.street,
+          number: endereco.number,
+          complement: endereco.complement,
+          neighborhood: endereco.neighborhood,
+          reference: endereco.reference,
+          notes: endereco.notes,
+        }
+      : null,
+  }
 }
 
 // ===========================================================================

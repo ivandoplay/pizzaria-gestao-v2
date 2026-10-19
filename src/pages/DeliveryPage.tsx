@@ -54,6 +54,11 @@ export default function DeliveryPage() {
   const [showNew, setShowNew] = useState(false)
   const [cart, setCart] = useState<CartItem[]>([])
   const [cliente, setCliente] = useState({ nome: '', telefone: '' })
+  // Cliente recorrente (seção 8.1): encontrado pelo telefone, com o endereço da
+  // última entrega pronto para preencher — o caixa não redigita a cada pedido.
+  const [recorrente, setRecorrente] = useState<api.ClienteRecorrente | null>(null)
+  const [buscandoCliente, setBuscandoCliente] = useState(false)
+  const [telefoneBuscado, setTelefoneBuscado] = useState('')
   const [endereco, setEndereco] = useState({
     rua: '',
     numero: '',
@@ -134,6 +139,54 @@ export default function DeliveryPage() {
    * (cliente + endereço + itens). Repetir o envio depois de uma resposta
    * perdida devolve o mesmo pedido; mudar qualquer dado cria um pedido novo.
    */
+  /**
+   * Busca o cliente quando o telefone fica completo (10 ou 11 dígitos).
+   *
+   * A consulta é adiada em 400 ms para não acontecer a cada tecla e só roda com
+   * o telefone inteiro: procurar por "9" traria qualquer cliente. Falha de rede
+   * não bloqueia o cadastro — o pedido continua sendo lançado como novo.
+   */
+  useEffect(() => {
+    const digitos = cliente.telefone.replace(/\D/g, '')
+    if (digitos.length < 10 || digitos === telefoneBuscado) return
+    let cancelado = false
+    setBuscandoCliente(true)
+    const timer = window.setTimeout(async () => {
+      try {
+        const achado = await api.findCustomerByPhone(digitos)
+        if (cancelado) return
+        setRecorrente(achado)
+        setTelefoneBuscado(digitos)
+        // Nome em branco é preenchido com o do cadastro; o que o operador já
+        // digitou nunca é sobrescrito.
+        if (achado) setCliente((atual) => (atual.nome.trim() ? atual : { ...atual, nome: achado.name }))
+      } catch {
+        if (!cancelado) setRecorrente(null)
+      } finally {
+        if (!cancelado) setBuscandoCliente(false)
+      }
+    }, 400)
+    return () => {
+      cancelado = true
+      window.clearTimeout(timer)
+    }
+  }, [cliente.telefone, telefoneBuscado])
+
+  function usarEnderecoDoCliente() {
+    if (!recorrente?.endereco) return
+    const { street, number, complement, neighborhood, reference, notes } = recorrente.endereco
+    setEndereco({
+      rua: street,
+      numero: number,
+      complemento: complement ?? '',
+      bairro: neighborhood,
+      referencia: reference ?? '',
+      observacoes: notes ?? '',
+    })
+    setCliente((atual) => ({ ...atual, nome: atual.nome.trim() || recorrente.name }))
+    toast.success(`Endereço de ${recorrente.name} preenchido a partir da última entrega.`)
+  }
+
   const assinaturaDoPedido = useMemo(
     () => JSON.stringify({ cliente, endereco, cart }),
     [cliente, endereco, cart],
@@ -204,6 +257,8 @@ export default function DeliveryPage() {
       renovarChaveDoPedido()
       setCart([])
       setCliente({ nome: '', telefone: '' })
+      setRecorrente(null)
+      setTelefoneBuscado('')
       setEndereco({ rua: '', numero: '', complemento: '', bairro: '', referencia: '', observacoes: '' })
       setShowNew(false)
       invalidateOrderData(queryClient)
@@ -736,6 +791,28 @@ export default function DeliveryPage() {
               </Field>
             </div>
           </Card>
+
+          {buscandoCliente && (
+            <p className="text-pequeno text-ink-500">Procurando pedidos anteriores deste telefone…</p>
+          )}
+
+          {recorrente && !buscandoCliente && (
+            <Callout
+              tom="info"
+              titulo={`Cliente recorrente: ${recorrente.name}`}
+              acoes={
+                recorrente.endereco ? (
+                  <Button size="sm" variant="secondary" icone="local" onClick={usarEnderecoDoCliente}>
+                    Usar o endereço anterior
+                  </Button>
+                ) : undefined
+              }
+            >
+              {recorrente.endereco
+                ? `Última entrega em ${recorrente.endereco.street}, ${recorrente.endereco.number} — ${recorrente.endereco.neighborhood}.`
+                : 'O cadastro existe, mas não tem endereço salvo para reutilizar.'}
+            </Callout>
+          )}
 
           <Card
             title="Endereço de entrega"

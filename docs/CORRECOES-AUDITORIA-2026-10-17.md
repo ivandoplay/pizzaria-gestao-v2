@@ -8,7 +8,7 @@ Esta página registra **o que foi corrigido, onde, como foi testado e o que aind
 | Item | Estado |
 |---|---|
 | Código (frontend + migrações + Edge Function) | corrigido, commitado e **publicado** (`main` = `f9e2ce7`) |
-| Suíte de banco local (PostgreSQL 17) | **444 asserções aprovadas** + teste de concorrência |
+| Suíte de banco local (PostgreSQL 17) | **453 asserções aprovadas** + teste de concorrência |
 | TypeScript / Vitest / build | **0 erros / 91 testes / build OK** |
 | Produção (Supabase) | **migrações 0013–0022 aplicadas** em 19/10 (verificado no catálogo) |
 | Deploy (Vercel) | **publicado** em 19/10 (`5d1aa0a` → `2e4b640`; smoke e login dos 3 perfis OK) |
@@ -48,6 +48,8 @@ Esta página registra **o que foi corrigido, onde, como foi testado e o que aind
 | A24 | P2 | Desconto não pode deixar o total abaixo do valor recebido (`DISCOUNT_BELOW_PAID`) | `0021_desconto_abaixo_do_pago.sql` | `fde7b83` | `20_desconto_abaixo_do_pago.sql` |
 | A25 | P2 | Fechamento de caixa idempotente por conteúdo (repetir devolve o fechamento; conteúdo diferente continua erro) | `0022_fechar_caixa_idempotente.sql` | `e1d30a6` | `21_fechar_caixa_idempotente.sql` |
 | A26 | P3 | Virada do dia segue `business_settings.timezone` (fecha a pendência do A10) | `lib/fuso.ts`, `format.ts`, `DashboardPage`, `HistoryPage`, `ReportsPage` | `c707091` | `format.test.ts` (+3 casos) |
+| A27 | P2 | Histórico filtrável por **forma de pagamento** (seção 5.5 do prompt mestre, que faltava) | `0023_historico_por_forma_pagamento.sql`, `HistoryPage.tsx`, `api.ts` | pendente | `22_historico_e_cliente.sql` (9 asserções) |
+| A28 | P2 | Delivery reconhece **cliente recorrente pelo telefone** e reaproveita o endereço (seção 8.1) | `DeliveryPage.tsx`, `api.ts` (`findCustomerByPhone`) | pendente | `22_historico_e_cliente.sql` + robô de tela |
 
 ## 3. Decisões tomadas (e limites honestos)
 
@@ -93,8 +95,8 @@ cliente já agrupava as invalidações em 350 ms.
 npx tsc -b                     → 0 erros
 npx vitest run                 → 91 testes, 9 arquivos, todos aprovados
 npm run build                  → OK
-bash tools/run-sql-tests.sh    → 22 migrações + 21 arquivos + concorrência
-                               → 444 asserções aprovadas
+bash tools/run-sql-tests.sh    → 23 migrações + 21 arquivos + concorrência
+                               → 453 asserções aprovadas
 ```
 
 **Não executados:** robôs Playwright de tela (`tools/e2e-*.mjs`, `auditar-telas.mjs`) e smoke de produção.

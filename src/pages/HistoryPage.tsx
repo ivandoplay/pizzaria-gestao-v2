@@ -41,6 +41,9 @@ type Atalho = 'hoje' | 'ontem' | '7d' | '30d' | 'custom'
 export default function HistoryPage() {
   const toast = useToast()
   const fuso = useFusoOperacao()
+  // Formas ativas + inativas: o histórico também mostra pedidos recebidos em
+  // uma forma que foi desativada depois (o filtro precisa alcançá-los).
+  const metodos = usePaymentMethods(false)
   const [from, setFrom] = useState(() => todayInputValue(fuso))
   const [to, setTo] = useState(() => todayInputValue(fuso))
   const [atalho, setAtalho] = useState<Atalho>('hoje')
@@ -49,6 +52,7 @@ export default function HistoryPage() {
   const [tableNumber, setTableNumber] = useState('')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
+  const [methodId, setMethodId] = useState('')
   const [detailId, setDetailId] = useState<string | null>(null)
 
   const range = useMemo(
@@ -57,7 +61,7 @@ export default function HistoryPage() {
   )
 
   const query = useQuery({
-    queryKey: ['orders-page', range, status, serviceMode, tableNumber, search, page],
+    queryKey: ['orders-page', range, status, serviceMode, tableNumber, search, methodId, page],
     queryFn: () =>
       api.getOrdersPage({
         from: range.from,
@@ -141,6 +145,7 @@ export default function HistoryPage() {
     setServiceMode('')
     setTableNumber('')
     setSearch('')
+    setMethodId('')
   }
 
   return (
@@ -233,6 +238,22 @@ export default function HistoryPage() {
                 <option value="">Salão e delivery</option>
                 <option value="dine_in">Salão</option>
                 <option value="delivery">Delivery</option>
+              </Select>
+            </Field>
+            <Field label="Forma de pagamento" hint="Pedidos com recebimento confirmado nessa forma.">
+              <Select
+                value={methodId}
+                onChange={(event) => {
+                  setMethodId(event.target.value)
+                  setPage(0)
+                }}
+              >
+                <option value="">Todas as formas</option>
+                {(metodos.data ?? []).map((metodo) => (
+                  <option key={metodo.id} value={metodo.id}>
+                    {metodo.label}
+                  </option>
+                ))}
               </Select>
             </Field>
             <Field label="Mesa" hint="Somente pedidos de salão.">

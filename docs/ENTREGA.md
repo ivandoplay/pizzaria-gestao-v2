@@ -165,7 +165,7 @@ Atualizado em **16/10/2026**, depois da correção do fechamento seguro (a mesa 
 - Schema `public` anterior removido (com a sua autorização) e as **9 migrações aplicadas em ordem**
   em 14/10 (a `0010`, da fila de prontos, foi aplicada em 16/10),
   seguidas do `seed_structure.sql`. Catálogo conferido: **25 tabelas, 4 views, 23 funções, RLS e
-  FORCE RLS nas 25 tabelas** e 10 tabelas publicadas no Realtime.
+  FORCE RLS nas 25 tabelas** e 19 tabelas publicadas no Realtime.
 - **Suíte de testes executada contra o banco real** (00 → 06): **nenhuma falha**. Em seguida os dados de
   teste foram removidos, as migrações reaplicadas e o banco ficou limpo (0 pedidos, 0 clientes, 0
   atendimentos — apenas o administrador). O teste de concorrência (07) não roda pela API de consulta

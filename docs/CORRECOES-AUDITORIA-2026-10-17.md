@@ -8,8 +8,8 @@ Esta página registra **o que foi corrigido, onde, como foi testado e o que aind
 | Item | Estado |
 |---|---|
 | Código (frontend + migrações + Edge Function) | corrigido e commitado em `main` local |
-| Suíte de banco local (PostgreSQL 17) | **435 asserções aprovadas** + teste de concorrência |
-| TypeScript / Vitest / build | **0 erros / 88 testes / build OK** |
+| Suíte de banco local (PostgreSQL 17) | **444 asserções aprovadas** + teste de concorrência |
+| TypeScript / Vitest / build | **0 erros / 91 testes / build OK** |
 | Produção (Supabase) | **NÃO recebeu as migrações 0013–0020** |
 | Deploy (Vercel) | **NÃO publicado** |
 | Limpeza dos dados de teste em produção | **NÃO executada** (sem credencial nesta sessão) |
@@ -45,6 +45,9 @@ Esta página registra **o que foi corrigido, onde, como foi testado e o que aind
 | A21 | P3 | Senha inicial oculta por padrão, com botão mostrar | `EmployeesPage.tsx` | `499cf87` | revisão |
 | A22 | P3 | Removidas funções de API sem tela | `api.ts` | `01d59bc` | `tsc -b` (sem uso) |
 | A23 | P1 | Modal renderizado no `<body>`, altura limitada à tela e rodapé sempre visível — no celular o "Registrar" do recebimento ficava **atrás da barra inferior** e era intocável | `ui.tsx` | `031dbc6` | `tools/e2e-partial-desconto.mjs` (falhava antes) |
+| A24 | P2 | Desconto não pode deixar o total abaixo do valor recebido (`DISCOUNT_BELOW_PAID`) | `0021_desconto_abaixo_do_pago.sql` | `fde7b83` | `20_desconto_abaixo_do_pago.sql` |
+| A25 | P2 | Fechamento de caixa idempotente por conteúdo (repetir devolve o fechamento; conteúdo diferente continua erro) | `0022_fechar_caixa_idempotente.sql` | pendente | `21_fechar_caixa_idempotente.sql` |
+| A26 | P3 | Virada do dia segue `business_settings.timezone` (fecha a pendência do A10) | `lib/fuso.ts`, `format.ts`, `DashboardPage`, `HistoryPage`, `ReportsPage` | `c707091` | `format.test.ts` (+3 casos) |
 
 ## 3. Decisões tomadas (e limites honestos)
 
@@ -88,10 +91,10 @@ cliente já agrupava as invalidações em 350 ms.
 
 ```
 npx tsc -b                     → 0 erros
-npx vitest run                 → 88 testes, 9 arquivos, todos aprovados
+npx vitest run                 → 91 testes, 9 arquivos, todos aprovados
 npm run build                  → OK
-bash tools/run-sql-tests.sh    → 21 migrações + 19 arquivos + concorrência
-                               → 435 asserções aprovadas
+bash tools/run-sql-tests.sh    → 22 migrações + 21 arquivos + concorrência
+                               → 444 asserções aprovadas
 ```
 
 **Não executados:** robôs Playwright de tela (`tools/e2e-*.mjs`, `auditar-telas.mjs`) e smoke de produção.

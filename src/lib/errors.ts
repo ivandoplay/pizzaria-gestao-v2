@@ -8,6 +8,10 @@
 
 const MESSAGES: { code: string; message: string }[] = [
   { code: 'AUTH_REQUIRED', message: 'Sua sessão expirou ou seu acesso está inativo. Entre novamente.' },
+  {
+    code: 'PASSWORD_CHANGE_REQUIRED',
+    message: 'Sua senha é temporária. Troque a senha para continuar usando o sistema.',
+  },
   { code: 'FORBIDDEN', message: 'Seu perfil não tem permissão para esta operação.' },
   { code: 'TABLE_ALREADY_OPEN', message: 'Esta mesa já possui um atendimento aberto. Atualize a tela.' },
   { code: 'TABLE_INACTIVE', message: 'Esta mesa está desativada.' },

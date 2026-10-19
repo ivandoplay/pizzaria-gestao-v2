@@ -16,6 +16,9 @@ describe('tradução de erros do banco para pt-BR', () => {
     expect(translateError('MODIFIER_REQUIRED: grupo Borda')).toBe(
       'Há um grupo de adicionais obrigatório sem escolha.',
     )
+    expect(translateError('PASSWORD_CHANGE_REQUIRED: troque a senha temporária')).toBe(
+      'Sua senha é temporária. Troque a senha para continuar usando o sistema.',
+    )
   })
 
   it('reconhece o código mesmo com o texto do banco antes da mensagem', () => {

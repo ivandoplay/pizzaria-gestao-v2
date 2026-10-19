@@ -105,9 +105,15 @@ export async function fetchMyProfile(userId: string): Promise<Profile | null> {
   return data as Profile | null
 }
 
-export async function markLogin(userId: string) {
-  // Registra o último acesso do funcionário (permitido pela política do próprio perfil).
-  await supabase.from('profiles').update({ last_login_at: new Date().toISOString() }).eq('auth_user_id', userId)
+/**
+ * Registra o último acesso do próprio perfil pela RPC `touch_last_login`
+ * (migração 0014). UPDATE direto em `profiles` não funciona para caixa e
+ * garçom: a única política de escrita é a do administrador (achado A5).
+ */
+export async function markLogin(): Promise<string | null> {
+  const { data, error } = await supabase.rpc('touch_last_login')
+  if (error) return null
+  return data as string
 }
 
 // ===========================================================================

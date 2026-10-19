@@ -130,7 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await api.signIn(login, password)
       setSession(data.session ?? null)
       await loadProfile(data.session ?? null)
-      if (data.session?.user) void api.markLogin(data.session.user.id)
+      if (data.session?.user) void api.markLogin()
     },
     [loadProfile],
   )

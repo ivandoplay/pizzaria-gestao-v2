@@ -3,6 +3,7 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import * as api from '../lib/api'
 import { sairDoAparelho } from '../lib/sessao'
+import { criarGuardaDePerfil } from '../lib/cargaDePerfil'
 import type { Profile, Role } from '../lib/types'
 
 interface AuthState {
@@ -31,17 +32,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [blockedReason, setBlockedReason] = useState<string | null>(null)
   const sessaoAnterior = useRef<string | null>(null)
+  /** Ordem das cargas de perfil — ver src/lib/cargaDePerfil.ts (achado F1). */
+  const guarda = useRef(criarGuardaDePerfil())
 
   const loadProfile = useCallback(async (currentSession: Session | null) => {
-    if (!currentSession?.user) {
+    const id = currentSession?.user?.id ?? null
+    const ticket = guarda.current.iniciar(id)
+
+    if (!id) {
       setProfile(null)
       setBlockedReason(null)
       sessaoAnterior.current = null
       return
     }
-    const id = currentSession.user.id
+
     try {
       const found = await api.fetchMyProfile(id)
+      // Resposta de uma sessão que já não é a atual: descartar em silêncio.
+      // Sem isto, a conta anterior podia sobrescrever a tela da conta nova.
+      if (!guarda.current.deveAplicar(ticket, id)) return
       if (!found) {
         setProfile(null)
         setBlockedReason(
@@ -58,6 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setBlockedReason(null)
       sessaoAnterior.current = id
     } catch {
+      if (!guarda.current.deveAplicar(ticket, id)) return
       setProfile(null)
       setBlockedReason('Não foi possível carregar seu perfil. Verifique a conexão e tente de novo.')
     }
@@ -74,6 +84,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const aplicarSessao = async (novaSessao: Session | null) => {
       if (!ativo) return
+      // Conta diferente: o perfil anterior não pode ficar na tela enquanto a
+      // nova consulta não responde (nem se ela falhar).
+      const idNovo = novaSessao?.user?.id ?? null
+      if (idNovo !== sessaoAnterior.current) {
+        setProfile(null)
+        setBlockedReason(null)
+      }
       setSession(novaSessao)
       try {
         await loadProfile(novaSessao)
@@ -153,6 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(null)
         setSession(null)
         sessaoAnterior.current = null
+        guarda.current.iniciar(null)
         // Sai pela rotina com prazo: se o servidor não responder, o aparelho é
         // limpo e o operador volta para a tela de entrada de qualquer forma.
         await sairDoAparelho('/login')

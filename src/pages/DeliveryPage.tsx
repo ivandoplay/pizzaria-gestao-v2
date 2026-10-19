@@ -531,7 +531,8 @@ export default function DeliveryPage() {
         <PaymentModal
           orderId={pagamento.id}
           orderNumber={pagamento.order_number}
-          balanceCents={pagamento.balance_cents}
+          totalCents={pagamento.total_cents}
+          paidCents={pagamento.paid_cents}
           descricaoPedido={`${pagamento.customer_name_snapshot ?? 'Delivery'} · ${pagamento.delivery_neighborhood ?? ''}`}
           onClose={() => {
             setPagamento(null)

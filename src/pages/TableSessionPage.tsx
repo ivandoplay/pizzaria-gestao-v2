@@ -73,6 +73,11 @@ export default function TableSessionPage() {
   const tableRow = tables.data?.find((table) => table.open_session_id === sessionId) ?? null
   const orderList = useMemo(() => orders.data ?? [], [orders.data])
   const orderIds = useMemo(() => orderList.map((order) => order.id), [orderList])
+  /** Pedido cuja janela de recebimento está aberta (valores crus, sem subtração). */
+  const pedidoEmPagamento = useMemo(
+    () => (paymentOrder ? orderList.find((order) => order.id === paymentOrder) ?? null : null),
+    [orderList, paymentOrder],
+  )
 
   const sessionOrders = orderList.filter((order) => !order.is_cancelled)
   const itemsQuery = useOrderItems(orderIds)
@@ -633,17 +638,16 @@ export default function TableSessionPage() {
       </div>
 
       {/* Registrar pagamento */}
-      {paymentOrder && (
+      {pedidoEmPagamento && (
         <PaymentModal
-          orderId={paymentOrder}
-          orderNumber={orderList.find((order) => order.id === paymentOrder)?.order_number ?? 0}
-          balanceCents={(orderList.find((order) => order.id === paymentOrder)?.total_cents ?? 0) -
-            (orderList.find((order) => order.id === paymentOrder)?.paid_cents ?? 0)}
+          orderId={pedidoEmPagamento.id}
+          orderNumber={pedidoEmPagamento.order_number}
+          totalCents={pedidoEmPagamento.total_cents}
+          paidCents={pedidoEmPagamento.paid_cents}
           descricaoPedido={`${tableRow.name ?? `Mesa ${tableRow.number}`} · ${TABLE_STATUS_LABELS[tableRow.status]}`}
           onClose={() => setPaymentOrder(null)}
           onImprimirRecibo={() => {
-            const pedido = orderList.find((order) => order.id === paymentOrder)
-            setTimeout(() => imprimirRecibo(pedido), 150)
+            setTimeout(() => imprimirRecibo(pedidoEmPagamento), 150)
           }}
         />
       )}

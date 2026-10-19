@@ -5,6 +5,7 @@ import { Icon, type NomeIcone } from './icons'
 import { useAuth } from '../context/AuthContext'
 import { formatMoney, formatTime, parseMoneyToCents } from '../lib/format'
 import { useChaveIdempotente } from '../lib/idempotencia'
+import { saldoPendenteCents } from '../lib/pagamento'
 import { erroSemCodigo, translateError } from '../lib/errors'
 import * as api from '../lib/api'
 import {
@@ -47,14 +48,18 @@ const TAXA_POR_TIPO: Record<string, string> = {
 export function PaymentModal({
   orderId,
   orderNumber,
-  balanceCents,
+  totalCents,
+  paidCents,
   descricaoPedido,
   onClose,
   onImprimirRecibo,
 }: {
   orderId: string
   orderNumber: number
-  balanceCents: number
+  /** Total do pedido (`orders.total_cents`), sem nenhuma subtração feita antes. */
+  totalCents: number
+  /** Já recebido no pedido (`orders.paid_cents`), sem nenhuma subtração feita antes. */
+  paidCents: number
   /** Texto curto que identifica o pedido na tela (ex.: "Mesa 3 · salão"). */
   descricaoPedido?: string
   onClose: () => void
@@ -82,9 +87,10 @@ export function PaymentModal({
 
   const confirmed = (payments.data ?? []).filter((payment) => payment.status === 'confirmed')
   const estornados = (payments.data ?? []).filter((payment) => payment.status === 'reversed')
-  const paidCents = confirmed.reduce((soma, payment) => soma + payment.amount_cents, 0)
   const changeTotal = confirmed.reduce((soma, payment) => soma + payment.change_cents, 0)
-  const remaining = Math.max(balanceCents - paidCents, 0)
+  // Saldo calculado UMA vez, a partir dos valores crus do pedido. Antes, a
+  // tela recebia o saldo e subtraía o pago de novo (cobrava a menos).
+  const remaining = saldoPendenteCents(totalCents, paidCents)
 
   const nomeMetodo = (id: string) => activeMethods.find((method) => method.id === id)?.label ?? 'Forma de pagamento'
 
@@ -283,8 +289,8 @@ export function PaymentModal({
           {/* Resumo do pedido */}
           <div className="grid grid-cols-3 gap-3 rounded-card border border-ink-200 bg-ink-50/60 p-3.5 text-center">
             <div>
-              <p className="rotulo">Saldo do pedido</p>
-              <p className="num mt-1 text-sm font-semibold text-ink-900">{formatMoney(balanceCents)}</p>
+              <p className="rotulo">Total do pedido</p>
+              <p className="num mt-1 text-sm font-semibold text-ink-900">{formatMoney(totalCents)}</p>
             </div>
             <div>
               <p className="rotulo">Já recebido</p>

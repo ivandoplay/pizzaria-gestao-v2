@@ -39,6 +39,7 @@ export default function EmployeesPage() {
   const { profile: me } = useAuth()
   const profiles = useProfiles(true)
 
+  const [mostrarSenha, setMostrarSenha] = useState(false)
   const [form, setForm] = useState<null | {
     full_name: string
     login: string
@@ -187,7 +188,10 @@ export default function EmployeesPage() {
             />
             <Button
               icone="mais"
-              onClick={() => setForm({ full_name: '', login: '', role: 'waiter', password: '', phone: '', activate: true })}
+              onClick={() => {
+                setMostrarSenha(false)
+                setForm({ full_name: '', login: '', role: 'waiter', password: '', phone: '', activate: true })
+              }}
             >
               Novo funcionário
             </Button>
@@ -353,11 +357,21 @@ export default function EmployeesPage() {
               />
             </Field>
             <Field label="Senha inicial" obrigatorio hint="Mínimo de 8 caracteres. Entregue por canal seguro.">
-              <Input
-                type="text"
-                value={form.password}
-                onChange={(event) => setForm({ ...form, password: event.target.value })}
-              />
+              <div className="flex items-center gap-2">
+                <Input
+                  type={mostrarSenha ? 'text' : 'password'}
+                  value={form.password}
+                  onChange={(event) => setForm({ ...form, password: event.target.value })}
+                  autoComplete="new-password"
+                  spellCheck={false}
+                />
+                <IconButton
+                  nome={mostrarSenha ? 'olho-fechado' : 'olho'}
+                  titulo={mostrarSenha ? 'Ocultar a senha' : 'Mostrar a senha'}
+                  variant="secondary"
+                  onClick={() => setMostrarSenha((atual) => !atual)}
+                />
+              </div>
             </Field>
             <Field label="Situação do acesso" hint="Desativado, o funcionário não consegue entrar até você liberar.">
               <Select

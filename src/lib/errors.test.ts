@@ -46,7 +46,15 @@ describe('tradução de erros do banco para pt-BR', () => {
     expect(translateError(null)).toBe('Ocorreu um erro inesperado.')
   })
 
-  it('não inventa tradução: mensagem desconhecida é repassada', () => {
-    expect(translateError('erro interno desconhecido do servidor')).toBe('erro interno desconhecido do servidor')
+  it('não repassa o texto cru do banco quando o erro é desconhecido', () => {
+    const bruto = 'permission denied for table payments'
+    const texto = translateError(bruto)
+    expect(texto.startsWith('Ocorreu um erro inesperado.')).toBe(true)
+    expect(texto).not.toContain('permission denied')
+    expect(texto).not.toContain('payments')
+
+    expect(translateError(new ApiError('algo estranho', 'XX000'))).toBe(
+      'Ocorreu um erro inesperado. Se persistir, informe o código XX000 ao responsável técnico.',
+    )
   })
 })

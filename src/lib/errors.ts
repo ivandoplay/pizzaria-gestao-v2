@@ -139,7 +139,13 @@ export function translateError(error: unknown): string {
     return 'Sem conexão com o servidor. Verifique a internet e tente novamente.'
   }
 
-  return raw
+  // Nada reconhecido: não devolver o texto cru do banco ao operador (nome de
+  // tabela, restrição, SQLSTATE) — vira mensagem genérica com um código curto
+  // que o responsável técnico consegue procurar no log.
+  const tecnico = (error as { code?: string })?.code
+  return tecnico
+    ? `Ocorreu um erro inesperado. Se persistir, informe o código ${tecnico} ao responsável técnico.`
+    : 'Ocorreu um erro inesperado. Se persistir, avise o responsável técnico.'
 }
 
 /**

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext'
-import { useCashMovements, useOpenCashSession, useSettings } from '../lib/hooks'
+import { useCashMovements, useCashPayments, useOpenCashSession, useSettings } from '../lib/hooks'
 import * as api from '../lib/api'
 import {
   Badge,
@@ -24,6 +24,7 @@ import { formatDateTime, formatMoney, parseMoneyToCents, plural } from '../lib/f
 import { useChaveIdempotente } from '../lib/idempotencia'
 import { translateError } from '../lib/errors'
 import { empresaDoRecibo } from '../lib/recibo'
+import { agruparPorForma, totalForaDaGaveta } from '../lib/caixa'
 import { CASH_CATEGORY_LABELS } from '../lib/types'
 
 type CategoriaMovimento = 'change_fund' | 'withdrawal' | 'expense' | 'adjustment'
@@ -43,6 +44,7 @@ export default function CashControlPage() {
   const session = useOpenCashSession()
   const settings = useSettings()
   const movements = useCashMovements(session.data?.id)
+  const recebimentos = useCashPayments(session.data?.id)
 
   const [openingAmount, setOpeningAmount] = useState('0,00')
   const [openingNote, setOpeningNote] = useState('')
@@ -80,6 +82,7 @@ export default function CashControlPage() {
   async function refresh() {
     await queryClient.invalidateQueries({ queryKey: ['cash-session'] })
     await queryClient.invalidateQueries({ queryKey: ['cash-movements'] })
+    await queryClient.invalidateQueries({ queryKey: ['cash-payments'] })
   }
 
   async function handleOpen() {
@@ -156,6 +159,9 @@ export default function CashControlPage() {
         lines: [
           { label: 'Fundo de troco', value: formatMoney(closed.opening_amount_cents ?? session.data.opening_amount_cents) },
           { label: 'Vendas em dinheiro', value: formatMoney(session.data.cash_sales_cents) },
+          { label: 'Recebimentos em outras formas', value: formatMoney(outrasFormasCents) },
+          { label: 'Entradas manuais', value: formatMoney(totais.entradas) },
+          { label: 'Saídas manuais', value: `− ${formatMoney(totais.saidas)}` },
           { label: 'Saldo esperado', value: formatMoney(esperado), emphasis: true },
           { label: 'Saldo contado', value: formatMoney(contado), emphasis: true },
           {
@@ -163,6 +169,7 @@ export default function CashControlPage() {
             value: formatMoney(Math.abs(diferenca)),
             emphasis: true,
           },
+          { label: 'Fechado em', value: formatDateTime(closed.closed_at ?? new Date().toISOString()) },
           { label: 'Responsável pelo fechamento', value: profile?.full_name ?? '' },
         ],
         items: [],
@@ -233,6 +240,10 @@ export default function CashControlPage() {
 
   const current = session.data
   const canClose = Boolean(isAdmin || current.opened_by === profile?.id)
+  // Conferência por forma (seção 6.3): a gaveta só soma dinheiro; Pix e cartão
+  // aparecem ao lado, para o caixa saber o que entrou fora da gaveta.
+  const formas = agruparPorForma(recebimentos.data ?? [])
+  const outrasFormasCents = totalForaDaGaveta(formas)
   const contadoCents = closingForm ? parseMoneyToCents(closingForm.counted) : 0
   const divergencia = contadoCents - current.expected_cash_cents
   const conferido = closingForm !== null && closingForm.counted.trim() !== ''
@@ -250,9 +261,10 @@ export default function CashControlPage() {
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <StatTile rotulo="Fundo de troco" valor={formatMoney(current.opening_amount_cents)} icone="cofre" detalhe="Valor inicial em gaveta" />
         <StatTile rotulo="Vendas em dinheiro" valor={formatMoney(current.cash_sales_cents)} icone="dinheiro" tom="verde" detalhe="Recebimentos em espécie do turno" />
+        <StatTile rotulo="Outras formas" valor={formatMoney(outrasFormasCents)} icone="cartao" detalhe="Pix e cartões (fora da gaveta)" />
         <StatTile rotulo="Entradas manuais" valor={formatMoney(totais.entradas)} icone="mais" detalhe={`${plural(totais.automaticas, 'lançamento automático', 'lançamentos automáticos')} no total`} />
         <StatTile rotulo="Saídas" valor={formatMoney(totais.saidas)} icone="menos" tom="vermelho" detalhe="Sangrias e despesas" />
       </div>
@@ -495,6 +507,26 @@ export default function CashControlPage() {
           <div className="space-y-4">
             <div className="rounded-card border border-ink-200 bg-ink-50/60 p-4 text-sm">
               <div className="flex items-baseline justify-between gap-3">
+                <span className="text-ink-500">Fundo de troco</span>
+                <span className="num text-ink-800">{formatMoney(current.opening_amount_cents)}</span>
+              </div>
+              <div className="mt-2 flex items-baseline justify-between gap-3">
+                <span className="text-ink-500">Vendas em dinheiro</span>
+                <span className="num text-ink-800">{formatMoney(current.cash_sales_cents)}</span>
+              </div>
+              <div className="mt-2 flex items-baseline justify-between gap-3">
+                <span className="text-ink-500">Recebimentos em outras formas</span>
+                <span className="num text-ink-800">{formatMoney(outrasFormasCents)}</span>
+              </div>
+              <div className="mt-2 flex items-baseline justify-between gap-3">
+                <span className="text-ink-500">Entradas manuais</span>
+                <span className="num text-ink-800">{formatMoney(totais.entradas)}</span>
+              </div>
+              <div className="mt-2 flex items-baseline justify-between gap-3">
+                <span className="text-ink-500">Saídas manuais</span>
+                <span className="num text-ink-800">− {formatMoney(totais.saidas)}</span>
+              </div>
+              <div className="mt-2 flex items-baseline justify-between gap-3 border-t border-ink-200 pt-2">
                 <span className="text-ink-500">Saldo esperado (dinheiro)</span>
                 <span className="num text-lg font-semibold text-ink-900">
                   {formatMoney(current.expected_cash_cents)}

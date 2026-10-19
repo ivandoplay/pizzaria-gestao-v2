@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import { linhaDeContato, urlDeLogo, type EmpresaRecibo } from './recibo'
 import { buscaPorTelefone, telefoneComparavel, telefonesIguais } from './telefone'
+import type { PagamentoParaConferencia } from './caixa'
 import type {
   BusinessSettings,
   CartItem,
@@ -545,6 +546,28 @@ export async function fetchCashMovements(sessionId: string): Promise<CashMovemen
     .order('created_at', { ascending: false })
   if (error) throw new ApiError(error.message)
   return (data ?? []) as CashMovement[]
+}
+
+/**
+ * Recebimentos confirmados do turno, com a forma de pagamento (seção 6.3).
+ * Serve para a conferência do fechamento separar gaveta de Pix/cartão.
+ */
+export async function fetchCashPayments(sessionId: string): Promise<PagamentoParaConferencia[]> {
+  const { data, error } = await supabase
+    .from('payments')
+    .select('method_id, amount_cents, payment_methods(label, kind, affects_cash_drawer)')
+    .eq('cash_session_id', sessionId)
+    .eq('status', 'confirmed')
+  if (error) throw new ApiError(error.message)
+
+  // O cliente sem tipos gerados devolve o relacionamento como lista; a chave
+  // estrangeira é de um para um, então normalizamos para o objeto (ou nulo).
+  type Linha = { method_id: string; amount_cents: number; payment_methods: PagamentoParaConferencia['payment_methods'] | PagamentoParaConferencia['payment_methods'][] }
+  return ((data ?? []) as unknown as Linha[]).map((linha) => ({
+    method_id: linha.method_id,
+    amount_cents: linha.amount_cents,
+    payment_methods: Array.isArray(linha.payment_methods) ? (linha.payment_methods[0] ?? null) : linha.payment_methods,
+  }))
 }
 
 export async function startCashSession(openingCents: number, note: string | null, clientUuid: string): Promise<CashSession> {

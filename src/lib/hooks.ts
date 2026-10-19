@@ -92,6 +92,15 @@ export function useCashSessionIsOpen(habilitado: boolean) {
   })
 }
 
+/** Recebimentos do turno por forma de pagamento (conferência do fechamento). */
+export function useCashPayments(sessionId?: string) {
+  return useQuery({
+    queryKey: ['cash-payments', sessionId ?? 'none'],
+    queryFn: () => api.fetchCashPayments(sessionId as string),
+    enabled: Boolean(sessionId),
+  })
+}
+
 export function useCashMovements(sessionId?: string) {
   return useQuery({
     queryKey: qk.cashMovements(sessionId ?? 'none'),

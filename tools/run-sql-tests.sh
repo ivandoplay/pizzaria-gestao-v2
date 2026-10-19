@@ -50,7 +50,7 @@ run "00_setup" supabase/tests/00_setup.sql
 echo "== Executando a suíte =="
 # 0[1-9] cobre 01..09; 1[0-9] cobre os arquivos a partir de 10 (a suíte cresce
 # por acréscimo: cada regra nova ganha o seu enésimo arquivo).
-for f in supabase/tests/0[1-9]_*.sql supabase/tests/1[0-9]_*.sql; do
+for f in supabase/tests/0[1-9]_*.sql supabase/tests/1[0-9]_*.sql supabase/tests/2[0-9]_*.sql; do
   run "$(basename "$f")" "$f"
 done
 

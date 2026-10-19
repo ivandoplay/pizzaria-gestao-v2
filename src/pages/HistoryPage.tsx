@@ -70,6 +70,7 @@ export default function HistoryPage() {
         serviceMode: serviceMode || null,
         tableNumber: tableNumber ? Number(tableNumber) : null,
         search: search.trim() || null,
+        methodId: methodId || null,
         limit: PAGE_SIZE,
         offset: page * PAGE_SIZE,
       }),

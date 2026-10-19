@@ -740,7 +740,7 @@ export async function findCustomerByPhone(phone: string): Promise<ClienteRecorre
   // Compara só os dígitos dos dois lados: o caixa digita com ou sem máscara.
   const { data, error } = await supabase
     .from('customers')
-    .select('id, name, phone, notes, customer_addresses(street, number, complement, neighborhood, reference, notes, is_default, created_at)')
+    .select('id, name, phone, notes, customer_addresses(street, number, complement, neighborhood, reference, delivery_notes, is_default, created_at)')
     .ilike('phone', `%${digits.slice(-9)}%`)
     .order('created_at', { ascending: false })
     .limit(5)
@@ -757,7 +757,7 @@ export async function findCustomerByPhone(phone: string): Promise<ClienteRecorre
       complement: string | null
       neighborhood: string
       reference: string | null
-      notes: string | null
+      delivery_notes: string | null
       is_default: boolean
       created_at: string
     }[]
@@ -784,7 +784,7 @@ export async function findCustomerByPhone(phone: string): Promise<ClienteRecorre
           complement: endereco.complement,
           neighborhood: endereco.neighborhood,
           reference: endereco.reference,
-          notes: endereco.notes,
+          notes: endereco.delivery_notes,
         }
       : null,
   }

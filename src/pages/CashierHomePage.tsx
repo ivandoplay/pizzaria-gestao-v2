@@ -59,6 +59,10 @@ export default function CashierHomePage() {
 
   const saldoSalao = emUso.reduce((soma, mesa) => soma + mesa.balance_cents, 0)
   const saldoDelivery = deliveryEmAndamento.reduce((soma, pedido) => soma + pedido.balance_cents, 0)
+  // O cartão é do SALÃO: o detalhe precisa contar só pedidos de salão. Antes ele
+  // somava delivery e dizia "3 contas em aberto" ao lado de "R$ 0,00".
+  const contasSalao = pedidosAbertos.filter((pedido) => pedido.service_mode === 'dine_in').length
+  const contasDelivery = pedidosAbertos.filter((pedido) => pedido.service_mode === 'delivery').length
 
   return (
     <div>
@@ -133,7 +137,7 @@ export default function CashierHomePage() {
           valor={formatMoney(saldoSalao)}
           icone="dinheiro"
           tom="ambar"
-          detalhe={`${plural(pedidosAbertos.length, 'conta', 'contas')} em aberto`}
+          detalhe={`${plural(contasSalao, 'conta', 'contas')} do salão · ${plural(contasDelivery, 'pedido', 'pedidos')} de delivery`}
         />
       </div>
 

@@ -44,6 +44,7 @@ Esta página registra **o que foi corrigido, onde, como foi testado e o que aind
 | A20 | P3 | Série de relatórios passa a receber a modalidade | `api.ts`, `ReportsPage.tsx` | `9756396` | revisão |
 | A21 | P3 | Senha inicial oculta por padrão, com botão mostrar | `EmployeesPage.tsx` | `499cf87` | revisão |
 | A22 | P3 | Removidas funções de API sem tela | `api.ts` | `01d59bc` | `tsc -b` (sem uso) |
+| A23 | P1 | Modal renderizado no `<body>`, altura limitada à tela e rodapé sempre visível — no celular o "Registrar" do recebimento ficava **atrás da barra inferior** e era intocável | `ui.tsx` | `031dbc6` | `tools/e2e-partial-desconto.mjs` (falhava antes) |
 
 ## 3. Decisões tomadas (e limites honestos)
 
@@ -73,7 +74,13 @@ usuário”; por isso uma sessão aberta antes do reset pode continuar **lendo**
 consegue operar (RPC recusada) nem concluir a troca de senha sem a senha atual — que já não é a antiga.
 Encerrar sessões de verdade exigiria integração com o GoTrue ou prazo curto de JWT; não foi fingido aqui.
 
-### 3.6 Realtime
+### 3.6 Modal no celular (A23)
+Encontrado ao rodar o robô de recebimento parcial em 19/10: com 390×844 o painel do modal crescia
+além da tela e o rodapé caía na faixa da barra inferior (z-30). O `position: fixed` não vencia porque o
+modal era renderizado dentro da árvore da página; agora vai para o `document.body` (portal), o painel
+tem `max-h-[100dvh]` e só o corpo rola. A falha não aparecia no computador, onde sobra altura.
+
+### 3.7 Realtime
 Publicadas as tabelas de cardápio e configuração. A carga de replicação é pequena (catálogo muda pouco) e o
 cliente já agrupava as invalidações em 350 ms.
 

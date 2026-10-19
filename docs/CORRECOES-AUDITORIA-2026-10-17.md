@@ -48,8 +48,8 @@ Esta página registra **o que foi corrigido, onde, como foi testado e o que aind
 | A24 | P2 | Desconto não pode deixar o total abaixo do valor recebido (`DISCOUNT_BELOW_PAID`) | `0021_desconto_abaixo_do_pago.sql` | `fde7b83` | `20_desconto_abaixo_do_pago.sql` |
 | A25 | P2 | Fechamento de caixa idempotente por conteúdo (repetir devolve o fechamento; conteúdo diferente continua erro) | `0022_fechar_caixa_idempotente.sql` | `e1d30a6` | `21_fechar_caixa_idempotente.sql` |
 | A26 | P3 | Virada do dia segue `business_settings.timezone` (fecha a pendência do A10) | `lib/fuso.ts`, `format.ts`, `DashboardPage`, `HistoryPage`, `ReportsPage` | `c707091` | `format.test.ts` (+3 casos) |
-| A27 | P2 | Histórico filtrável por **forma de pagamento** (seção 5.5 do prompt mestre, que faltava) | `0023_historico_por_forma_pagamento.sql`, `HistoryPage.tsx`, `api.ts` | pendente | `22_historico_e_cliente.sql` (9 asserções) |
-| A28 | P2 | Delivery reconhece **cliente recorrente pelo telefone** e reaproveita o endereço (seção 8.1) | `DeliveryPage.tsx`, `api.ts` (`findCustomerByPhone`) | pendente | `22_historico_e_cliente.sql` + robô de tela |
+| A27 | P2 | Histórico filtrável por **forma de pagamento** (seção 5.5 do prompt mestre, que faltava) | `0023_historico_por_forma_pagamento.sql`, `HistoryPage.tsx`, `api.ts` | `8ff083a` + `b499e11` | `22_historico_e_cliente.sql` (9 asserções) |
+| A28 | P2 | Delivery reconhece **cliente recorrente pelo telefone** e reaproveita o endereço (seção 8.1) | `DeliveryPage.tsx`, `api.ts` (`findCustomerByPhone`) | `8ff083a` + `b499e11` | `22_historico_e_cliente.sql` + `tools/e2e-recorrente.mjs` (verde no site publicado) |
 
 ## 3. Decisões tomadas (e limites honestos)
 

@@ -46,7 +46,7 @@ Esta página registra **o que foi corrigido, onde, como foi testado e o que aind
 | A22 | P3 | Removidas funções de API sem tela | `api.ts` | `01d59bc` | `tsc -b` (sem uso) |
 | A23 | P1 | Modal renderizado no `<body>`, altura limitada à tela e rodapé sempre visível — no celular o "Registrar" do recebimento ficava **atrás da barra inferior** e era intocável | `ui.tsx` | `031dbc6` | `tools/e2e-partial-desconto.mjs` (falhava antes) |
 | A24 | P2 | Desconto não pode deixar o total abaixo do valor recebido (`DISCOUNT_BELOW_PAID`) | `0021_desconto_abaixo_do_pago.sql` | `fde7b83` | `20_desconto_abaixo_do_pago.sql` |
-| A25 | P2 | Fechamento de caixa idempotente por conteúdo (repetir devolve o fechamento; conteúdo diferente continua erro) | `0022_fechar_caixa_idempotente.sql` | pendente | `21_fechar_caixa_idempotente.sql` |
+| A25 | P2 | Fechamento de caixa idempotente por conteúdo (repetir devolve o fechamento; conteúdo diferente continua erro) | `0022_fechar_caixa_idempotente.sql` | `e1d30a6` | `21_fechar_caixa_idempotente.sql` |
 | A26 | P3 | Virada do dia segue `business_settings.timezone` (fecha a pendência do A10) | `lib/fuso.ts`, `format.ts`, `DashboardPage`, `HistoryPage`, `ReportsPage` | `c707091` | `format.test.ts` (+3 casos) |
 
 ## 3. Decisões tomadas (e limites honestos)

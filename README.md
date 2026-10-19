@@ -51,7 +51,7 @@ auditoria — e continua funcionando com a flag ligada, porque é o caminho de s
 | Camada | Tecnologia |
 |---|---|
 | Front-end | React 18, TypeScript 5.6, Vite 5, TailwindCSS 3, React Router 6, TanStack Query 5, `@supabase/supabase-js` 2 |
-| Testes de UI/lógica | Vitest (121 testes) |
+| Testes de UI/lógica | Vitest (123 testes) |
 | Banco | PostgreSQL (Supabase) com RLS, triggers, views e 26 funções em `public` (14 operacionais + 8 de relatório + troca de senha e auxiliares de acesso) |
 | Autenticação | Supabase Auth — e-mail interno `login@pizzaria.local` gerado a partir do login digitado |
 | Tempo real | Supabase Realtime (canal `painel-sync`, debounce de 350 ms) |
@@ -75,7 +75,7 @@ Comandos:
 npm run dev        # servidor de desenvolvimento
 npm run build      # tsc -b && vite build  → dist/
 npm run preview    # serve o build de produção
-npm test           # Vitest (121 testes)
+npm test           # Vitest (123 testes)
 npm run typecheck  # tsc -b
 ```
 
@@ -135,11 +135,11 @@ para o seed e a remoção, então as listas nunca ficam desencontradas).
 |---|---|---|
 | `supabase/tests/00_setup.sql` … `26_senha_pendente_no_acesso.sql` | **494 asserções** no PostgreSQL: RLS, privilégios, permissões por perfil, cardápio, mesas/pedidos, caixa/pagamentos, delivery, relatórios, auditoria, troca obrigatória de senha (inclusive leitura/escrita direta), fila de prontos, dinheiro do garçom, fechamento seguro, mesa com conta aberta e cliente recorrente | **verde** (local, 19/10/2026) |
 | `supabase/tests/07_concurrency.sh` | Concorrência real com duas conexões simultâneas (abertura de mesa, clique duplo de pagamento, fechamento duplo) | **verde** |
-| Vitest (`npm test`) | Preço espelhado do banco, formatação BRL/datas/durações/plural, tradução de erros, cliente Supabase sob demanda, troca de senha, fila de prontos, recibo, telefone do cliente, conferência de caixa e ordem das cargas de perfil | **121/121** (19/10/2026) |
+| Vitest (`npm test`) | Preço espelhado do banco, formatação BRL/datas/durações/plural, tradução de erros, cliente Supabase sob demanda, troca de senha, fila de prontos, recibo, telefone do cliente, conferência de caixa e ordem das cargas de perfil | **123/123** (19/10/2026) |
 | `npm run typecheck` | TypeScript em modo estrito, sem emissão | **exit 0** |
 | `npm run build` | Build de produção com cada tela em um chunk próprio | **exit 0** (19/10/2026; principal 493 kB / 142 kB gzip + chunks por tela) |
-| GitHub Actions (`CI`) — aplicação | A cada push no `main`, pull request e execução manual: `npm ci` → `tsc -b` → Vitest → `vite build` | **sucesso** (verificado no GitHub a cada push) |
-| GitHub Actions (`CI`) — banco | PostgreSQL 17 descartável no próprio executor: `tools/run-sql-tests.sh` (migrações + arquivos numerados `00`…`26` + concorrência com conexões paralelas) | **sucesso** (verificado no GitHub a cada push) |
+| GitHub Actions (`CI`) — aplicação | A cada push no `main`, pull request e execução manual: `npm ci` → `tsc -b` → Vitest → `vite build` | **sucesso** — execução do commit `5f0601c`, 19/10/2026 |
+| GitHub Actions (`CI`) — banco | PostgreSQL 17 descartável no próprio executor: `tools/run-sql-tests.sh` (migrações + arquivos numerados `00`…`26` + concorrência com conexões paralelas) | **sucesso** — execução do commit `5f0601c`, 19/10/2026 |
 
 Reproduza tudo com:
 

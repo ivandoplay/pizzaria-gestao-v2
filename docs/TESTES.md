@@ -92,7 +92,7 @@ Execução final (revisão de 19/10): **494 asserções, todas aprovadas** — 2
 
 ---
 
-## 3. Testes da aplicação — resultado: **121/121**
+## 3. Testes da aplicação — resultado: **123/123**
 
 `npm test` (Vitest, sem ambiente de navegador):
 

@@ -13,7 +13,7 @@ o que ainda depende de configuração manual e quais são as limitações.
 | Tabelas / views / políticas | 25 tabelas (RLS + FORCE), 4 views `security_invoker`, 44 políticas |
 | Funções em `public` | 26 (14 operacionais, 8 de relatório, troca de senha e auxiliares) |
 | Suíte do banco | **494 asserções**, `00`…`26` + concorrência, verde |
-| Testes de aplicação | **121** (Vitest), verde |
+| Testes de aplicação | **123** (Vitest), verde |
 | Realtime | **22 tabelas** publicadas |
 | Site publicado | `https://pizzaria-gestao-v2.vercel.app` — verificado pelos robôs em 19/10/2026 |
 
@@ -144,7 +144,7 @@ trilha de auditoria somente-adição.
 | Suíte do banco (00–26), local | `bash tools/run-sql-tests.sh` | **494 asserções aprovadas**, 0 falhas (19/10/2026) |
 | Suíte do banco (00–08), **no Supabase real** (etapa de 15/10) | `tools/supabase-cloud-sql.sh` | **nenhuma falha** (falha em qualquer asserção aborta o arquivo); o `09` roda no banco local e, na nuvem, a validação é a migração aplicada + smoke + robôs |
 | Concorrência real (07) | idem (duas conexões em paralelo) | **verde**: abertura dupla bloqueada, clique duplo → 1 pagamento, fechamento duplo → recusado |
-| Testes unitários | `npm test` (Vitest) | **121/121** (19/10/2026) |
+| Testes unitários | `npm test` (Vitest) | **123/123** (19/10/2026) |
 | Tipos | `npm run typecheck` | **exit 0** |
 | Build de produção | `npx vite build` | **exit 0** (chunk principal 493 kB / 142 kB gzip + 1 chunk por tela) |
 | Interface em navegador real | `node tools/e2e-telas.mjs <URL>` (Playwright, contra o **site publicado**) | **0 falhas**: login dos 3 perfis, 11 telas do administrador, percurso completo do salão, bloqueio de permissão conferido, nenhum erro de console/rede |
@@ -154,8 +154,8 @@ trilha de auditoria somente-adição.
 | Digitação com foco (regressão) | `PZ_ADMIN_PASSWORD=… node tools/e2e-digitar.mjs <URL>` (Playwright, **local**) | **0 falhas, 0 avisos** (antes da correção: 16 falhas e 2 avisos) — **cenário do relato literal** (“João” no nome → clique no Número → “9” → “8”, conferindo foco e valores), digitação tecla por tecla em todos os campos, troca de campos, Tab preso, modal dentro do modal, Escape, decimais no caixa **no preview local e no site publicado** |
 | Auditoria de telas | `node tools/auditar-telas.mjs <URL>` (Playwright, 3 perfis × celular e computador, 46 leituras de tela) | **0 falhas, 0 avisos** — nenhuma rolagem lateral e nenhum alvo de toque abaixo de 44px no celular |
 | Conferência do deploy | `bash tools/smoke-deploy.sh <URL> admin '<senha>'` | **tudo certo** (rotas, cabeçalhos, variáveis no bundle, ausência de credencial privilegiada, login real) |
-| Esteira automática — aplicação | GitHub Actions → `CI`, trabalho `verificar` (`npm ci`, `tsc -b`, Vitest, `vite build`) | **sucesso** (histórico do repositório) |
-| Esteira automática — banco | GitHub Actions → `CI`, trabalho `banco` (PostgreSQL 17 descartável + `tools/run-sql-tests.sh`: migrações, suíte 00–26, concorrência) | **sucesso** (histórico do repositório) |
+| Esteira automática — aplicação | GitHub Actions → `CI`, trabalho `verificar` (`npm ci`, `tsc -b`, Vitest, `vite build`) | **sucesso** (execução do commit `5f0601c`, 19/10/2026) |
+| Esteira automática — banco | GitHub Actions → `CI`, trabalho `banco` (PostgreSQL 17 descartável + `tools/run-sql-tests.sh`: migrações, suíte 00–26, concorrência) | **sucesso** (execução do commit `5f0601c`, 19/10/2026) |
 
 Detalhes, valores esperados e limitações em [`TESTES.md`](TESTES.md).
 

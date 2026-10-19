@@ -14,7 +14,7 @@ Idioma da interface: **português do Brasil**. Moeda: **BRL**. Fuso: **America/F
 
 | Perfil | Código | O que faz |
 |---|---|---|
-| Administrador | `admin` | Tudo: cardápio, funcionários, configurações, relatórios, auditoria, fechamento forçado, descontos sem limite. |
+| Administrador | `admin` | Tudo: cardápio, funcionários, configurações, relatórios, auditoria, fechamento forçado e desconto até o teto configurado (sempre auditado). |
 | Caixa (gerente) | `manager` | Operação do dia: mesas, pedidos, delivery, recebimentos, fechamento de contas, turno de caixa, histórico, painel operacional. |
 | Garçom | `waiter` | Abre mesa, lança pedido, acompanha status e usa a tela **Pedidos prontos** para marcar o pedido pronto como **entregue na mesa**. Não recebe, não desconta, não cancela. |
 

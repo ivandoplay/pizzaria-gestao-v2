@@ -5,6 +5,7 @@ import { invalidateOrderData, useMenu, useOrders, useSettings, useZones } from '
 import * as api from '../lib/api'
 import { OrderComposer, type MenuData } from '../components/OrderComposer'
 import { PaymentModal } from '../components/PaymentPanel'
+import { DiscountDialog } from '../components/DiscountDialog'
 import {
   Button,
   Callout,
@@ -43,7 +44,7 @@ type Filtro = 'andamento' | 'entregues' | 'todos'
 export default function DeliveryPage() {
   const toast = useToast()
   const queryClient = useQueryClient()
-  const { isAdmin } = useAuth()
+  const { isAdmin, isManager } = useAuth()
 
   const deliveryOrders = useOrders({ serviceMode: 'delivery', limit: 200 })
   const menuQuery = useMenu()
@@ -62,6 +63,7 @@ export default function DeliveryPage() {
     observacoes: '',
   })
   const [pagamento, setPagamento] = useState<OrderOverview | null>(null)
+  const [descontoPedido, setDescontoPedido] = useState<OrderOverview | null>(null)
   const [filtro, setFiltro] = useState<Filtro>('andamento')
   const [busca, setBusca] = useState('')
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -511,6 +513,11 @@ export default function DeliveryPage() {
                     variant="secondary"
                     onClick={() => imprimirComanda(order)}
                   />
+                  {isManager && !order.account_closed_at && order.status !== 'cancelled' && order.subtotal_cents > 0 && (
+                    <Button size="sm" variant="ghost" onClick={() => setDescontoPedido(order)}>
+                      Desconto
+                    </Button>
+                  )}
                   {isAdmin && !order.account_closed_at && order.status !== 'cancelled' && (
                     <Button
                       size="sm"
@@ -550,6 +557,20 @@ export default function DeliveryPage() {
           })}
         </div>
       )}
+
+      <DiscountDialog
+        pedido={descontoPedido}
+        limitePct={
+          isAdmin
+            ? settings.data?.max_discount_pct_hard ?? 0
+            : settings.data?.max_discount_pct_without_auth ?? 0
+        }
+        onClose={() => setDescontoPedido(null)}
+        onSaved={() => {
+          invalidateOrderData(queryClient)
+          void deliveryOrders.refetch()
+        }}
+      />
 
       {pagamento && (
         <PaymentModal

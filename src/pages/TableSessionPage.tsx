@@ -17,6 +17,7 @@ import * as api from '../lib/api'
 import { OrderComposer, type MenuData } from '../components/OrderComposer'
 import { useChaveIdempotente } from '../lib/idempotencia'
 import { PaymentModal } from '../components/PaymentPanel'
+import { DiscountDialog } from '../components/DiscountDialog'
 import {
   Badge,
   Button,
@@ -60,6 +61,7 @@ export default function TableSessionPage() {
   const [statusModalOrder, setStatusModalOrder] = useState<string | null>(null)
   const [cancelItem, setCancelItem] = useState<{ id: string; label: string } | null>(null)
   const [cancelarPedido, setCancelarPedido] = useState<{ id: string; numero: number } | null>(null)
+  const [descontoPedido, setDescontoPedido] = useState<OrderOverview | null>(null)
   const [motivoDoCancelamento, setMotivoDoCancelamento] = useState('')
   const [cancelReason, setCancelReason] = useState('')
   const [busy, setBusy] = useState(false)
@@ -540,6 +542,12 @@ export default function TableSessionPage() {
                         )}
                       </ul>
 
+                      {order.discount_cents > 0 && (
+                        <div className="border-t border-ink-100 bg-amber-50/70 px-3.5 py-2 text-[11px] font-medium text-amber-800">
+                          Desconto aplicado: −{formatMoney(order.discount_cents)}
+                        </div>
+                      )}
+
                       {pagamentosDoPedido.length > 0 && (
                         <div className="border-t border-ink-100 bg-ink-50/60 px-3.5 py-2 text-[11px] text-ink-600">
                           Recebimentos:{' '}
@@ -561,6 +569,11 @@ export default function TableSessionPage() {
                         <Button size="sm" variant="secondary" icone="imprimir" onClick={() => imprimirComanda(order)}>
                           Comanda
                         </Button>
+                        {isManager && !order.account_closed_at && !order.is_cancelled && order.subtotal_cents > 0 && (
+                          <Button size="sm" variant="ghost" icone="menos" onClick={() => setDescontoPedido(order)}>
+                            Desconto
+                          </Button>
+                        )}
                         {podeReceberNaMesa && !order.account_closed_at && !order.is_cancelled && (
                           <Button size="sm" icone="dinheiro" onClick={() => setPaymentOrder(order.id)}>
                             Receber
@@ -651,6 +664,18 @@ export default function TableSessionPage() {
           }}
         />
       )}
+
+      {/* Desconto no pedido */}
+      <DiscountDialog
+        pedido={descontoPedido}
+        limitePct={
+          isAdmin
+            ? settings.data?.max_discount_pct_hard ?? 0
+            : settings.data?.max_discount_pct_without_auth ?? 0
+        }
+        onClose={() => setDescontoPedido(null)}
+        onSaved={() => invalidateOrderData(queryClient)}
+      />
 
       {/* Acompanhamento da situação */}
       <Modal

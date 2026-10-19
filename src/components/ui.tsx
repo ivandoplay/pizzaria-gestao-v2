@@ -33,6 +33,7 @@ import {
   estaNaPilhaDoTopo,
   sairDaPilha,
 } from '../lib/focoDeModal'
+import { createPortal } from 'react-dom'
 import { Icon, type NomeIcone } from './icons'
 
 // ===========================================================================
@@ -780,9 +781,13 @@ export function Modal({
 
   if (!open) return null
 
-  return (
+  // Renderizado no <body>: dentro da árvore da tela, um ancestral com
+  // transform/filter/backdrop-filter transforma `position: fixed` em relativo e
+  // o modal fica preso na área do conteúdo — no celular o rodapé caía embaixo
+  // da barra inferior (o "Registrar" do recebimento ficava intocável).
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain bg-ink-950/40 p-0 backdrop-blur-[3px] sm:p-6"
+      className="fixed inset-0 z-50 flex items-end justify-center overscroll-contain bg-ink-950/40 backdrop-blur-[3px] sm:items-start sm:overflow-y-auto sm:p-6"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose()
       }}
@@ -792,9 +797,9 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-labelledby={idTitulo}
-        className={`sem-impressao animate-slide-up w-full ${TAMANHOS_MODAL[size]} rounded-t-2xl bg-white shadow-float ring-1 ring-ink-900/5 sm:my-6 sm:rounded-card`}
+        className={`sem-impressao animate-slide-up flex max-h-[100dvh] w-full flex-col ${TAMANHOS_MODAL[size]} rounded-t-2xl bg-white shadow-float ring-1 ring-ink-900/5 sm:my-6 sm:max-h-[calc(100dvh-3rem)] sm:rounded-card`}
       >
-        <header className="flex items-start justify-between gap-4 border-b border-ink-100 px-5 py-4">
+        <header className="flex shrink-0 items-start justify-between gap-4 border-b border-ink-100 px-5 py-4">
           <div className="min-w-0">
             <h3 id={idTitulo} className="text-[15px] font-semibold tracking-[-0.01em] text-ink-900">
               {title}
@@ -803,14 +808,15 @@ export function Modal({
           </div>
           <IconButton nome="fechar" titulo="Fechar" size="sm" onClick={onClose} data-fechar />
         </header>
-        <div className="scroll-thin max-h-[calc(100vh-12rem)] overflow-y-auto px-5 py-4">{children}</div>
+        <div className="scroll-thin min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
         {footer && (
-          <footer className="flex flex-wrap justify-end gap-2 border-t border-ink-100 bg-ink-50/50 px-5 py-3.5">
+          <footer className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-ink-100 bg-ink-50/50 px-5 py-3.5 pb-[calc(0.875rem+env(safe-area-inset-bottom))] sm:pb-3.5">
             {footer}
           </footer>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

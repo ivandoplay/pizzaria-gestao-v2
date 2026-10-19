@@ -72,7 +72,7 @@ o que ainda depende de configuração manual e quais são as limitações.
 
 ## 2. Migrações e tabelas
 
-25 migrações versionadas em `supabase/migrations/` (**25 tabelas**), aplicadas em ordem:
+26 migrações versionadas em `supabase/migrations/` (**25 tabelas** e 4 views), aplicadas em ordem:
 
 | Migração | Conteúdo |
 |---|---|
@@ -101,6 +101,7 @@ o que ainda depende de configuração manual e quais são as limitações.
 | `0023_historico_por_forma_pagamento` | `get_orders_page` ganha filtro por forma de pagamento confirmada (seção 5.5 do prompt) |
 | `0024_relatorio_por_forma_pagamento` | `get_financial_summary` ganha filtro por forma de pagamento e por categoria (seção 13) |
 | `0025_mesa_com_conta_aberta` | gatilho que recusa desativar mesa com conta aberta e excluir mesa com histórico (seção 4.7) |
+| `0026_correcoes_da_auditoria` | `payments_select_waiter` (garçom lê recebimentos do salão), gatilho `payments_guard_role` (garçom não recebe delivery), `anon` sem privilégio em tabelas/sequências e `search_path` fixo nos auxiliares (achados B3, B8, B7 e B12) |
 
 Convenções do banco: dinheiro em **centavos inteiros**; índices únicos parciais garantindo uma sessão
 aberta por mesa e um turno aberto; `client_uuid unique` para idempotência; snapshots históricos;
@@ -126,7 +127,7 @@ trilha de auditoria somente-adição.
 
 | Verificação | Comando | Resultado |
 |---|---|---|
-| Suíte do banco (00–24), local | `bash tools/run-sql-tests.sh` | **469 asserções aprovadas**, 0 falhas |
+| Suíte do banco (00–25), local | `bash tools/run-sql-tests.sh` | **478 asserções aprovadas**, 0 falhas |
 | Suíte do banco (00–08), **no Supabase real** (etapa de 15/10) | `tools/supabase-cloud-sql.sh` | **nenhuma falha** (falha em qualquer asserção aborta o arquivo); o `09` roda no banco local e, na nuvem, a validação é a migração aplicada + smoke + robôs |
 | Concorrência real (07) | idem (duas conexões em paralelo) | **verde**: abertura dupla bloqueada, clique duplo → 1 pagamento, fechamento duplo → recusado |
 | Testes unitários | `npm test` (Vitest) | **91/91** |
@@ -140,7 +141,7 @@ trilha de auditoria somente-adição.
 | Auditoria de telas | `node tools/auditar-telas.mjs <URL>` (Playwright, 3 perfis × celular e computador, 46 leituras de tela) | **0 falhas, 0 avisos** — nenhuma rolagem lateral e nenhum alvo de toque abaixo de 44px no celular |
 | Conferência do deploy | `bash tools/smoke-deploy.sh <URL> admin '<senha>'` | **tudo certo** (rotas, cabeçalhos, variáveis no bundle, ausência de credencial privilegiada, login real) |
 | Esteira automática — aplicação | GitHub Actions → `CI`, trabalho `verificar` (`npm ci`, `tsc -b`, Vitest, `vite build`) | **sucesso** (16/10/2026) |
-| Esteira automática — banco | GitHub Actions → `CI`, trabalho `banco` (PostgreSQL 17 descartável + `tools/run-sql-tests.sh`: migrações, suíte 00–11, concorrência) | **sucesso** (16/10/2026) |
+| Esteira automática — banco | GitHub Actions → `CI`, trabalho `banco` (PostgreSQL 17 descartável + `tools/run-sql-tests.sh`: migrações, suíte 00–25, concorrência) | **sucesso** (16/10/2026) |
 
 Detalhes, valores esperados e limitações em [`TESTES.md`](TESTES.md).
 

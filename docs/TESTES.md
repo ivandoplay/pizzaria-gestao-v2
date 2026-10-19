@@ -8,7 +8,7 @@ que emula o ambiente Supabase. Nada aqui é estimativa.
 ## 1. Como rodar
 
 ```bash
-# ── Banco (recria o banco, aplica migrações + seed + suíte 00..08) ──
+# ── Banco (recria o banco, aplica migrações + seed + suíte 00..25) ──
 bash tools/run-sql-tests.sh
 
 # ── Aplicação ──
@@ -22,8 +22,8 @@ A esteira **CI** (`.github/workflows/ci.yml`) roda dois trabalhos:
 1. **aplicação** — a cada push no `main`, pull request e execução manual:
    `npm ci` → `typecheck` → `test` → `build`;
 2. **banco** — sobe um **PostgreSQL 17 descartável** no próprio executor e roda
-   `tools/run-sql-tests.sh` inteiro: shim, as 25 migrações, seed e a suíte
-   `00`…`09` + o teste de concorrência com conexões paralelas de verdade.
+   `tools/run-sql-tests.sh` inteiro: shim, as 26 migrações, seed e a suíte
+   `00`…`25` + o teste de concorrência com conexões paralelas de verdade.
 
 Só o que depende de **segredo ou de produção** continua rodando à mão: os robôs de
 navegador contra o Supabase real e o `smoke-deploy.sh` — de propósito, para que
@@ -38,10 +38,10 @@ um pull request de terceiros não toque em dados de produção.
    `PGUSER` e `PGPASSWORD` definidos;
 2. aplica `tools/local_pg_shim.sql` (emula `auth.uid()`, `auth.role()`, roles
    `anon`/`authenticated`/`service_role`, `supabase_realtime`, extensões);
-3. aplica as 25 migrações em ordem;
+3. aplica as 26 migrações em ordem;
 4. aplica `supabase/seed/seed_structure.sql`;
 5. aplica `supabase/tests/00_setup.sql` (infra de teste + fixtures);
-6. roda `01`…`06`, depois `08`, `09`, `10` e `11` e, no fim, `07_concurrency.sh` (script bash com conexões paralelas de verdade).
+6. roda os arquivos numerados `01`…`25` em ordem e, no fim, `07_concurrency.sh` (script bash com conexões paralelas de verdade — por isso o `07` não está no laço: ele abre conexões concorrentes e é executado sozinho).
 
 O contador de asserções lê as mensagens `NOTICE: OK` emitidas por `tests.ok/eq_int/eq_text/eq_bool`.
 
@@ -50,9 +50,9 @@ O contador de asserções lê as mensagens `NOTICE: OK` emitidas por `tests.ok/e
 
 ---
 
-## 2. Suíte do banco (00–11) — resultado: **VERDE**
+## 2. Suíte do banco (00–25) — resultado: **VERDE**
 
-Execução final (após a auditoria de 17/10): **469 asserções, todas aprovadas** — 24 arquivos numerados (00–24) mais o teste de concorrência
+Execução final (após a auditoria de 19/10): **478 asserções, todas aprovadas** — 25 arquivos numerados (00–25) mais o teste de concorrência
 (`07`) —, sem `ERROR` e sem `ASSERT FALHOU`.
 
 | Arquivo | O que testa | Asserções notáveis |
@@ -92,15 +92,18 @@ Execução final (após a auditoria de 17/10): **469 asserções, todas aprovada
 
 ---
 
-## 3. Testes da aplicação — resultado: **70/70**
+## 3. Testes da aplicação — resultado: **101/101**
 
 `npm test` (Vitest, sem ambiente de navegador):
 
 | Arquivo | Testes | Cobre |
 |---|---|---|
 | `src/lib/pricing.test.ts` | 11 | preço simples, meio a meio (`highest`/`average`), arredondamento, adicionais por unidade, bordas de entrada |
-| `src/lib/format.test.ts` | 16 | BRL com NBSP, `parseMoneyToCents` (vírgula/ponto), datas com fuso `America/Fortaleza`, `duracaoDesde` (tempo de mesa/pedido), `plural` (1 pedido / 2 pedidos), `newClientUuid`, CSV |
-| `src/lib/errors.test.ts` | 5 | tradução de códigos do banco, códigos desconhecidos, mensagens do Supabase |
+| `src/lib/format.test.ts` | 25 | BRL com NBSP, `parseMoneyToCents` (vírgula/ponto), datas com fuso `America/Fortaleza`, `duracaoDesde` (tempo de mesa/pedido), `plural` (1 pedido / 2 pedidos), `newClientUuid`, CSV |
+| `src/lib/errors.test.ts` | 5 | tradução de códigos do banco, mensagens do Supabase, falha de rede e — desde a auditoria de 19/10 — **texto cru do banco não vaza** para a tela (mensagem genérica + código) |
+| `src/lib/recibo.test.ts` | 10 | totais do recibo por escopo (conta inteira x pedido), troco, formas de pagamento e — desde 19/10 — identificação da pizzaria (nome, endereço, telefone, rodapé; campo vazio não vira linha; logo só http/https) |
+| `src/lib/sabores.test.ts` | 6 | regra de meio a meio na interface: limites por tamanho, sabor repetido, sabor indisponível |
+| `src/lib/pagamento.test.ts` | 6 | prévia de pagamento: soma das parcelas, saldo restante, troco e bloqueio de valor acima do saldo |
 | `src/lib/supabase.test.ts` | 3 | importar o módulo não cria cliente (regressão do WebSocket em Node), `CONFIGURACAO_PENDENTE` sem env e fuso padrão |
 | `src/lib/senha.test.ts` | 13 | troca de senha: senha atual obrigatória, mínimo de 8 caracteres, senha só de espaços, nova igual à atual, repetição diferente, nível de força (fraca/razoável/forte) e lista de senhas óbvias |
 | `src/lib/focoDeModal.test.ts` | 14 | foco e teclado dos modais (regressão da correção de 16/10/2026): pilha de modais (só o **topo** responde a teclado, fechar o de cima devolve o teclado para o de baixo, fechar fora de ordem não deixa fantasma), foco inicial (só quando o modal é o do topo **e** ninguém já está digitando dentro dele), devolução do foco (só quando ele ficou solto ou preso num campo que saiu da tela — nunca roubando o foco de outro modal) e **2 testes que leem `src/components/ui.tsx` como texto** e travam o defeito: o efeito de abertura do `Modal` não pode listar `onClose` nas dependências e tem de ler o `onClose` mais recente por `ref` |

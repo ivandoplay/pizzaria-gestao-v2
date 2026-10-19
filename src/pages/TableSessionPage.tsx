@@ -325,9 +325,10 @@ export default function TableSessionPage() {
   if (!tableRow || !sessionId) {
     return (
       <div className="space-y-4">
-        <Callout tom="atencao" titulo="Atendimento não encontrado">
-          A mesa pode já ter sido fechada por outro usuário. Os pedidos continuam disponíveis no histórico.
-        </Callout>
+        <PageHeader
+          titulo="Atendimento não encontrado"
+          descricao="A mesa pode já ter sido fechada por outro usuário. Os pedidos continuam disponíveis no histórico."
+        />
         <Button variant="secondary" icone="seta-esquerda" onClick={() => navigate('/mesas')}>
           Voltar para as mesas
         </Button>

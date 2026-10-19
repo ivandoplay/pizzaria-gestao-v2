@@ -202,6 +202,7 @@ function ProductsTab({ menu, refresh }: { menu: NonNullable<ReturnType<typeof us
               value={categoriaFiltro}
               onChange={(event) => setCategoriaFiltro(event.target.value)}
               className="w-full sm:w-48"
+              aria-label="Filtrar produtos por categoria"
             >
               <option value="">Todas as categorias</option>
               {menu.categories.map((categoria) => (

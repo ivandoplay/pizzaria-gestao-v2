@@ -409,6 +409,7 @@ export default function SettingsPage() {
                 />
                 <Input
                   type="time"
+                  aria-label={`Horário de abertura — ${WEEKDAYS[hour.weekday]}`}
                   className="w-32"
                   value={hour.opens_at ?? '18:00'}
                   disabled={!hour.is_open}
@@ -424,6 +425,7 @@ export default function SettingsPage() {
                 <span className="text-ink-400">até</span>
                 <Input
                   type="time"
+                  aria-label={`Horário de fechamento — ${WEEKDAYS[hour.weekday]}`}
                   className="w-32"
                   value={hour.closes_at ?? '23:30'}
                   disabled={!hour.is_open}

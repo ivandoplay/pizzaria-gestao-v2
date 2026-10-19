@@ -196,12 +196,24 @@ export function newClientUuid(): string {
   })
 }
 
+/**
+ * Célula CSV segura.
+ *
+ * Planilha (Excel/Sheets/LibreOffice) interpreta célula que começa com `=`,
+ * `+`, `-`, `@`, TAB ou CR como FÓRMULA — inclusive em dados digitados por
+ * terceiros (nome de cliente, observação). Prefixar com apóstrofo faz a
+ * planilha tratar como texto, sem alterar o que o operador lê (achado A14).
+ * Números continuam números; o prefixo só vale para texto.
+ */
+export function celulaCsv(value: string | number): string {
+  const bruto = value === null || value === undefined ? '' : String(value)
+  const texto =
+    typeof value === 'number' || !/^[=+\-@\t\r]/.test(bruto) ? bruto : `'${bruto}`
+  return /[";\n\r]/.test(texto) ? `"${texto.replace(/"/g, '""')}"` : texto
+}
+
 export function downloadCsv(filename: string, rows: (string | number)[][]): void {
-  const escape = (value: string | number) => {
-    const text = String(value ?? '')
-    return /[";\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
-  }
-  const csv = rows.map((row) => row.map(escape).join(';')).join('\r\n')
+  const csv = rows.map((row) => row.map(celulaCsv).join(';')).join('\r\n')
   // BOM para o Excel reconhecer acentuação em UTF-8
   const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' })
   const link = document.createElement('a')

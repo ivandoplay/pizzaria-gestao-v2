@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   addDaysInputValue,
+  celulaCsv,
   dayBounds,
   duracaoDesde,
   formatDate,
@@ -108,6 +109,30 @@ describe('data padrão do campo (fuso de Fortaleza)', () => {
     vi.setSystemTime(new Date('2026-10-18T01:30:00Z'))
     expect(todayInputValue('America/Sao_Paulo')).toBe('2026-10-17')
     expect(todayInputValue('UTC')).toBe('2026-10-18')
+  })
+})
+
+describe('CSV seguro', () => {
+  it('neutraliza célula que a planilha trataria como fórmula', () => {
+    expect(celulaCsv('=1+1')).toBe("'=1+1")
+    expect(celulaCsv('+55 86 99999-0000')).toBe("'+55 86 99999-0000")
+    expect(celulaCsv('-5')).toBe("'-5")
+    expect(celulaCsv('@SUM(A1)')).toBe("'@SUM(A1)")
+    expect(celulaCsv('\ttexto')).toBe("'\ttexto")
+    // CR também é caractere que força aspas no CSV.
+    expect(celulaCsv('\rtexto')).toBe('"\'\rtexto"')
+  })
+
+  it('não mexe em número nem em texto comum', () => {
+    expect(celulaCsv(-5)).toBe('-5')
+    expect(celulaCsv(1200)).toBe('1200')
+    expect(celulaCsv('Mesa 3')).toBe('Mesa 3')
+  })
+
+  it('continua escapando aspas, ponto e vírgula e quebra de linha', () => {
+    expect(celulaCsv('a;b')).toBe('"a;b"')
+    expect(celulaCsv('diz "oi"')).toBe('"diz ""oi"""')
+    expect(celulaCsv('linha1\nlinha2')).toBe('"linha1\nlinha2"')
   })
 })
 

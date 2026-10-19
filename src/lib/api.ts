@@ -766,6 +766,26 @@ export async function updateProfile(id: string, patch: Partial<Profile>) {
 }
 
 /**
+ * Erro de Edge Function: o `functions.invoke` devolve uma mensagem genérica
+ * (“Edge Function returned a non-2xx status code”) e guarda a resposta real em
+ * `error.context`. Lemos o JSON para mostrar o motivo que o servidor deu —
+ * ex.: “Já existe um funcionário com este login.” (achado A12).
+ */
+async function mensagemDaFuncao(error: unknown): Promise<string> {
+  const contexto = (error as { context?: unknown }).context
+  if (contexto instanceof Response) {
+    try {
+      const corpo = (await contexto.clone().json()) as { error?: string; message?: string }
+      const mensagem = corpo?.error ?? corpo?.message
+      if (mensagem) return mensagem
+    } catch {
+      // resposta sem JSON: cai na mensagem padrão
+    }
+  }
+  return (error as { message?: string })?.message ?? 'Falha na operação'
+}
+
+/**
  * Criação de funcionário: passa SEMPRE pela Edge Function (server-side),
  * que usa a service_role e nunca a expõe ao navegador.
  */
@@ -779,7 +799,7 @@ export async function createEmployee(input: {
   activate?: boolean
 }) {
   const { data, error } = await supabase.functions.invoke('admin-create-employee', { body: input })
-  if (error) throw new ApiError(error.message)
+  if (error) throw new ApiError(await mensagemDaFuncao(error))
   const result = data as { ok?: boolean; error?: string; profile_id?: string } | null
   if (!result?.ok) throw new ApiError(result?.error ?? 'Falha ao criar o funcionário')
   return result
@@ -789,7 +809,7 @@ export async function resetEmployeePassword(login: string) {
   const { data, error } = await supabase.functions.invoke('admin-create-employee', {
     body: { action: 'reset_password', login },
   })
-  if (error) throw new ApiError(error.message)
+  if (error) throw new ApiError(await mensagemDaFuncao(error))
   const result = data as { ok?: boolean; error?: string; temp_password?: string } | null
   if (!result?.ok) throw new ApiError(result?.error ?? 'Falha ao redefinir a senha')
   return result

@@ -120,10 +120,16 @@ export default function ReportsPage() {
 
   function exportarResumo() {
     if (!data) return
+    const nomeCategoria =
+      menu.data?.categories.find((categoria) => categoria.id === categoryId)?.name ?? 'Todas'
+    const nomeForma =
+      metodos.data?.find((metodo) => metodo.id === methodId)?.label ?? 'Todas'
     downloadCsv(`resumo-gerencial-${from}-a-${to}.csv`, [
       ['Indicador', 'Valor'],
       ['Período', `${from} a ${to}`],
       ['Modalidade', serviceMode === '' ? 'Salão + delivery' : serviceMode === 'dine_in' ? 'Somente salão' : 'Somente delivery'],
+      ['Categoria', nomeCategoria],
+      ['Forma de pagamento', nomeForma],
       ['Faturamento bruto (itens)', (data.gross_items_cents / 100).toFixed(2)],
       ['Descontos', (data.discounts_cents / 100).toFixed(2)],
       ['Taxas de entrega', (data.delivery_fees_cents / 100).toFixed(2)],

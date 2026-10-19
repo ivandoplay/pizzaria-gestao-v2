@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useOpenCashSession, useOrders, useSettings, useTables } from '../lib/hooks'
+import { useFusoOperacao } from '../lib/fuso'
 import * as api from '../lib/api'
 import {
   Badge,
@@ -45,19 +46,28 @@ export default function DashboardPage() {
   const toast = useToast()
   const navigate = useNavigate()
   const [period, setPeriod] = useState<PeriodKey>('today')
-  const [customFrom, setCustomFrom] = useState(todayInputValue())
-  const [customTo, setCustomTo] = useState(todayInputValue())
+  const fuso = useFusoOperacao()
+  const [customFrom, setCustomFrom] = useState(() => todayInputValue(fuso))
+  const [customTo, setCustomTo] = useState(() => todayInputValue(fuso))
 
+  // O período é recalculado quando o fuso da operação fica conhecido/muda: o
+  // "Hoje" é o dia civil NO FUSO DA OPERAÇÃO, não o do build.
   const range = useMemo(() => {
-    if (period === 'today') return todayRange()
+    if (period === 'today') return todayRange(fuso)
     if (period === '7d') {
-      return { from: dayBounds(addDaysInputValue(-6)).from, to: dayBounds(addDaysInputValue(0)).to }
+      return {
+        from: dayBounds(addDaysInputValue(-6, fuso), fuso).from,
+        to: dayBounds(addDaysInputValue(0, fuso), fuso).to,
+      }
     }
     if (period === '30d') {
-      return { from: dayBounds(addDaysInputValue(-29)).from, to: dayBounds(addDaysInputValue(0)).to }
+      return {
+        from: dayBounds(addDaysInputValue(-29, fuso), fuso).from,
+        to: dayBounds(addDaysInputValue(0, fuso), fuso).to,
+      }
     }
-    return { from: dayBounds(customFrom).from, to: dayBounds(customTo).to }
-  }, [customFrom, customTo, period])
+    return { from: dayBounds(customFrom, fuso).from, to: dayBounds(customTo, fuso).to }
+  }, [customFrom, customTo, period, fuso])
 
   const summary = useQuery({
     queryKey: ['dashboard-summary', range.from, range.to],

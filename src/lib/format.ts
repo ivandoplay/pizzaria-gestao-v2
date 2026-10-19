@@ -99,23 +99,25 @@ export function formatPhone(phone: string | null | undefined): string {
   return phone
 }
 
-/** Intervalo do dia atual (00:00 até 23:59) no fuso da pizzaria. */
-export function todayRange(): { from: string; to: string } {
-  const now = new Date()
-  const localDate = new Date(now.toLocaleString('en-US', { timeZone: TIMEZONE }))
-  const y = localDate.getFullYear()
-  const m = localDate.getMonth() + 1
-  const d = localDate.getDate()
-  const from = zonedTimeToUtc(y, m, d, 0, 0, 0)
-  const to = new Date(zonedTimeToUtc(y, m, d, 23, 59, 59).getTime() + 1000)
+/**
+ * Intervalo do dia atual (00:00 até 23:59) no fuso da OPERAÇÃO.
+ *
+ * O fuso vem de `business_settings.timezone` quando a tela já o carregou; sem
+ * ele, cai no valor do build (`VITE_TIMEZONE`). Antes, todas as telas usavam só
+ * o valor do build: mudar o fuso em Configurações não mudava a virada do dia.
+ */
+export function todayRange(timeZone: string = TIMEZONE): { from: string; to: string } {
+  const { ano: y, mes: m, dia: d } = partesDaDataCivil(new Date(), timeZone)
+  const from = zonedTimeToUtc(y, m, d, 0, 0, 0, timeZone)
+  const to = new Date(zonedTimeToUtc(y, m, d, 23, 59, 59, timeZone).getTime() + 1000)
   return { from: from.toISOString(), to: to.toISOString() }
 }
 
-/** Converte uma data digitada (yyyy-mm-dd) no início/fim do dia no fuso da pizzaria. */
-export function dayBounds(dateStr: string): { from: string; to: string } {
+/** Converte uma data digitada (yyyy-mm-dd) no início/fim do dia no fuso da operação. */
+export function dayBounds(dateStr: string, timeZone: string = TIMEZONE): { from: string; to: string } {
   const [y, m, d] = dateStr.split('-').map(Number)
-  const start = zonedTimeToUtc(y, m, d, 0, 0)
-  const end = zonedTimeToUtc(y, m, d, 23, 59, 59)
+  const start = zonedTimeToUtc(y, m, d, 0, 0, 0, timeZone)
+  const end = zonedTimeToUtc(y, m, d, 23, 59, 59, timeZone)
   return { from: start.toISOString(), to: new Date(end.getTime() + 1000).toISOString() }
 }
 
@@ -123,10 +125,18 @@ export function dayBounds(dateStr: string): { from: string; to: string } {
  * Constrói um instante UTC a partir de uma data/hora LOCAL na pizzaria.
  * Usa o formato ISO do Intl para descobrir o offset vigente do fuso.
  */
-function zonedTimeToUtc(y: number, m: number, d: number, h: number, min: number, s = 0): Date {
+function zonedTimeToUtc(
+  y: number,
+  m: number,
+  d: number,
+  h: number,
+  min: number,
+  s = 0,
+  timeZone: string = TIMEZONE,
+): Date {
   const utcGuess = Date.UTC(y, m - 1, d, h, min, s)
   const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: TIMEZONE,
+    timeZone,
     hour12: false,
     year: 'numeric',
     month: '2-digit',

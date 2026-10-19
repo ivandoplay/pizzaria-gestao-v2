@@ -32,6 +32,7 @@ import {
 import { translateError } from '../lib/errors'
 import { ORDER_STATUS_LABELS, type OrderStatus } from '../lib/types'
 import { usePaymentMethods } from '../lib/hooks'
+import { useFusoOperacao } from '../lib/fuso'
 
 const PAGE_SIZE = 50
 
@@ -39,8 +40,9 @@ type Atalho = 'hoje' | 'ontem' | '7d' | '30d' | 'custom'
 
 export default function HistoryPage() {
   const toast = useToast()
-  const [from, setFrom] = useState(todayInputValue())
-  const [to, setTo] = useState(todayInputValue())
+  const fuso = useFusoOperacao()
+  const [from, setFrom] = useState(() => todayInputValue(fuso))
+  const [to, setTo] = useState(() => todayInputValue(fuso))
   const [atalho, setAtalho] = useState<Atalho>('hoje')
   const [status, setStatus] = useState('')
   const [serviceMode, setServiceMode] = useState('')
@@ -49,7 +51,10 @@ export default function HistoryPage() {
   const [page, setPage] = useState(0)
   const [detailId, setDetailId] = useState<string | null>(null)
 
-  const range = useMemo(() => ({ from: dayBounds(from).from, to: dayBounds(to).to }), [from, to])
+  const range = useMemo(
+    () => ({ from: dayBounds(from, fuso).from, to: dayBounds(to, fuso).to }),
+    [from, fuso, to],
+  )
 
   const query = useQuery({
     queryKey: ['orders-page', range, status, serviceMode, tableNumber, search, page],
@@ -82,17 +87,17 @@ export default function HistoryPage() {
     setAtalho(valor)
     setPage(0)
     if (valor === 'hoje') {
-      setFrom(todayInputValue())
-      setTo(todayInputValue())
+      setFrom(todayInputValue(fuso))
+      setTo(todayInputValue(fuso))
     } else if (valor === 'ontem') {
-      setFrom(addDaysInputValue(-1))
-      setTo(addDaysInputValue(-1))
+      setFrom(addDaysInputValue(-1, fuso))
+      setTo(addDaysInputValue(-1, fuso))
     } else if (valor === '7d') {
-      setFrom(addDaysInputValue(-6))
-      setTo(todayInputValue())
+      setFrom(addDaysInputValue(-6, fuso))
+      setTo(todayInputValue(fuso))
     } else if (valor === '30d') {
-      setFrom(addDaysInputValue(-29))
-      setTo(todayInputValue())
+      setFrom(addDaysInputValue(-29, fuso))
+      setTo(todayInputValue(fuso))
     }
   }
 

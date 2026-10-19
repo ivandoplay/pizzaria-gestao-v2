@@ -12,6 +12,7 @@ import {
   parseMoneyToCents,
   plural,
   todayInputValue,
+  todayRange,
 } from './format'
 
 /** O Intl usa espaço não separável entre "R$" e o valor — normalizamos na comparação. */
@@ -172,5 +173,31 @@ describe('plural', () => {
     expect(plural(0, 'pedido', 'pedidos')).toBe('0 pedidos')
     expect(plural(2, 'pedido', 'pedidos')).toBe('2 pedidos')
     expect(plural(11, 'mesa desativada', 'mesas desativadas')).toBe('11 mesas desativadas')
+  })
+})
+
+describe('dayBounds com fuso configurável (pendência do A10)', () => {
+  it('a mesma data civil vira instantes diferentes em fusos diferentes', () => {
+    const fortaleza = dayBounds('2026-10-19', 'America/Fortaleza')
+    const utc = dayBounds('2026-10-19', 'UTC')
+    // Fortaleza é UTC-3: o dia começa 3h depois, em UTC.
+    expect(fortaleza.from).toBe('2026-10-19T03:00:00.000Z')
+    expect(utc.from).toBe('2026-10-19T00:00:00.000Z')
+    expect(fortaleza.from > utc.from).toBe(true)
+  })
+
+  it('o fim do dia cobre 24 horas inteiras no fuso pedido', () => {
+    const { from, to } = dayBounds('2026-10-19', 'America/Fortaleza')
+    const horas = (new Date(to).getTime() - new Date(from).getTime()) / 3_600_000
+    expect(horas).toBe(24)
+  })
+
+  it('todayRange respeita o fuso passado', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-17T02:30:00.000Z'))
+    // 02:30 UTC do dia 17 = 23:30 do dia 16 em Fortaleza.
+    expect(todayRange('America/Fortaleza').from).toBe('2026-10-16T03:00:00.000Z')
+    expect(todayRange('UTC').from).toBe('2026-10-17T00:00:00.000Z')
+    vi.useRealTimers()
   })
 })

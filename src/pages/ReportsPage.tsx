@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import * as api from '../lib/api'
 import { useProfiles } from '../lib/hooks'
+import { useFusoOperacao } from '../lib/fuso'
 import {
   Button,
   Callout,
@@ -35,14 +36,18 @@ type Atalho = 'hoje' | 'ontem' | '7d' | '30d' | 'mes' | 'custom'
 
 export default function ReportsPage() {
   const toast = useToast()
-  const [from, setFrom] = useState(todayInputValue())
-  const [to, setTo] = useState(todayInputValue())
+  const fuso = useFusoOperacao()
+  const [from, setFrom] = useState(() => todayInputValue(fuso))
+  const [to, setTo] = useState(() => todayInputValue(fuso))
   const [atalho, setAtalho] = useState<Atalho>('hoje')
   const [serviceMode, setServiceMode] = useState<'' | 'dine_in' | 'delivery'>('')
   const [employeeId, setEmployeeId] = useState('')
   const [bucket, setBucket] = useState<Bucket>('day')
 
-  const range = useMemo(() => ({ from: dayBounds(from).from, to: dayBounds(to).to }), [from, to])
+  const range = useMemo(
+    () => ({ from: dayBounds(from, fuso).from, to: dayBounds(to, fuso).to }),
+    [from, fuso, to],
+  )
   const employees = useProfiles(true)
 
   const summary = useQuery({
@@ -89,19 +94,19 @@ export default function ReportsPage() {
   function aplicarAtalho(valor: Atalho) {
     setAtalho(valor)
     if (valor === 'hoje') {
-      setFrom(todayInputValue())
-      setTo(todayInputValue())
+      setFrom(todayInputValue(fuso))
+      setTo(todayInputValue(fuso))
     } else if (valor === 'ontem') {
-      setFrom(addDaysInputValue(-1))
-      setTo(addDaysInputValue(-1))
+      setFrom(addDaysInputValue(-1, fuso))
+      setTo(addDaysInputValue(-1, fuso))
     } else if (valor === '7d') {
-      setFrom(addDaysInputValue(-6))
-      setTo(todayInputValue())
+      setFrom(addDaysInputValue(-6, fuso))
+      setTo(todayInputValue(fuso))
     } else if (valor === '30d') {
-      setFrom(addDaysInputValue(-29))
-      setTo(todayInputValue())
+      setFrom(addDaysInputValue(-29, fuso))
+      setTo(todayInputValue(fuso))
     } else if (valor === 'mes') {
-      const hoje = todayInputValue()
+      const hoje = todayInputValue(fuso)
       setFrom(`${hoje.slice(0, 7)}-01`)
       setTo(hoje)
     }

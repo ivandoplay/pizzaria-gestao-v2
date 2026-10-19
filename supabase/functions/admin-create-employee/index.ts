@@ -117,25 +117,46 @@ Deno.serve(async (request: Request) => {
 
     const { data: target, error: targetError } = await admin
       .from('profiles')
-      .select('id, auth_user_id, full_name')
+      .select('id, auth_user_id, full_name, must_change_password')
       .eq('login', login)
       .maybeSingle()
 
     if (targetError) return fail(`Falha ao localizar o funcionário: ${targetError.message}`, 500)
     if (!target) return fail('Funcionário não encontrado.', 404)
 
-    const tempPassword = randomPassword()
-    const { error: updateError } = await admin.auth.admin.updateUserById(target.auth_user_id, {
-      password: tempPassword,
-    })
-    if (updateError) return fail(`Falha ao redefinir a senha: ${updateError.message}`, 500)
-
-    // Marca a troca obrigatória de senha no perfil (auditado pelo trigger).
+    /**
+     * ORDEM IMPORTA (achado A17).
+     *
+     * 1. Marca a troca obrigatória ANTES de trocar a senha. Se a segunda etapa
+     *    falhar, o perfil volta ao estado anterior — nada de ficar com a senha
+     *    nova e a flag desligada.
+     * 2. Com a migração 0020, a flag bloqueia todas as RPCs no servidor. Uma
+     *    sessão que já estava aberta em outro aparelho continua existindo (o
+     *    Admin API do Supabase não expõe logout por id de usuário), mas não
+     *    consegue operar até trocar a senha — e para trocar precisa da senha
+     *    atual, que já não é a antiga.
+     */
     const { error: flagError } = await admin
       .from('profiles')
       .update({ must_change_password: true })
       .eq('id', target.id)
-    if (flagError) return fail(`Senha alterada, mas falhou ao marcar a troca obrigatória: ${flagError.message}`, 500)
+    if (flagError) return fail(`Falha ao preparar a troca obrigatória: ${flagError.message}`, 500)
+
+    const tempPassword = randomPassword()
+    const { error: updateError } = await admin.auth.admin.updateUserById(target.auth_user_id, {
+      password: tempPassword,
+    })
+    if (updateError) {
+      // Desfaz a marcação para não deixar o perfil num estado que não é o real.
+      const { error: revertError } = await admin
+        .from('profiles')
+        .update({ must_change_password: target.must_change_password ?? false })
+        .eq('id', target.id)
+      const sufixo = revertError
+        ? ` ATENÇÃO: também falhou desfazer a marcação de troca obrigatória (${revertError.message}).`
+        : ''
+      return fail(`Falha ao redefinir a senha: ${updateError.message}.${sufixo}`, 500)
+    }
 
     return json({ ok: true, login, temp_password: tempPassword })
   }

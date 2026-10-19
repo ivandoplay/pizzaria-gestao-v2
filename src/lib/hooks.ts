@@ -157,6 +157,13 @@ const REALTIME_BUCKETS: { table: string; bucket: string }[] = [
   // Configuração e formas de pagamento mudam a operação de quem está logado.
   { table: 'business_settings', bucket: 'settings' },
   { table: 'payment_methods', bucket: 'settings' },
+  // Zonas de entrega e horário de funcionamento: mudam a taxa e o aviso de
+  // aberto/fechado de telas já abertas (revisão de 20/10, achado F2).
+  { table: 'delivery_fee_zones', bucket: 'settings' },
+  { table: 'business_hours', bucket: 'settings' },
+  // Perfis: o administrador vê a lista de funcionários refletir o que outro
+  // administrador acabou de mudar.
+  { table: 'profiles', bucket: 'profiles' },
   { table: 'restaurant_tables', bucket: 'tables' },
   { table: 'table_sessions', bucket: 'tables' },
   { table: 'orders', bucket: 'orders' },
@@ -201,7 +208,13 @@ export function useRealtimeSync(enabled = true) {
       if (has('settings')) {
         void queryClient.invalidateQueries({ queryKey: qk.settings })
         void queryClient.invalidateQueries({ queryKey: qk.paymentMethods })
+        void queryClient.invalidateQueries({ queryKey: qk.zones })
+        void queryClient.invalidateQueries({ queryKey: qk.businessHours })
         queue.current.delete('settings')
+      }
+      if (has('profiles')) {
+        void queryClient.invalidateQueries({ queryKey: qk.profiles })
+        queue.current.delete('profiles')
       }
       if (has('cash')) {
         void queryClient.invalidateQueries({ queryKey: qk.cashSession })

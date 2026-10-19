@@ -72,7 +72,7 @@ o que ainda depende de configuração manual e quais são as limitações.
 
 ## 2. Migrações e tabelas
 
-24 migrações versionadas em `supabase/migrations/` (**25 tabelas**), aplicadas em ordem:
+25 migrações versionadas em `supabase/migrations/` (**25 tabelas**), aplicadas em ordem:
 
 | Migração | Conteúdo |
 |---|---|
@@ -99,6 +99,8 @@ o que ainda depende de configuração manual e quais são as limitações.
 | `0021_desconto_abaixo_do_pago` | desconto não passa por baixo do valor recebido (A8) |
 | `0022_fechar_caixa_idempotente` | fechamento de caixa idempotente por conteúdo (A2) |
 | `0023_historico_por_forma_pagamento` | `get_orders_page` ganha filtro por forma de pagamento confirmada (seção 5.5 do prompt) |
+| `0024_relatorio_por_forma_pagamento` | `get_financial_summary` ganha filtro por forma de pagamento e por categoria (seção 13) |
+| `0025_mesa_com_conta_aberta` | gatilho que recusa desativar mesa com conta aberta e excluir mesa com histórico (seção 4.7) |
 
 Convenções do banco: dinheiro em **centavos inteiros**; índices únicos parciais garantindo uma sessão
 aberta por mesa e um turno aberto; `client_uuid unique` para idempotência; snapshots históricos;

@@ -187,7 +187,12 @@ export default function ReportsPage() {
         }
       />
 
-      <Card className="mb-4" title="Filtros" icone="filtro" descricao="Aplicados aos indicadores, às séries e aos relatórios marcados abaixo.">
+      <Card
+        className="mb-4"
+        title="Filtros"
+        icone="filtro"
+        descricao="Período vale para tudo. Modalidade, funcionário, categoria e forma de pagamento valem para os indicadores, o detalhamento e a série — os relatórios de produtos, equipe, formas e caixa usam só o período (cada um avisa na descrição)."
+      >
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <SegmentedControl<Atalho>
@@ -360,7 +365,7 @@ export default function ReportsPage() {
         className="mb-4"
         title="Série do período"
         icone="relatorios"
-        descricao={`Recebimento e vendas agrupados por ${bucket === 'day' ? 'dia' : bucket === 'week' ? 'semana' : 'mês'}.`}
+        descricao={`Recebimento e vendas agrupados por ${bucket === 'day' ? 'dia' : bucket === 'week' ? 'semana' : 'mês'}. Usa o período e a modalidade.`}
         padded={false}
         actions={
           <Button
@@ -473,7 +478,7 @@ export default function ReportsPage() {
         <Card
           title="Vendas por funcionário"
           icone="equipe"
-          descricao="Quem registrou os pedidos do período (líquido e cancelamentos)."
+          descricao="Quem registrou os pedidos do período (líquido e cancelamentos). Não usa os filtros de categoria ou forma de pagamento."
           padded={false}
         >
           <div className="p-3.5">
@@ -504,7 +509,12 @@ export default function ReportsPage() {
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
-        <Card title="Formas de pagamento" icone="dinheiro" padded={false}>
+        <Card
+          title="Formas de pagamento"
+          icone="dinheiro"
+          descricao="Recebimentos confirmados no período. Não usa os filtros de funcionário, categoria ou modalidade."
+          padded={false}
+        >
           <div className="p-3.5">
             <DataTable
               rows={(methods.data ?? []).filter((row) => row.payments_count > 0)}
@@ -525,7 +535,12 @@ export default function ReportsPage() {
           </div>
         </Card>
 
-        <Card title="Fechamentos de caixa e divergências" icone="cofre" padded={false}>
+        <Card
+          title="Fechamentos de caixa e divergências"
+          icone="cofre"
+          descricao="Turnos encerrados no período. Usa só o período."
+          padded={false}
+        >
           <div className="p-3.5">
             <DataTable
               rows={cashSessions.data ?? []}

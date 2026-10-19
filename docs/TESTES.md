@@ -22,7 +22,7 @@ A esteira **CI** (`.github/workflows/ci.yml`) roda dois trabalhos:
 1. **aplicação** — a cada push no `main`, pull request e execução manual:
    `npm ci` → `typecheck` → `test` → `build`;
 2. **banco** — sobe um **PostgreSQL 17 descartável** no próprio executor e roda
-   `tools/run-sql-tests.sh` inteiro: shim, as 10 migrações, seed e a suíte
+   `tools/run-sql-tests.sh` inteiro: shim, as 20 migrações, seed e a suíte
    `00`…`09` + o teste de concorrência com conexões paralelas de verdade.
 
 Só o que depende de **segredo ou de produção** continua rodando à mão: os robôs de
@@ -38,7 +38,7 @@ um pull request de terceiros não toque em dados de produção.
    `PGUSER` e `PGPASSWORD` definidos;
 2. aplica `tools/local_pg_shim.sql` (emula `auth.uid()`, `auth.role()`, roles
    `anon`/`authenticated`/`service_role`, `supabase_realtime`, extensões);
-3. aplica as 12 migrações em ordem;
+3. aplica as 20 migrações em ordem;
 4. aplica `supabase/seed/seed_structure.sql`;
 5. aplica `supabase/tests/00_setup.sql` (infra de teste + fixtures);
 6. roda `01`…`06`, depois `08`, `09`, `10` e `11` e, no fim, `07_concurrency.sh` (script bash com conexões paralelas de verdade).
@@ -52,7 +52,7 @@ O contador de asserções lê as mensagens `NOTICE: OK` emitidas por `tests.ok/e
 
 ## 2. Suíte do banco (00–11) — resultado: **VERDE**
 
-Execução final: **372 asserções, todas aprovadas** — 11 arquivos numerados mais o teste de concorrência
+Execução final (após a auditoria de 17/10): **425 asserções, todas aprovadas** — 19 arquivos numerados (00–19) mais o teste de concorrência
 (`07`) —, sem `ERROR` e sem `ASSERT FALHOU`.
 
 | Arquivo | O que testa | Asserções notáveis |
@@ -69,6 +69,14 @@ Execução final: **372 asserções, todas aprovadas** — 11 arquivos numerados
 | `10_garcom_recebe_e_fecha.sql` | dinheiro: garçom vê/recebe/fecha (migração `0011`) | garçom **recebe** (dinheiro com troco) e o valor entra no turno em curso; **fecha** a conta quitada e libera a mesa; auditoria registra `payment.register`/`table_account.close` com `actor_role='waiter'`; limites do garçom: fechar com saldo pendente → `FORBIDDEN`, estorno → `FORBIDDEN`, desconto → `FORBIDDEN`, abrir/fechar caixa → `FORBIDDEN`; caixa continua recebendo e fechando (regressão coberta); fechar com pedido em produção → `ORDERS_IN_PROGRESS` |
 | `07_concurrency.sh` | corrida real entre duas conexões | 2ª abertura na mesma mesa → `TABLE_ALREADY_OPEN` (e nenhuma sessão órfã); mesmo `client_uuid` de pagamento em paralelo → **1 pagamento de 1400, troco 600 uma única vez**; **pedido entregue antes do fechamento**, então 2º fechamento em paralelo → `SESSION_NOT_OPEN`; conta fechada **e auditada uma vez**; mesa volta a `available`; nenhum atendimento sobrando |
 | `11_fechamento_seguro.sql` | fechamento seguro e caixa vivo (migração `0012`) | fechar com pedido em `received`/`confirmed`/`preparing`/`ready`/`out_for_delivery` → **`ORDERS_IN_PROGRESS`** e a mesa **continua aberta**; depois de entregar, o fechamento normal passa; fechamento excepcional com justificativa curta → `REASON_REQUIRED`, e sem ser administrador → `FORBIDDEN`; com justificativa, os pendentes são **cancelados com histórico e auditoria `on_session_close`** e `orders_cancelled_on_close` volta no retorno; pendente **com dinheiro recebido** → `PAYMENT_REFUND_REQUIRED`; `cash_session_is_open()` responde para admin/gerente/garçom |
+| `12_precos_em_lote.sql` | preços do cardápio em lote (migração `0013`, achado A3) | preço em branco **não** vira zero; tamanho escondido continua escondido; preço zero, tamanho inexistente e lote com item inválido são recusados; **tudo ou nada** no lote; caixa/garçom/anon não alteram preço |
+| `13_ultimo_acesso.sql` | último acesso por perfil (migração `0014`, achado A5) | caixa e garçom registram o próprio `last_login_at`; o acesso de um não mexe no perfil do administrador; UPDATE direto em `profiles` continua bloqueado; anon não executa |
+| `14_configs_com_efeito.sql` | configurações com efeito (migração `0015`, achado A6) | delivery abaixo do mínimo → `DELIVERY_MINIMUM_NOT_MET` e **nenhum pedido gravado**; taxa de entrega não conta para o mínimo; mínimo 0 desliga; com `split_payment_enabled = false`, segunda **forma** → `SPLIT_PAYMENT_DISABLED`, mas parcelas na **mesma** forma passam; religado, duas formas somam |
+| `15_cancelar_item_com_pagamento.sql` | cancelamento parcial com dinheiro (migração `0016`, achado A8) | cancelar item que deixaria o total abaixo do recebido → `PAYMENT_REFUND_REQUIRED` (sem erro cru de constraint) e item intacto; cancelar 1 de 2 unidades permitido, total recalculado e valor recebido preservado |
+| `16_saldo_de_cancelado.sql` | cancelado não tem saldo (migração `0017`, achado A9) | `order_overview.balance_cents = 0` para cancelado; total/recebido continuam visíveis; a soma “a receber” cai exatamente o valor do pedido cancelado |
+| `17_realtime_cardapio.sql` | realtime do cardápio (migração `0018`, achado A18) | tabelas de cardápio/configuração publicadas; `orders` continua publicada (sem regressão) |
+| `18_execute_somente_autenticado.sql` | EXECUTE de RPC (migração `0019`, achado A15) | **nenhuma** função pública executável por `anon`; `authenticated` continua podendo `create_order`/`register_payment`; chamada anônima real → `permission denied` |
+| `19_senha_obrigatoria.sql` | senha temporária no servidor (migração `0020`, achado A16) | RPC recusada com `PASSWORD_CHANGE_REQUIRED`; `complete_password_change()` continua sendo o caminho de saída; operação volta depois da troca; admin sem flag não é afetado |
 
 ### 2.1 Detalhes de método
 

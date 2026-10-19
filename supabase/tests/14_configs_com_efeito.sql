@@ -88,7 +88,7 @@ begin
 
   select t.id into v_mesa
     from public.restaurant_tables t
-   where t.number between 9 and 12
+   where t.number between 9 and 11
      and not exists (select 1 from public.table_sessions s
                       where s.table_id = t.id and s.status = 'open')
    order by t.number

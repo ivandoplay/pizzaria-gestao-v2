@@ -482,3 +482,18 @@ resolvidas pelo banco (`TABLE_ALREADY_OPEN`) — a diferença é que a tela reag
 * **Nada de fila, canal Realtime ou tabela paralela** — a regra vive nas funções que já existiam.
 * **A tela não "esconde" o botão de fechar quando há pendência: ela explica.** Botão morto ou aviso que
   esconde a causa é exatamente o tipo de cosmético que a revisão proibiu.
+
+---
+
+## 12. Auditoria de 17/10/2026 — correções aplicadas
+
+As 22 correções (A1–A22), as decisões de semântica e os limites honestos estão em
+[`CORRECOES-AUDITORIA-2026-10-17.md`](./CORRECOES-AUDITORIA-2026-10-17.md). Resumo das decisões que mudam
+regra de negócio:
+
+* **A1** — saldo de recebimento é `total − pago`, calculado em um único lugar; telas passam valores crus;
+* **A6** — pedido mínimo de delivery compara o subtotal dos itens (sem taxa); pagamento dividido desligado
+  permite parcelas na mesma forma e recusa a segunda forma;
+* **A9** — pedido cancelado tem saldo 0 e não entra em “contas em aberto”;
+* **A16/A17** — senha temporária bloqueia RPC no servidor; reset marca a flag antes de trocar a senha e
+  desfaz em caso de falha. Sessões antigas não são encerradas pelo Admin API (limite documentado).
